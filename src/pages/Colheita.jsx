@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Scissors, Plus, TrendingUp, Package, Target, Calendar, ChevronRight } from "lucide-react";
+import { Scissors, Plus, TrendingUp, Package, Target, Calendar } from "lucide-react";
+import ColheitaWizard from "../components/ColheitaWizard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -240,134 +241,7 @@ export default function Colheita() {
         </div>
       )}
 
-      {/* Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={(v) => { setDialogOpen(v); if (!v) setVariedadesDisponiveis([]); }}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Scissors className="w-5 h-5 text-primary" /> Nova Colheita
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-1">
-            {/* Location - 4 selects */}
-            <div>
-              <Label className="text-xs text-muted-foreground mb-2 block">Localização *</Label>
-              <div className="grid grid-cols-4 gap-2">
-                <Select value={form.estufa} onValueChange={(v) => updateForm("estufa", v)}>
-                  <SelectTrigger className="h-9"><SelectValue placeholder="Est." /></SelectTrigger>
-                  <SelectContent>{[1,2,3,4].map(n => <SelectItem key={n} value={String(n)}>E{n}</SelectItem>)}</SelectContent>
-                </Select>
-                <Select value={form.lado} onValueChange={(v) => updateForm("lado", v)} disabled={!form.estufa}>
-                  <SelectTrigger className="h-9"><SelectValue placeholder="Lado" /></SelectTrigger>
-                  <SelectContent>{["A","B"].map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}</SelectContent>
-                </Select>
-                <Select value={form.vao} onValueChange={(v) => updateForm("vao", v)} disabled={!form.lado}>
-                  <SelectTrigger className="h-9"><SelectValue placeholder="Vão" /></SelectTrigger>
-                  <SelectContent>{vaosArray.map(n => <SelectItem key={n} value={String(n)}>V{n}</SelectItem>)}</SelectContent>
-                </Select>
-                <Select value={form.canteiro} onValueChange={(v) => updateForm("canteiro", v)} disabled={!form.vao}>
-                  <SelectTrigger className="h-9"><SelectValue placeholder="C." /></SelectTrigger>
-                  <SelectContent>{[1,2,3,4].map(n => <SelectItem key={n} value={String(n)}>C{n}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {/* Variety - with suggestions */}
-            <div className="space-y-1.5">
-              <Label className="text-xs">Variedade *</Label>
-              {variedadesDisponiveis.length > 0 ? (
-                <div className="space-y-2">
-                  <div className="flex flex-wrap gap-1.5">
-                    {variedadesDisponiveis.map((v) => (
-                      <button
-                        key={v}
-                        onClick={() => updateForm("variedade", v)}
-                        className={`px-3 py-1 rounded-full text-xs border font-medium transition-all ${
-                          form.variedade === v
-                            ? "bg-primary text-primary-foreground border-primary"
-                            : "bg-muted border-border hover:border-primary/50"
-                        }`}
-                      >
-                        {v}
-                      </button>
-                    ))}
-                  </div>
-                  <Input
-                    placeholder="Ou digite outra..."
-                    value={form.variedade}
-                    onChange={(e) => updateForm("variedade", e.target.value)}
-                    className="h-8 text-sm"
-                  />
-                </div>
-              ) : (
-                <Input
-                  placeholder="Ex: Anastasia Fuego"
-                  value={form.variedade}
-                  onChange={(e) => updateForm("variedade", e.target.value)}
-                />
-              )}
-            </div>
-
-            {/* Destino */}
-            <div className="space-y-1.5">
-              <Label className="text-xs">Destino *</Label>
-              <div className="grid grid-cols-2 gap-2">
-                {Object.entries(DESTINOS).map(([name, p]) => (
-                  <button
-                    key={name}
-                    onClick={() => updateForm("destino", name)}
-                    className={`p-2.5 rounded-lg border text-sm font-medium transition-all text-left ${
-                      form.destino === name
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "bg-background border-border hover:border-primary/50"
-                    }`}
-                  >
-                    <span className="block">{name}</span>
-                    <span className={`text-xs ${form.destino === name ? "opacity-70" : "text-muted-foreground"}`}>{p} p/cesto</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Cestos + calc */}
-            <div className="space-y-1.5">
-              <Label className="text-xs">Quantidade de Cestos *</Label>
-              <Input
-                type="number"
-                placeholder="Número de cestos"
-                value={form.cestos}
-                onChange={(e) => updateForm("cestos", e.target.value)}
-                min={1}
-                className="text-center text-lg font-semibold h-11"
-              />
-            </div>
-
-            {form.destino && form.cestos && (
-              <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 text-center">
-                <p className="text-xs text-muted-foreground mb-1">Total calculado</p>
-                <p className="text-3xl font-bold text-primary">{totalPressas.toLocaleString("pt-BR")}</p>
-                <p className="text-xs text-muted-foreground mt-1">{form.cestos} cestos × {pressasPorCesto} = {totalPressas} pressas</p>
-              </div>
-            )}
-
-            <div className="space-y-1.5">
-              <Label className="text-xs">Data da Colheita</Label>
-              <Input
-                type="date"
-                value={form.data_colheita}
-                onChange={(e) => updateForm("data_colheita", e.target.value)}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={handleSubmit} disabled={saving} className="gap-2">
-              <Scissors className="w-4 h-4" />
-              {saving ? "Salvando..." : "Registrar Colheita"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ColheitaWizard open={dialogOpen} onClose={() => setDialogOpen(false)} onSaved={loadColheitas} />
     </div>
   );
 }

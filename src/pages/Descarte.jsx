@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Trash2, Plus, AlertTriangle, Bug, Leaf, Scale, MoreHorizontal, Calendar } from "lucide-react";
+import { Trash2, Plus, AlertTriangle, Bug, Leaf, Scale, MoreHorizontal } from "lucide-react";
+import DescarteWizard from "../components/DescarteWizard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -227,138 +228,7 @@ export default function Descarte() {
         </div>
       )}
 
-      {/* Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={(v) => { setDialogOpen(v); if (!v) setVariedadesDisponiveis([]); }}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Trash2 className="w-5 h-5 text-destructive" /> Novo Descarte
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-1">
-            {/* Location */}
-            <div>
-              <Label className="text-xs text-muted-foreground mb-2 block">Localização *</Label>
-              <div className="grid grid-cols-4 gap-2">
-                <Select value={form.estufa} onValueChange={(v) => updateForm("estufa", v)}>
-                  <SelectTrigger className="h-9"><SelectValue placeholder="Est." /></SelectTrigger>
-                  <SelectContent>{[1,2,3,4].map(n => <SelectItem key={n} value={String(n)}>E{n}</SelectItem>)}</SelectContent>
-                </Select>
-                <Select value={form.lado} onValueChange={(v) => updateForm("lado", v)} disabled={!form.estufa}>
-                  <SelectTrigger className="h-9"><SelectValue placeholder="Lado" /></SelectTrigger>
-                  <SelectContent>{["A","B"].map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}</SelectContent>
-                </Select>
-                <Select value={form.vao} onValueChange={(v) => updateForm("vao", v)} disabled={!form.lado}>
-                  <SelectTrigger className="h-9"><SelectValue placeholder="Vão" /></SelectTrigger>
-                  <SelectContent>{vaosArray.map(n => <SelectItem key={n} value={String(n)}>V{n}</SelectItem>)}</SelectContent>
-                </Select>
-                <Select value={form.canteiro} onValueChange={(v) => updateForm("canteiro", v)} disabled={!form.vao}>
-                  <SelectTrigger className="h-9"><SelectValue placeholder="C." /></SelectTrigger>
-                  <SelectContent>{[1,2,3,4].map(n => <SelectItem key={n} value={String(n)}>C{n}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {/* Variety */}
-            <div className="space-y-1.5">
-              <Label className="text-xs">Variedade *</Label>
-              {variedadesDisponiveis.length > 0 ? (
-                <div className="space-y-2">
-                  <div className="flex flex-wrap gap-1.5">
-                    {variedadesDisponiveis.map((v) => (
-                      <button
-                        key={v}
-                        onClick={() => updateForm("variedade", v)}
-                        className={`px-3 py-1 rounded-full text-xs border font-medium transition-all ${
-                          form.variedade === v
-                            ? "bg-destructive text-destructive-foreground border-destructive"
-                            : "bg-muted border-border hover:border-destructive/50"
-                        }`}
-                      >
-                        {v}
-                      </button>
-                    ))}
-                  </div>
-                  <Input
-                    placeholder="Ou digite outra..."
-                    value={form.variedade}
-                    onChange={(e) => updateForm("variedade", e.target.value)}
-                    className="h-8 text-sm"
-                  />
-                </div>
-              ) : (
-                <Input
-                  placeholder="Ex: Anastasia Fuego"
-                  value={form.variedade}
-                  onChange={(e) => updateForm("variedade", e.target.value)}
-                />
-              )}
-            </div>
-
-            {/* Quantity */}
-            <div className="space-y-1.5">
-              <Label className="text-xs">Quantidade de Mudas *</Label>
-              <Input
-                type="number"
-                placeholder="Número de mudas"
-                value={form.quantidade}
-                onChange={(e) => updateForm("quantidade", e.target.value)}
-                min={1}
-                className="text-center text-lg font-semibold h-11"
-              />
-            </div>
-
-            {/* Motivo */}
-            <div className="space-y-1.5">
-              <Label className="text-xs">Motivo *</Label>
-              <div className="grid grid-cols-3 gap-2">
-                {MOTIVOS.map((m) => {
-                  const Icon = m.icon;
-                  return (
-                    <button
-                      key={m.label}
-                      onClick={() => updateForm("motivo", m.label)}
-                      className={`p-2.5 rounded-lg border text-sm font-medium transition-all flex flex-col items-center gap-1 ${
-                        form.motivo === m.label ? m.bg + " ring-2 ring-current" : "bg-background border-border hover:border-primary/30"
-                      }`}
-                    >
-                      <Icon className={`w-4 h-4 ${m.color}`} />
-                      <span className="text-xs">{m.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Observação */}
-            <div className="space-y-1.5">
-              <Label className="text-xs">Observação</Label>
-              <Textarea
-                placeholder="Detalhes adicionais..."
-                value={form.observacao}
-                onChange={(e) => updateForm("observacao", e.target.value)}
-                rows={2}
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-xs">Data do Descarte</Label>
-              <Input
-                type="date"
-                value={form.data_descarte}
-                onChange={(e) => updateForm("data_descarte", e.target.value)}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
-            <Button variant="destructive" onClick={handleSubmit} disabled={saving} className="gap-2">
-              <Trash2 className="w-4 h-4" />
-              {saving ? "Salvando..." : "Registrar Descarte"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <DescarteWizard open={dialogOpen} onClose={() => setDialogOpen(false)} onSaved={loadDescartes} />
     </div>
   );
 }
