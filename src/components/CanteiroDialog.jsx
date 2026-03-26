@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Plus, X, Scissors, CalendarClock, Sprout, Trash2, Archive, AlertTriangle } from "lucide-react";
+import { Plus, X, Archive, AlertTriangle } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { toast } from "sonner";
 import moment from "moment";
@@ -24,7 +24,9 @@ export default function CanteiroDialog({ canteiro, open, onClose, onSaved }) {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
   const [plantioData, setPlantioData] = useState(null); // earliest plantio date
-  const [colheitaTotal, setColheitaTotal] = useState({ pressas: 0, cestos: 0 });
+  const [colheitaTotal, setColheitaTotal] = useState({ hastes: 0, cestos: 0 });
+  const [showDescarte, setShowDescarte] = useState(false);
+  const [descarteForm, setDescarteForm] = useState({ variedade: "", quantidade: "", motivo: "Qualidade", observacao: "" });
   const [descarteTotal, setDescarteTotal] = useState(0);
   const [showFinalizarConfirm, setShowFinalizarConfirm] = useState(false);
   const [obsFinalizacao, setObsFinalizacao] = useState("");
@@ -58,7 +60,7 @@ export default function CanteiroDialog({ canteiro, open, onClose, onSaved }) {
     }
 
     setColheitaTotal({
-      pressas: colheitas.reduce((s, c) => s + (c.pressas || 0), 0),
+      hastes: colheitas.reduce((s, c) => s + (c.pressas || 0), 0),
       cestos: colheitas.reduce((s, c) => s + (c.cestos || 0), 0),
     });
     setDescarteTotal(descartes.reduce((s, d) => s + (d.quantidade || 0), 0));
@@ -114,7 +116,7 @@ export default function CanteiroDialog({ canteiro, open, onClose, onSaved }) {
       data_plantio: plantioData || null,
       data_corte_luz: plantioData ? moment(plantioData).add(25, "days").format("YYYY-MM-DD") : null,
       data_previsao_colheita: plantioData ? moment(plantioData).add(12, "weeks").format("YYYY-MM-DD") : null,
-      total_colhido_pressas: colheitaTotal.pressas,
+      total_colhido_pressas: colheitaTotal.hastes,
       total_colhido_cestos: colheitaTotal.cestos,
       total_descartado: descarteTotal,
       data_finalizacao: moment().format("YYYY-MM-DD"),
@@ -160,7 +162,7 @@ export default function CanteiroDialog({ canteiro, open, onClose, onSaved }) {
               <Input placeholder="Ex: Colheita finalizada, qualidade boa" value={obsFinalizacao} onChange={(e) => setObsFinalizacao(e.target.value)} />
             </div>
             <div className="bg-muted/30 rounded-lg p-3 space-y-1 text-xs">
-              <p><span className="text-muted-foreground">Total colhido:</span> <span className="font-semibold">{colheitaTotal.pressas} pressas / {colheitaTotal.cestos} cestos</span></p>
+              <p><span className="text-muted-foreground">Total colhido:</span> <span className="font-semibold">{colheitaTotal.hastes} hastes / {colheitaTotal.cestos} cestos</span></p>
               <p><span className="text-muted-foreground">Total descartado:</span> <span className="font-semibold">{descarteTotal} mudas</span></p>
             </div>
             <DialogFooter className="flex gap-2">
@@ -210,7 +212,7 @@ export default function CanteiroDialog({ canteiro, open, onClose, onSaved }) {
               <div className="rounded-lg border bg-muted/20 p-3 space-y-0.5">
                 <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">Produção Acumulada</p>
                 <InfoRow label="🧺 Cestos colhidos" value={colheitaTotal.cestos} />
-                <InfoRow label="🌿 Pressas colhidas" value={colheitaTotal.pressas} highlight={colheitaTotal.pressas > 0} />
+                <InfoRow label="🌿 Hastes colhidas" value={colheitaTotal.hastes} highlight={colheitaTotal.hastes > 0} />
                 <InfoRow label="🗑 Mudas descartadas" value={descarteTotal} />
               </div>
 
@@ -257,6 +259,73 @@ export default function CanteiroDialog({ canteiro, open, onClose, onSaved }) {
               <Button variant="outline" size="sm" onClick={addVariedade} disabled={variedades.length >= 4} className="w-full">
                 <Plus className="w-4 h-4 mr-1" /> Adicionar Variedade
               </Button>
+
+              {/* Descarte rápido */}
+              <div className="border-t pt-3">
+                <div className="flex items-center justify-between mb-2">
+                  <Label className="text-sm font-medium">Registrar Descarte</Label>
+                  <Button variant="ghost" size="sm" onClick={() => setShowDescarte(!showDescarte)} className="text-xs h-7">
+                    {showDescarte ? "Ocultar" : "+ Descarte"}
+                  </Button>
+                </div>
+                {showDescarte && (
+                  <div className="space-y-2 bg-muted/30 rounded-lg p-3">
+                    <Input
+                      placeholder="Variedade"
+                      value={descarteForm.variedade}
+                      onChange={(e) => setDescarteForm({ ...descarteForm, variedade: e.target.value })}
+                    />
+                    <Input
+                      type="number"
+                      placeholder="Quantidade de mudas"
+                      value={descarteForm.quantidade}
+                      onChange={(e) => setDescarteForm({ ...descarteForm, quantidade: e.target.value })}
+                    />
+                    <select
+                      className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+                      value={descarteForm.motivo}
+                      onChange={(e) => setDescarteForm({ ...descarteForm, motivo: e.target.value })}
+                    >
+                      {["Doença", "Praga", "Qualidade", "Excesso", "Outro"].map((m) => (
+                        <option key={m} value={m}>{m}</option>
+                      ))}
+                    </select>
+                    <Input
+                      placeholder="Observação (opcional)"
+                      value={descarteForm.observacao}
+                      onChange={(e) => setDescarteForm({ ...descarteForm, observacao: e.target.value })}
+                    />
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      className="w-full"
+                      disabled={saving || !descarteForm.variedade || !descarteForm.quantidade}
+                      onClick={async () => {
+                        setSaving(true);
+                        await base44.entities.Descarte.create({
+                          estufa: canteiro.estufa,
+                          lado: canteiro.lado,
+                          vao: canteiro.vao,
+                          canteiro: canteiro.numero,
+                          variedade: descarteForm.variedade,
+                          quantidade: parseInt(descarteForm.quantidade),
+                          motivo: descarteForm.motivo,
+                          observacao: descarteForm.observacao,
+                          data_descarte: new Date().toISOString().split("T")[0],
+                        });
+                        toast.success("Descarte registrado!");
+                        setDescarteForm({ variedade: "", quantidade: "", motivo: "Qualidade", observacao: "" });
+                        setShowDescarte(false);
+                        await loadData();
+                        setSaving(false);
+                      }}
+                    >
+                      Confirmar Descarte
+                    </Button>
+                  </div>
+                )}
+              </div>
+
               <DialogFooter>
                 <Button variant="outline" onClick={onClose}>Cancelar</Button>
                 <Button onClick={save} disabled={saving || total > 2000}>
