@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Scissors, ChevronRight, ChevronLeft, Check, MapPin, Leaf, Package, Calendar } from "lucide-react";
+import { Scissors, ChevronRight, ChevronLeft, Check, MapPin, Leaf, Package, Calendar, Trash2, Plus, AlertTriangle, Bug, Scale, MoreHorizontal } from "lucide-react";
 import { toast } from "sonner";
 import moment from "moment";
 import { getVaosArray } from "@/lib/estufasConfig";
@@ -248,10 +248,20 @@ function StepColheita({ form, onChange }) {
   );
 }
 
+const MOTIVOS_DESCARTE = [
+  { label: "Doença", icon: AlertTriangle, color: "text-red-600" },
+  { label: "Praga", icon: Bug, color: "text-orange-600" },
+  { label: "Qualidade", icon: Leaf, color: "text-yellow-600" },
+  { label: "Excesso", icon: Scale, color: "text-blue-600" },
+  { label: "Outro", icon: MoreHorizontal, color: "text-gray-600" },
+];
+
 // Step 4: Confirm
 function StepConfirm({ form, onChange }) {
   const pressasPorCesto = form.destino ? DESTINOS[form.destino] : 0;
   const total = (parseInt(form.cestos) || 0) * pressasPorCesto;
+  const [showDescarte, setShowDescarte] = useState(false);
+
   return (
     <div className="space-y-4">
       <div className="bg-muted/40 rounded-2xl p-4 space-y-3">
@@ -286,6 +296,60 @@ function StepConfirm({ form, onChange }) {
           className="mt-1.5 h-11 text-base"
         />
       </div>
+
+      {/* Descarte opcional */}
+      <div className="border rounded-xl overflow-hidden">
+        <button
+          onClick={() => {
+            setShowDescarte(!showDescarte);
+            if (showDescarte) {
+              onChange("descarte_motivo", "");
+              onChange("descarte_quantidade", "");
+            }
+          }}
+          className="w-full flex items-center justify-between p-3 text-sm font-medium hover:bg-muted/30 transition-colors"
+        >
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Trash2 className="w-4 h-4" />
+            <span>Registrar descarte agora? <span className="text-xs">(opcional)</span></span>
+          </div>
+          <Plus className={`w-4 h-4 transition-transform ${showDescarte ? "rotate-45" : ""}`} />
+        </button>
+
+        {showDescarte && (
+          <div className="border-t p-3 space-y-3 bg-muted/10">
+            <div>
+              <p className="text-xs text-muted-foreground mb-2">Motivo</p>
+              <div className="grid grid-cols-3 gap-1.5">
+                {MOTIVOS_DESCARTE.map((m) => {
+                  const Icon = m.icon;
+                  return (
+                    <button key={m.label} onClick={() => onChange("descarte_motivo", m.label)}
+                      className={`p-2 rounded-lg border text-xs flex flex-col items-center gap-1 transition-all ${
+                        form.descarte_motivo === m.label ? "bg-destructive text-white border-destructive" : "bg-background border-border hover:border-destructive/40"
+                      }`}>
+                      <Icon className={`w-4 h-4 ${form.descarte_motivo === m.label ? "opacity-90" : m.color}`} />
+                      {m.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground mb-1.5">Quantidade de mudas</p>
+              <div className="flex items-center gap-2">
+                <button onClick={() => onChange("descarte_quantidade", String(Math.max(0, (parseInt(form.descarte_quantidade) || 0) - 10)))}
+                  className="w-10 h-10 rounded-lg border text-lg font-bold hover:border-destructive/50 transition-all">-10</button>
+                <input type="number" value={form.descarte_quantidade}
+                  onChange={(e) => onChange("descarte_quantidade", e.target.value)}
+                  className="flex-1 text-center text-2xl font-bold h-10 rounded-lg border focus:border-destructive focus:outline-none bg-background" min={0} />
+                <button onClick={() => onChange("descarte_quantidade", String((parseInt(form.descarte_quantidade) || 0) + 10))}
+                  className="w-10 h-10 rounded-lg border text-lg font-bold hover:border-destructive/50 transition-all">+10</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -298,6 +362,7 @@ export default function ColheitaWizard({ open, onClose, onSaved }) {
     estufa: "", lado: "", vao: "", canteiro: "",
     variedade: "", destino: "", cestos: "",
     data_colheita: new Date().toISOString().split("T")[0],
+    descarte_motivo: "", descarte_quantidade: "",
   });
 
   useEffect(() => {
@@ -336,7 +401,17 @@ export default function ColheitaWizard({ open, onClose, onSaved }) {
       data_colheita: form.data_colheita,
       semana: getWeekNumber(form.data_colheita),
     });
-    toast.success(`✂️ ${form.cestos} cestos registrados — ${pressas} hastes`);
+    if (form.descarte_motivo && parseInt(form.descarte_quantidade) > 0) {
+      await base44.entities.Descarte.create({
+        estufa: parseInt(form.estufa), lado: form.lado,
+        vao: parseInt(form.vao), canteiro: parseInt(form.canteiro),
+        variedade: form.variedade, quantidade: parseInt(form.descarte_quantidade),
+        motivo: form.descarte_motivo,
+        data_descarte: form.data_colheita,
+      });
+    }
+    const descarteMsg = form.descarte_motivo && parseInt(form.descarte_quantidade) > 0 ? ` · ${form.descarte_quantidade} descartadas` : "";
+    toast.success(`✂️ ${form.cestos} cestos registrados — ${pressas} hastes${descarteMsg}`);
     setSaving(false);
     handleClose();
     onSaved();
@@ -344,7 +419,7 @@ export default function ColheitaWizard({ open, onClose, onSaved }) {
 
   function handleClose() {
     setStep(0);
-    setForm({ estufa: "", lado: "", vao: "", canteiro: "", variedade: "", destino: "", cestos: "", data_colheita: new Date().toISOString().split("T")[0] });
+    setForm({ estufa: "", lado: "", vao: "", canteiro: "", variedade: "", destino: "", cestos: "", data_colheita: new Date().toISOString().split("T")[0], descarte_motivo: "", descarte_quantidade: "" });
     setVariedades([]);
     onClose();
   }
