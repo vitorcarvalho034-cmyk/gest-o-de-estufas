@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Sprout, Plus, LayoutGrid } from "lucide-react";
+import { Sprout, Plus, LayoutGrid, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import LocationSelect from "../components/LocationSelect";
 import PlantioVaoDialog from "../components/PlantioVaoDialog";
+import NotaFiscalDialog from "../components/NotaFiscalDialog";
 import PlantioCSVDialog from "../components/PlantioCSVDialog";
 import { toast } from "sonner";
 import moment from "moment";
@@ -22,6 +23,7 @@ export default function Plantio() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [vaoDialogOpen, setVaoDialogOpen] = useState(false);
+  const [notaDialogOpen, setNotaDialogOpen] = useState(false);
   const [form, setForm] = useState({
     estufa: null,
     lado: "",
@@ -116,6 +118,9 @@ export default function Plantio() {
         </div>
         <div className="flex gap-2">
 
+          <Button variant="outline" onClick={() => setNotaDialogOpen(true)} className="gap-2">
+            <FileText className="w-4 h-4" /> Nota Fiscal
+          </Button>
           <Button variant="outline" onClick={() => setVaoDialogOpen(true)} className="gap-2">
             <LayoutGrid className="w-4 h-4" /> Plantio por Vão
           </Button>
@@ -214,6 +219,11 @@ export default function Plantio() {
       <PlantioVaoDialog
         open={vaoDialogOpen}
         onClose={() => setVaoDialogOpen(false)}
+        onSaved={loadPlantios}
+      />
+      <NotaFiscalDialog
+        open={notaDialogOpen}
+        onClose={() => setNotaDialogOpen(false)}
         onSaved={loadPlantios}
       />
     </div>
