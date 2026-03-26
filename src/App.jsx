@@ -5,7 +5,14 @@ import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
-// Add page imports here
+import Layout from './components/Layout';
+import Dashboard from './pages/Dashboard';
+import Estufas from './pages/Estufas';
+import Plantio from './pages/Plantio';
+import Colheita from './pages/Colheita';
+import Descarte from './pages/Descarte';
+import PrevisaoColheita from './pages/PrevisaoColheita';
+import Produtividade from './pages/Produtividade';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -33,8 +40,16 @@ const AuthenticatedApp = () => {
   // Render the main app
   return (
     <Routes>
-      {/* Add your page Route elements here */}
-      <Route path="*" element={<PageNotFound />} />
+      <Route element={<Layout />}>
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/estufas" element={<Estufas />} />
+        <Route path="/plantio" element={<Plantio />} />
+        <Route path="/colheita" element={<Colheita />} />
+        <Route path="/descarte" element={<Descarte />} />
+        <Route path="/previsao" element={<PrevisaoColheita />} />
+        <Route path="/produtividade" element={<Produtividade />} />
+        <Route path="*" element={<PageNotFound />} />
+      </Route>
     </Routes>
   );
 };
