@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+
 import { Badge } from "@/components/ui/badge";
 import { Plus, X, Archive, AlertTriangle } from "lucide-react";
 import { base44 } from "@/api/base44Client";
@@ -20,9 +20,8 @@ function InfoRow({ label, value, highlight }) {
 }
 
 export default function CanteiroDialog({ canteiro, open, onClose, onSaved }) {
-  const [variedades, setVariedades] = useState([]);
-  const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [plantioData, setPlantioData] = useState(null); // earliest plantio date
   const [colheitaTotal, setColheitaTotal] = useState({ hastes: 0, cestos: 0 });
   const [showDescarte, setShowDescarte] = useState(false);
@@ -30,11 +29,10 @@ export default function CanteiroDialog({ canteiro, open, onClose, onSaved }) {
   const [descarteTotal, setDescarteTotal] = useState(0);
   const [showFinalizarConfirm, setShowFinalizarConfirm] = useState(false);
   const [obsFinalizacao, setObsFinalizacao] = useState("");
-  const [tab, setTab] = useState("info");
+
 
   useEffect(() => {
     if (canteiro && open) {
-      setVariedades(canteiro.variedades || []);
       setShowFinalizarConfirm(false);
       setObsFinalizacao("");
       setTab("info");
@@ -67,41 +65,10 @@ export default function CanteiroDialog({ canteiro, open, onClose, onSaved }) {
     setLoading(false);
   }
 
-  const total = variedades.reduce((s, v) => s + (parseInt(v.quantidade) || 0), 0);
-
   // Computed dates
   const dataCorteLuz = plantioData ? moment(plantioData).add(25, "days").format("DD/MM/YYYY") : "—";
   const dataPrevisaoColheita = plantioData ? moment(plantioData).add(12, "weeks").format("DD/MM/YYYY") : "—";
   const diasDesdeP = plantioData ? moment().diff(moment(plantioData), "days") : null;
-
-  function addVariedade() {
-    if (variedades.length >= 4) { toast.error("Máximo 4 variedades por canteiro"); return; }
-    setVariedades([...variedades, { nome: "", quantidade: 0 }]);
-  }
-
-  function removeVariedade(index) {
-    setVariedades(variedades.filter((_, i) => i !== index));
-  }
-
-  function updateVariedade(index, field, value) {
-    const updated = [...variedades];
-    updated[index] = { ...updated[index], [field]: field === "quantidade" ? parseInt(value) || 0 : value };
-    setVariedades(updated);
-  }
-
-  async function save() {
-    if (total > 2000) { toast.error("Total não pode ultrapassar 2000 mudas"); return; }
-    const filtered = variedades.filter((v) => v.nome.trim() !== "");
-    setSaving(true);
-    await base44.entities.Canteiro.update(canteiro.id, {
-      variedades: filtered,
-      total_mudas: filtered.reduce((s, v) => s + (v.quantidade || 0), 0),
-    });
-    toast.success("Canteiro atualizado");
-    setSaving(false);
-    onSaved();
-    onClose();
-  }
 
   async function finalizarVao() {
     setSaving(true);
@@ -174,13 +141,7 @@ export default function CanteiroDialog({ canteiro, open, onClose, onSaved }) {
             </DialogFooter>
           </div>
         ) : (
-          <Tabs value={tab} onValueChange={setTab}>
-            <TabsList className="grid grid-cols-2 w-full">
-              <TabsTrigger value="info">Informações</TabsTrigger>
-              <TabsTrigger value="editar">Editar Mudas</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="info" className="space-y-4 pt-3">
+          <div className="space-y-4 pt-1">
               {/* Datas */}
               <div className="rounded-lg border bg-muted/20 p-3 space-y-0.5">
                 <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">Ciclo de Cultivo</p>
@@ -215,50 +176,6 @@ export default function CanteiroDialog({ canteiro, open, onClose, onSaved }) {
                 <InfoRow label="🌿 Hastes colhidas" value={colheitaTotal.hastes} highlight={colheitaTotal.hastes > 0} />
                 <InfoRow label="🗑 Mudas descartadas" value={descarteTotal} />
               </div>
-
-              <Button
-                variant="outline"
-                className="w-full border-destructive/30 text-destructive hover:bg-destructive/5"
-                onClick={() => setShowFinalizarConfirm(true)}
-              >
-                <Archive className="w-4 h-4 mr-2" /> Finalizar e Liberar Canteiro
-              </Button>
-            </TabsContent>
-
-            <TabsContent value="editar" className="space-y-4 pt-3">
-              <div className="flex items-center justify-between">
-                <Label className="text-sm font-medium">Variedades</Label>
-                <span className={`text-sm font-semibold ${total > 2000 ? "text-destructive" : "text-primary"}`}>
-                  {total}/2000 mudas
-                </span>
-              </div>
-              <div className="space-y-3">
-                {variedades.map((v, i) => (
-                  <div key={i} className="flex gap-2 items-center">
-                    <Input
-                      placeholder="Variedade"
-                      value={v.nome}
-                      onChange={(e) => updateVariedade(i, "nome", e.target.value)}
-                      className="flex-1"
-                    />
-                    <Input
-                      type="number"
-                      placeholder="Qtd"
-                      value={v.quantidade || ""}
-                      onChange={(e) => updateVariedade(i, "quantidade", e.target.value)}
-                      className="w-24"
-                      min={0}
-                      max={2000}
-                    />
-                    <Button variant="ghost" size="icon" onClick={() => removeVariedade(i)} className="shrink-0">
-                      <X className="w-4 h-4" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-              <Button variant="outline" size="sm" onClick={addVariedade} disabled={variedades.length >= 4} className="w-full">
-                <Plus className="w-4 h-4 mr-1" /> Adicionar Variedade
-              </Button>
 
               {/* Descarte rápido */}
               <div className="border-t pt-3">
@@ -326,14 +243,14 @@ export default function CanteiroDialog({ canteiro, open, onClose, onSaved }) {
                 )}
               </div>
 
-              <DialogFooter>
-                <Button variant="outline" onClick={onClose}>Cancelar</Button>
-                <Button onClick={save} disabled={saving || total > 2000}>
-                  {saving ? "Salvando..." : "Salvar"}
-                </Button>
-              </DialogFooter>
-            </TabsContent>
-          </Tabs>
+              <Button
+                variant="outline"
+                className="w-full border-destructive/30 text-destructive hover:bg-destructive/5"
+                onClick={() => setShowFinalizarConfirm(true)}
+              >
+                <Archive className="w-4 h-4 mr-2" /> Finalizar e Liberar Canteiro
+              </Button>
+            </div>
         )}
       </DialogContent>
     </Dialog>
