@@ -22,6 +22,7 @@ export default function Plantio() {
   const [form, setForm] = useState({
     estufa: null,
     lado: "",
+    vao: null,
     canteiro: null,
     variedade: "",
     quantidade: "",
@@ -43,7 +44,7 @@ export default function Plantio() {
   }
 
   async function handleSubmit() {
-    if (!form.estufa || !form.lado || !form.canteiro || !form.variedade || !form.quantidade) {
+    if (!form.estufa || !form.lado || !form.vao || !form.canteiro || !form.variedade || !form.quantidade) {
       toast.error("Preencha todos os campos obrigatórios");
       return;
     }
@@ -58,6 +59,7 @@ export default function Plantio() {
     const canteiros = await base44.entities.Canteiro.filter({
       estufa: form.estufa,
       lado: form.lado,
+      vao: form.vao,
       numero: form.canteiro,
     });
 
@@ -87,7 +89,7 @@ export default function Plantio() {
 
     toast.success("Plantio registrado");
     setDialogOpen(false);
-    setForm({ estufa: null, lado: "", canteiro: null, variedade: "", quantidade: "", data_plantio: new Date().toISOString().split("T")[0] });
+    setForm({ estufa: null, lado: "", vao: null, canteiro: null, variedade: "", quantidade: "", data_plantio: new Date().toISOString().split("T")[0] });
     loadPlantios();
   }
 
@@ -138,7 +140,7 @@ export default function Plantio() {
                     <TableRow key={p.id}>
                       <TableCell>{moment(p.data_plantio).format("DD/MM/YYYY")}</TableCell>
                       <TableCell>Sem. {p.semana}</TableCell>
-                      <TableCell>E{p.estufa} {p.lado}-{p.canteiro}</TableCell>
+                      <TableCell>E{p.estufa} {p.lado} V{p.vao}-C{p.canteiro}</TableCell>
                       <TableCell>{p.variedade}</TableCell>
                       <TableCell className="text-right font-medium">{p.quantidade}</TableCell>
                     </TableRow>
@@ -159,6 +161,7 @@ export default function Plantio() {
             <LocationSelect
               estufa={form.estufa}
               lado={form.lado}
+              vao={form.vao}
               canteiro={form.canteiro}
               onChange={updateForm}
             />

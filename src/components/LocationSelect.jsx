@@ -2,9 +2,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { getVaosArray } from "@/lib/estufasConfig";
 import { Label } from "@/components/ui/label";
 
-export default function LocationSelect({ estufa, lado, canteiro, onChange, required = true }) {
+export default function LocationSelect({ estufa, lado, vao, canteiro, onChange, required = true }) {
   return (
-    <div className="grid grid-cols-3 gap-3">
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
       <div className="space-y-1.5">
         <Label className="text-xs">Estufa {required && "*"}</Label>
         <Select value={String(estufa || "")} onValueChange={(v) => onChange("estufa", parseInt(v))}>
@@ -28,11 +28,22 @@ export default function LocationSelect({ estufa, lado, canteiro, onChange, requi
       </div>
       <div className="space-y-1.5">
         <Label className="text-xs">Vão {required && "*"}</Label>
-        <Select value={String(canteiro || "")} onValueChange={(v) => onChange("canteiro", parseInt(v))}>
+        <Select value={String(vao || "")} onValueChange={(v) => onChange("vao", parseInt(v))}>
           <SelectTrigger><SelectValue placeholder="Vão" /></SelectTrigger>
           <SelectContent>
             {getVaosArray(estufa).map((n) => (
               <SelectItem key={n} value={String(n)}>Vão {n}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-1.5">
+        <Label className="text-xs">Canteiro {required && "*"}</Label>
+        <Select value={String(canteiro || "")} onValueChange={(v) => onChange("canteiro", parseInt(v))}>
+          <SelectTrigger><SelectValue placeholder="Cant." /></SelectTrigger>
+          <SelectContent>
+            {[1, 2, 3, 4].map((n) => (
+              <SelectItem key={n} value={String(n)}>Canteiro {n}</SelectItem>
             ))}
           </SelectContent>
         </Select>

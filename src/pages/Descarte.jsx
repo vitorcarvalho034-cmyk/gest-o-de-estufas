@@ -23,6 +23,7 @@ export default function Descarte() {
   const [form, setForm] = useState({
     estufa: null,
     lado: "",
+    vao: null,
     canteiro: null,
     variedade: "",
     quantidade: "",
@@ -46,7 +47,7 @@ export default function Descarte() {
   }
 
   async function handleSubmit() {
-    if (!form.estufa || !form.lado || !form.canteiro || !form.variedade || !form.quantidade || !form.motivo) {
+    if (!form.estufa || !form.lado || !form.vao || !form.canteiro || !form.variedade || !form.quantidade || !form.motivo) {
       toast.error("Preencha todos os campos obrigatórios");
       return;
     }
@@ -59,7 +60,7 @@ export default function Descarte() {
     toast.success("Descarte registrado");
     setDialogOpen(false);
     setForm({
-      estufa: null, lado: "", canteiro: null, variedade: "", quantidade: "",
+      estufa: null, lado: "", vao: null, canteiro: null, variedade: "", quantidade: "",
       motivo: "", observacao: "", data_descarte: new Date().toISOString().split("T")[0],
     });
     loadDescartes();
@@ -111,7 +112,7 @@ export default function Descarte() {
                   {descartes.map((d) => (
                     <TableRow key={d.id}>
                       <TableCell>{moment(d.data_descarte).format("DD/MM/YYYY")}</TableCell>
-                      <TableCell>E{d.estufa} {d.lado}-{d.canteiro}</TableCell>
+                      <TableCell>E{d.estufa} {d.lado} V{d.vao}-C{d.canteiro}</TableCell>
                       <TableCell>{d.variedade}</TableCell>
                       <TableCell><Badge variant="outline">{d.motivo}</Badge></TableCell>
                       <TableCell className="text-right font-medium">{d.quantidade}</TableCell>
@@ -133,6 +134,7 @@ export default function Descarte() {
             <LocationSelect
               estufa={form.estufa}
               lado={form.lado}
+              vao={form.vao}
               canteiro={form.canteiro}
               onChange={updateForm}
             />

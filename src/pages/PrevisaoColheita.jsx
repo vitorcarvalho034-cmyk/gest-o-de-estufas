@@ -35,6 +35,7 @@ export default function PrevisaoColheita() {
     pressas_previstas: "",
     estufa: null,
     lado: "",
+    vao: null,
     canteiro: null,
   });
 
@@ -75,12 +76,13 @@ export default function PrevisaoColheita() {
       pressas_previstas: parseInt(form.pressas_previstas),
       estufa: form.estufa || undefined,
       lado: form.lado || undefined,
+      vao: form.vao || undefined,
       canteiro: form.canteiro || undefined,
     });
 
     toast.success("Previsão adicionada");
     setDialogOpen(false);
-    setForm({ variedade: "", pressas_previstas: "", estufa: null, lado: "", canteiro: null });
+    setForm({ variedade: "", pressas_previstas: "", estufa: null, lado: "", vao: null, canteiro: null });
     loadPrevisoes();
   }
 
@@ -164,7 +166,8 @@ export default function PrevisaoColheita() {
                       <TableCell className="text-muted-foreground">
                         {p.estufa ? `E${p.estufa}` : "—"}
                         {p.lado ? ` ${p.lado}` : ""}
-                        {p.canteiro ? `-${p.canteiro}` : ""}
+                        {p.vao ? ` V${p.vao}` : ""}
+                        {p.canteiro ? `-C${p.canteiro}` : ""}
                       </TableCell>
                       <TableCell className="text-right font-semibold">{p.pressas_previstas?.toLocaleString("pt-BR")}</TableCell>
                       <TableCell>
@@ -207,7 +210,7 @@ export default function PrevisaoColheita() {
             </div>
 
             <p className="text-xs text-muted-foreground font-medium">Localização (opcional)</p>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs">Estufa</Label>
                 <Select value={String(form.estufa || "")} onValueChange={(v) => updateForm("estufa", v ? parseInt(v) : null)}>
@@ -226,6 +229,17 @@ export default function PrevisaoColheita() {
                   <SelectContent>
                     <SelectItem value="A">Lado A</SelectItem>
                     <SelectItem value="B">Lado B</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Vão</Label>
+                <Select value={String(form.vao || "")} onValueChange={(v) => updateForm("vao", v ? parseInt(v) : null)}>
+                  <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                  <SelectContent>
+                    {[...Array(16)].map((_, i) => (
+                      <SelectItem key={i+1} value={String(i+1)}>Vão {i+1}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

@@ -31,6 +31,7 @@ export default function Colheita() {
   const [form, setForm] = useState({
     estufa: null,
     lado: "",
+    vao: null,
     canteiro: null,
     variedade: "",
     destino: "",
@@ -56,7 +57,7 @@ export default function Colheita() {
   const totalPressas = (parseInt(form.cestos) || 0) * pressasPorCesto;
 
   async function handleSubmit() {
-    if (!form.estufa || !form.lado || !form.canteiro || !form.variedade || !form.destino || !form.cestos) {
+    if (!form.estufa || !form.lado || !form.vao || !form.canteiro || !form.variedade || !form.destino || !form.cestos) {
       toast.error("Preencha todos os campos obrigatórios");
       return;
     }
@@ -71,7 +72,7 @@ export default function Colheita() {
     toast.success("Colheita registrada");
     setDialogOpen(false);
     setForm({
-      estufa: null, lado: "", canteiro: null, variedade: "", destino: "", cestos: "",
+      estufa: null, lado: "", vao: null, canteiro: null, variedade: "", destino: "", cestos: "",
       data_colheita: new Date().toISOString().split("T")[0],
     });
     loadColheitas();
@@ -126,7 +127,7 @@ export default function Colheita() {
                     <TableRow key={c.id}>
                       <TableCell>{moment(c.data_colheita).format("DD/MM/YYYY")}</TableCell>
                       <TableCell>{c.semana}</TableCell>
-                      <TableCell>E{c.estufa} {c.lado}-{c.canteiro}</TableCell>
+                      <TableCell>E{c.estufa} {c.lado} V{c.vao}-C{c.canteiro}</TableCell>
                       <TableCell>{c.variedade}</TableCell>
                       <TableCell>
                         <Badge variant="secondary">{c.destino}</Badge>
@@ -151,6 +152,7 @@ export default function Colheita() {
             <LocationSelect
               estufa={form.estufa}
               lado={form.lado}
+              vao={form.vao}
               canteiro={form.canteiro}
               onChange={updateForm}
             />

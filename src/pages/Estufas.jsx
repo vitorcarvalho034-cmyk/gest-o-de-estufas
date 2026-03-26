@@ -22,9 +22,15 @@ export default function Estufas() {
     loadCanteiros();
   }, []);
 
-  function getCanteiros(estufa, lado) {
+  function getVaos(estufa, lado) {
+    const found = canteiros.filter((c) => c.estufa === estufa && c.lado === lado);
+    const vaosSet = [...new Set(found.map((c) => c.vao))].sort((a, b) => a - b);
+    return vaosSet;
+  }
+
+  function getCanteirosByVao(estufa, lado, vao) {
     return canteiros
-      .filter((c) => c.estufa === estufa && c.lado === lado)
+      .filter((c) => c.estufa === estufa && c.lado === lado && c.vao === vao)
       .sort((a, b) => a.numero - b.numero);
   }
 
@@ -67,14 +73,22 @@ export default function Estufas() {
                     <div className={`w-3 h-3 rounded-full ${lado === "A" ? "bg-primary" : "bg-accent"}`} />
                     Lado {lado}
                   </h3>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                    {getCanteiros(estufa, lado).map((canteiro) => (
-                      <CanteiroCard key={canteiro.id} canteiro={canteiro} onClick={openEdit} />
+                  <div className="space-y-4">
+                    {getVaos(estufa, lado).map((vao) => (
+                      <div key={vao} className="rounded-xl border border-border p-3 bg-muted/30 space-y-2">
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Vão {vao}</p>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                          {getCanteirosByVao(estufa, lado, vao).map((canteiro) => (
+                            <CanteiroCard key={canteiro.id} canteiro={canteiro} onClick={openEdit} />
+                          ))}
+                          {getCanteirosByVao(estufa, lado, vao).length === 0 && (
+                            <p className="text-xs text-muted-foreground italic col-span-4">Sem canteiros cadastrados</p>
+                          )}
+                        </div>
+                      </div>
                     ))}
-                    {getCanteiros(estufa, lado).length === 0 && (
-                      <p className="text-sm text-muted-foreground col-span-2 italic">
-                        Nenhum vão encontrado
-                      </p>
+                    {getVaos(estufa, lado).length === 0 && (
+                      <p className="text-sm text-muted-foreground italic">Nenhum vão encontrado</p>
                     )}
                   </div>
                 </div>

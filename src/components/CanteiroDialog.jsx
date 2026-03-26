@@ -55,7 +55,7 @@ export default function CanteiroDialog({ canteiro, open, onClose, onSaved }) {
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>
-            Estufa {canteiro.estufa} — Lado {canteiro.lado} — Canteiro {canteiro.numero}
+            Estufa {canteiro.estufa} — Lado {canteiro.lado} — Vão {canteiro.vao} — Canteiro {canteiro.numero}
           </DialogTitle>
         </DialogHeader>
 
