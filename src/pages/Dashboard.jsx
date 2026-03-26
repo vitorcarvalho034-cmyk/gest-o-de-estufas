@@ -231,7 +231,7 @@ export default function Dashboard() {
                     {["A", "B"].map((lado) => (
                       <div key={lado} className="bg-muted/30 border border-border/50 rounded-lg p-2 text-center">
                         <p className="font-semibold">Lado {lado}</p>
-                        <p className="text-muted-foreground">{TOTAL_VAOS[estufa] / 2} vãos</p>
+                        <p className="text-muted-foreground">{TOTAL_VAOS[estufa]} vãos</p>
                       </div>
                     ))}
                   </div>
