@@ -1,10 +1,37 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Warehouse } from "lucide-react";
-import { TOTAL_VAOS } from "@/lib/estufasConfig";
+import { Warehouse, Plus } from "lucide-react";
+import { ESTUFA_VAOS, TOTAL_VAOS } from "@/lib/estufasConfig";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import CanteiroCard from "../components/CanteiroCard";
+import { Badge } from "@/components/ui/badge";
 import CanteiroDialog from "../components/CanteiroDialog";
+
+const LADO_COLORS = { A: "bg-primary/10 border-primary/30", B: "bg-accent/10 border-accent/30" };
+const CANTEIRO_EMPTY = "bg-muted/40 border-border hover:bg-muted/70 text-muted-foreground";
+const CANTEIRO_PARTIAL = "bg-primary/5 border-primary/20 hover:bg-primary/10";
+const CANTEIRO_FULL = "bg-primary/20 border-primary/40 hover:bg-primary/30";
+
+function MiniCanteiro({ canteiro, onClick, estufa, lado, vao, numero }) {
+  const mudas = canteiro?.total_mudas || 0;
+  const pct = Math.min((mudas / 2000) * 100, 100);
+  const colorClass = !canteiro ? CANTEIRO_EMPTY : pct >= 80 ? CANTEIRO_FULL : CANTEIRO_PARTIAL;
+
+  return (
+    <button
+      onClick={() => canteiro && onClick(canteiro)}
+      title={canteiro ? `Cant. ${numero} — ${mudas} mudas` : `Cant. ${numero} — vazio`}
+      className={`relative w-full h-10 rounded border text-xs font-medium transition-all ${colorClass} overflow-hidden`}
+    >
+      {pct > 0 && (
+        <div
+          className="absolute bottom-0 left-0 right-0 bg-primary/30 transition-all"
+          style={{ height: `${pct}%` }}
+        />
+      )}
+      <span className="relative z-10 text-[10px]">{numero}</span>
+    </button>
+  );
+}
 
 export default function Estufas() {
   const [canteiros, setCanteiros] = useState([]);
@@ -18,25 +45,25 @@ export default function Estufas() {
     setLoading(false);
   }
 
-  useEffect(() => {
-    loadCanteiros();
-  }, []);
+  useEffect(() => { loadCanteiros(); }, []);
 
-  function getVaos(estufa, lado) {
-    const found = canteiros.filter((c) => c.estufa === estufa && c.lado === lado);
-    const vaosSet = [...new Set(found.map((c) => c.vao))].sort((a, b) => a - b);
-    return vaosSet;
-  }
-
-  function getCanteirosByVao(estufa, lado, vao) {
-    return canteiros
-      .filter((c) => c.estufa === estufa && c.lado === lado && c.vao === vao)
-      .sort((a, b) => a.numero - b.numero);
+  function getCanteiro(estufa, lado, vao, numero) {
+    return canteiros.find(
+      (c) => c.estufa === estufa && c.lado === lado && c.vao === vao && c.numero === numero
+    ) || null;
   }
 
   function openEdit(canteiro) {
     setSelectedCanteiro(canteiro);
     setDialogOpen(true);
+  }
+
+  function getEstufaStats(estufa) {
+    const ecs = canteiros.filter((c) => c.estufa === estufa);
+    const total = ecs.length;
+    const comMudas = ecs.filter((c) => (c.total_mudas || 0) > 0).length;
+    const totalMudas = ecs.reduce((s, c) => s + (c.total_mudas || 0), 0);
+    return { total, comMudas, totalMudas };
   }
 
   if (loading) {
@@ -48,13 +75,13 @@ export default function Estufas() {
   }
 
   return (
-    <div className="p-6 lg:p-10 max-w-7xl mx-auto space-y-8">
+    <div className="p-4 lg:p-8 max-w-full mx-auto space-y-6">
       <div>
         <div className="flex items-center gap-3 mb-2">
           <Warehouse className="w-8 h-8 text-primary" />
           <h1 className="text-3xl font-bold tracking-tight">Estufas</h1>
         </div>
-        <p className="text-muted-foreground">Gerencie os vãos de cada estufa</p>
+        <p className="text-muted-foreground">Layout completo — cada vão tem 4 canteiros por lado</p>
       </div>
 
       <Tabs defaultValue="1">
@@ -64,38 +91,124 @@ export default function Estufas() {
           ))}
         </TabsList>
 
-        {[1, 2, 3, 4].map((estufa) => (
-          <TabsContent key={estufa} value={String(estufa)} className="mt-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              {["A", "B"].map((lado) => (
-                <div key={lado} className="space-y-4">
-                  <h3 className="text-lg font-semibold flex items-center gap-2">
-                    <div className={`w-3 h-3 rounded-full ${lado === "A" ? "bg-primary" : "bg-accent"}`} />
-                    Lado {lado}
-                  </h3>
-                  <div className="space-y-4">
-                    {getVaos(estufa, lado).map((vao) => (
-                      <div key={vao} className="rounded-xl border border-border p-3 bg-muted/30 space-y-2">
-                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Vão {vao}</p>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                          {getCanteirosByVao(estufa, lado, vao).map((canteiro) => (
-                            <CanteiroCard key={canteiro.id} canteiro={canteiro} onClick={openEdit} />
+        {[1, 2, 3, 4].map((estufa) => {
+          const stats = getEstufaStats(estufa);
+          const totalVaos = TOTAL_VAOS[estufa];
+          const vaosPerLado = ESTUFA_VAOS[estufa];
+
+          return (
+            <TabsContent key={estufa} value={String(estufa)} className="mt-6 space-y-4">
+              {/* Stats bar */}
+              <div className="flex flex-wrap gap-4">
+                <div className="bg-card border rounded-lg px-4 py-2 text-center">
+                  <p className="text-xs text-muted-foreground">Vãos completos</p>
+                  <p className="text-lg font-bold text-primary">{totalVaos}</p>
+                </div>
+                <div className="bg-card border rounded-lg px-4 py-2 text-center">
+                  <p className="text-xs text-muted-foreground">Meio-vãos por lado</p>
+                  <p className="text-lg font-bold">{vaosPerLado}</p>
+                </div>
+                <div className="bg-card border rounded-lg px-4 py-2 text-center">
+                  <p className="text-xs text-muted-foreground">Canteiros c/ mudas</p>
+                  <p className="text-lg font-bold text-primary">{stats.comMudas}</p>
+                </div>
+                <div className="bg-card border rounded-lg px-4 py-2 text-center">
+                  <p className="text-xs text-muted-foreground">Total mudas</p>
+                  <p className="text-lg font-bold">{stats.totalMudas.toLocaleString("pt-BR")}</p>
+                </div>
+              </div>
+
+              {/* Legend */}
+              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-4 h-4 rounded border bg-muted/40 border-border" /> Vazio
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-4 h-4 rounded border bg-primary/10 border-primary/30" /> Com mudas
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-4 h-4 rounded border bg-primary/30 border-primary/50" /> &gt;80% cheio
+                </div>
+                <span className="text-muted-foreground/60">Clique para editar</span>
+              </div>
+
+              {/* Greenhouse layout */}
+              <div className="overflow-x-auto">
+                <div className="min-w-[700px]">
+                  {/* Header */}
+                  <div className="grid grid-cols-[1fr_40px_1fr] gap-2 mb-2">
+                    <div className="text-center">
+                      <Badge variant="outline" className="bg-primary/10 border-primary/30 text-primary text-xs">
+                        Lado A — {vaosPerLado} meio-vãos
+                      </Badge>
+                    </div>
+                    <div />
+                    <div className="text-center">
+                      <Badge variant="outline" className="bg-accent/10 border-accent/30 text-accent-foreground text-xs">
+                        Lado B — {vaosPerLado} meio-vãos
+                      </Badge>
+                    </div>
+                  </div>
+
+                  {/* Canteiro columns header */}
+                  <div className="grid grid-cols-[1fr_40px_1fr] gap-2 mb-1 text-[10px] text-muted-foreground">
+                    <div className="grid grid-cols-4 gap-1 text-center">
+                      <span>C1</span><span>C2</span><span>C3</span><span>C4</span>
+                    </div>
+                    <div />
+                    <div className="grid grid-cols-4 gap-1 text-center">
+                      <span>C1</span><span>C2</span><span>C3</span><span>C4</span>
+                    </div>
+                  </div>
+
+                  {/* Rows */}
+                  <div className="space-y-1">
+                    {Array.from({ length: vaosPerLado }, (_, i) => i + 1).map((vao) => (
+                      <div key={vao} className="grid grid-cols-[1fr_40px_1fr] gap-2 items-center">
+                        {/* Lado A */}
+                        <div className={`grid grid-cols-4 gap-1 p-1.5 rounded-lg border ${LADO_COLORS.A}`}>
+                          {[1, 2, 3, 4].map((num) => (
+                            <MiniCanteiro
+                              key={num}
+                              canteiro={getCanteiro(estufa, "A", vao, num)}
+                              onClick={openEdit}
+                              estufa={estufa}
+                              lado="A"
+                              vao={vao}
+                              numero={num}
+                            />
                           ))}
-                          {getCanteirosByVao(estufa, lado, vao).length === 0 && (
-                            <p className="text-xs text-muted-foreground italic col-span-4">Sem canteiros cadastrados</p>
-                          )}
+                        </div>
+
+                        {/* Vão number (center corridor) */}
+                        <div className="flex items-center justify-center">
+                          <span className="text-[10px] font-bold text-muted-foreground bg-muted rounded px-1 py-0.5">
+                            {vao}
+                          </span>
+                        </div>
+
+                        {/* Lado B */}
+                        <div className={`grid grid-cols-4 gap-1 p-1.5 rounded-lg border ${LADO_COLORS.B}`}>
+                          {[1, 2, 3, 4].map((num) => (
+                            <MiniCanteiro
+                              key={num}
+                              canteiro={getCanteiro(estufa, "B", vao, num)}
+                              onClick={openEdit}
+                              estufa={estufa}
+                              lado="B"
+                              vao={vao}
+                              numero={num}
+                            />
+                          ))}
                         </div>
                       </div>
                     ))}
-                    {getVaos(estufa, lado).length === 0 && (
-                      <p className="text-sm text-muted-foreground italic">Nenhum vão encontrado</p>
-                    )}
                   </div>
                 </div>
-              ))}
-            </div>
-          </TabsContent>
-        ))}
+              </div>
+            </TabsContent>
+          );
+        })}
       </Tabs>
 
       <CanteiroDialog

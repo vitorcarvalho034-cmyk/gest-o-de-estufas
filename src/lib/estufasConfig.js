@@ -1,10 +1,11 @@
-// Número de vãos (canteiros) por lado de cada estufa
-// Total por estufa = vaos_por_lado * 2 (lado A + lado B)
+// Número de meio-vãos por lado de cada estufa
+// Cada vão completo (fora a fora) = 2 meio-vãos (um por lado)
+// Cada meio-vão tem 4 canteiros
 export const ESTUFA_VAOS = {
-  1: 16, // 32 vãos total → 16 por lado
-  2: 15, // 30 vãos total → 15 por lado
-  3: 13, // 26 vãos total → 13 por lado
-  4: 16, // 32 vãos total → 16 por lado
+  1: 32, // 32 vãos completos → 32 meio-vãos por lado
+  2: 30, // 30 vãos completos → 30 meio-vãos por lado
+  3: 26, // 26 vãos completos → 26 meio-vãos por lado
+  4: 32, // 32 vãos completos → 32 meio-vãos por lado
 };
 
 export const TOTAL_VAOS = {
