@@ -137,6 +137,12 @@ Retorne a lista de variedades com suas quantidades.`,
             variedades,
             total_mudas: (c.total_mudas || 0) + alloc.quantidade
           });
+        } else {
+          await base44.entities.Canteiro.create({
+            estufa: alloc.estufa, lado: alloc.lado, vao: alloc.vao, numero: alloc.canteiro,
+            variedades: [{ nome: item.variedade, quantidade: alloc.quantidade }],
+            total_mudas: alloc.quantidade
+          });
         }
       }
     }
