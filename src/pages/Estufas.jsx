@@ -12,11 +12,16 @@ const CANTEIRO_EMPTY = "bg-muted/40 border-border hover:bg-muted/70 text-muted-f
 const CANTEIRO_PARTIAL = "bg-primary/5 border-primary/20 hover:bg-primary/10";
 const CANTEIRO_FULL = "bg-primary/20 border-primary/40 hover:bg-primary/30";
 
-function MiniCanteiro({ canteiro, onClick, numero }) {
+function MiniCanteiro({ canteiro, onClick, numero, colheitas }) {
   const mudas = canteiro?.total_mudas || 0;
   const pct = Math.min((mudas / 2000) * 100, 100);
   const colorClass = !canteiro ? CANTEIRO_EMPTY : pct >= 80 ? CANTEIRO_FULL : CANTEIRO_PARTIAL;
   const variedades = canteiro?.variedades || [];
+
+  const totalPressas = colheitas?.reduce((s, c) => s + (c.pressas || 0), 0) || 0;
+  const totalCestos = colheitas?.reduce((s, c) => s + (c.cestos || 0), 0) || 0;
+  // Harvest % based on pressas vs expected (1 presa per ~12 mudas roughly, cap at 100%)
+  const colheitaPct = mudas > 0 ? Math.min((totalPressas / (mudas / 12)) * 100, 100) : 0;
 
   const btn = (
     <button
@@ -29,6 +34,12 @@ function MiniCanteiro({ canteiro, onClick, numero }) {
           style={{ height: `${pct}%` }}
         />
       )}
+      {colheitaPct > 0 && (
+        <div
+          className="absolute bottom-0 left-0 bg-amber-400/50 transition-all"
+          style={{ height: `${colheitaPct}%`, width: '4px' }}
+        />
+      )}
       <span className="relative z-10 text-[10px]">{numero}</span>
     </button>
   );
@@ -38,11 +49,20 @@ function MiniCanteiro({ canteiro, onClick, numero }) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>{btn}</TooltipTrigger>
-      <TooltipContent side="top" className="max-w-[180px]">
+      <TooltipContent side="top" className="max-w-[200px]">
         <p className="font-semibold text-xs mb-1">Canteiro {numero} — {mudas} mudas</p>
         {variedades.map((v, i) => (
           <p key={i} className="text-xs">{v.nome}: <span className="font-medium">{v.quantidade}</span></p>
         ))}
+        {totalPressas > 0 && (
+          <div className="mt-1.5 pt-1.5 border-t border-border">
+            <p className="text-xs text-amber-600 font-medium">🌸 Colhido: {totalPressas} pressas ({totalCestos} cestos)</p>
+            <div className="mt-1 h-1.5 w-full bg-muted rounded-full overflow-hidden">
+              <div className="h-full bg-amber-400 rounded-full" style={{ width: `${colheitaPct}%` }} />
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-0.5">{colheitaPct.toFixed(0)}% da capacidade colhida</p>
+          </div>
+        )}
       </TooltipContent>
     </Tooltip>
   );
@@ -50,13 +70,18 @@ function MiniCanteiro({ canteiro, onClick, numero }) {
 
 export default function Estufas() {
   const [canteiros, setCanteiros] = useState([]);
+  const [colheitas, setColheitas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedCanteiro, setSelectedCanteiro] = useState(null);
   const [dialogOpen, setDialogOpen] = useState(false);
 
   async function loadCanteiros() {
-    const data = await base44.entities.Canteiro.list();
+    const [data, cols] = await Promise.all([
+      base44.entities.Canteiro.list(),
+      base44.entities.Colheita.list(),
+    ]);
     setCanteiros(data);
+    setColheitas(cols);
     setLoading(false);
   }
 
@@ -66,6 +91,12 @@ export default function Estufas() {
     return canteiros.find(
       (c) => c.estufa === estufa && c.lado === lado && c.vao === vao && c.numero === numero
     ) || null;
+  }
+
+  function getColheitas(estufa, lado, vao, numero) {
+    return colheitas.filter(
+      (c) => c.estufa === estufa && c.lado === lado && c.vao === vao && c.canteiro === numero
+    );
   }
 
   function openEdit(canteiro) {
@@ -144,6 +175,9 @@ export default function Estufas() {
                 <div className="flex items-center gap-1.5">
                   <div className="w-4 h-4 rounded border bg-primary/30 border-primary/50" /> &gt;80% cheio
                 </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-1 h-4 rounded bg-amber-400/50" /> Colhido
+                </div>
                 <span className="text-muted-foreground/60">Clique para editar</span>
               </div>
 
@@ -189,6 +223,7 @@ export default function Estufas() {
                               canteiro={getCanteiro(estufa, "A", vao, num)}
                               onClick={openEdit}
                               numero={num}
+                              colheitas={getColheitas(estufa, "A", vao, num)}
                             />
                           ))}
                         </div>
@@ -208,6 +243,7 @@ export default function Estufas() {
                               canteiro={getCanteiro(estufa, "B", vao, num)}
                               onClick={openEdit}
                               numero={num}
+                              colheitas={getColheitas(estufa, "B", vao, num)}
                             />
                           ))}
                         </div>
