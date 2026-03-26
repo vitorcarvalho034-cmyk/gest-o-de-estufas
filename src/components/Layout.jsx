@@ -32,7 +32,7 @@ export default function Layout() {
       `}>
         <div className="flex items-center gap-3 px-6 py-6 border-b border-sidebar-border">
           <div className="w-10 h-10 rounded-xl bg-sidebar-primary/20 flex items-center justify-center">
-            <Flower2 className="w-6 h-6 text-sidebar-primary" />
+            <img src="https://media.base44.com/images/public/69c50a8a395ae9d63dbc77c6/3cfffd4e4_Designsemnome1.png" className="w-8 h-8 object-contain" />
           </div>
           <div>
             <h1 className="text-lg font-semibold tracking-tight">Flores da Terra
