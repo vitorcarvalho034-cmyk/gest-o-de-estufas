@@ -93,9 +93,10 @@ Retorne a lista de variedades com suas quantidades.`,
       toast.error("Preencha todos os campos"); return;
     }
     const qty = parseInt(quantidade);
+    if (qty <= 0) { toast.error("Quantidade deve ser maior que zero"); return; }
     const copy = [...items];
     const item = copy[variedadeIdx];
-    if (qty > item.remaining) { toast.error(`Saldo insuficiente. Restam ${item.remaining} mudas`); return; }
+    if (qty > item.remaining) { toast.error(`Saldo insuficiente. Restam ${item.remaining} mudas de ${item.variedade}`); return; }
     item.remaining -= qty;
     item.allocations.push({ estufa: parseInt(estufa), lado, vao: parseInt(vao), canteiro: parseInt(canteiro), quantidade: qty });
     setItems(copy);
@@ -161,7 +162,8 @@ Retorne a lista de variedades com suas quantidades.`,
     onClose();
   }
 
-  const vaosArray = allocForm.estufa ? getVaosArray(parseInt(allocForm.estufa)) : [];
+  const activeEstufa = allocForm.estufa ? parseInt(allocForm.estufa) : null;
+  const vaosArray = activeEstufa ? getVaosArray(activeEstufa) : [];
   const totalAllocated = items.reduce((s, i) => s + i.allocations.reduce((ss, a) => ss + a.quantidade, 0), 0);
   const totalRemaining = items.reduce((s, i) => s + i.remaining, 0);
 
@@ -269,6 +271,7 @@ Retorne a lista de variedades com suas quantidades.`,
                         placeholder={`Qtd (max ${item.remaining})`}
                         value={allocForm.variedadeIdx === i ? allocForm.quantidade : ""}
                         onChange={(e) => setAllocForm(f => ({ ...f, variedadeIdx: i, quantidade: e.target.value }))}
+                        min={1}
                       />
                       <Button size="sm" className="h-7 px-2" onClick={addAllocation}>
                         <Plus className="w-3.5 h-3.5" />
