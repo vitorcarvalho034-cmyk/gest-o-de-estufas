@@ -34,9 +34,7 @@ export default function PrevisaoColheita() {
     variedade: "",
     pressas_previstas: "",
     estufa: null,
-    lado: "",
     vao: null,
-    canteiro: null,
   });
 
   async function loadPrevisoes() {
@@ -75,14 +73,12 @@ export default function PrevisaoColheita() {
       variedade: form.variedade,
       pressas_previstas: parseInt(form.pressas_previstas),
       estufa: form.estufa || undefined,
-      lado: form.lado || undefined,
       vao: form.vao || undefined,
-      canteiro: form.canteiro || undefined,
     });
 
     toast.success("Previsão adicionada");
     setDialogOpen(false);
-    setForm({ variedade: "", pressas_previstas: "", estufa: null, lado: "", vao: null, canteiro: null });
+    setForm({ variedade: "", pressas_previstas: "", estufa: null, vao: null });
     loadPrevisoes();
   }
 
@@ -131,7 +127,7 @@ export default function PrevisaoColheita() {
       {/* Total */}
       <div className="bg-primary/5 rounded-xl p-4 flex items-center justify-between border border-primary/10">
         <span className="text-sm font-medium text-muted-foreground">Total Previsto</span>
-        <span className="text-2xl font-bold text-primary">{totalPressas.toLocaleString("pt-BR")} pressas</span>
+        <span className="text-2xl font-bold text-primary">{totalPressas.toLocaleString("pt-BR")} hastes</span>
       </div>
 
       {/* Table */}
@@ -154,8 +150,9 @@ export default function PrevisaoColheita() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Variedade</TableHead>
-                    <TableHead>Local</TableHead>
-                    <TableHead className="text-right">Pressas Previstas</TableHead>
+                    <TableHead>Estufa</TableHead>
+                    <TableHead>Vão</TableHead>
+                    <TableHead className="text-right">Hastes Previstas</TableHead>
                     <TableHead className="w-12" />
                   </TableRow>
                 </TableHeader>
@@ -163,12 +160,8 @@ export default function PrevisaoColheita() {
                   {previsoes.map((p) => (
                     <TableRow key={p.id}>
                       <TableCell className="font-medium">{p.variedade}</TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {p.estufa ? `E${p.estufa}` : "—"}
-                        {p.lado ? ` ${p.lado}` : ""}
-                        {p.vao ? ` V${p.vao}` : ""}
-                        {p.canteiro ? `-C${p.canteiro}` : ""}
-                      </TableCell>
+                      <TableCell className="text-muted-foreground">{p.estufa ? `Estufa ${p.estufa}` : "—"}</TableCell>
+                      <TableCell className="text-muted-foreground">{p.vao ? `Vão ${p.vao}` : "—"}</TableCell>
                       <TableCell className="text-right font-semibold">{p.pressas_previstas?.toLocaleString("pt-BR")}</TableCell>
                       <TableCell>
                         <Button variant="ghost" size="icon" onClick={() => handleDelete(p.id)}>
@@ -199,18 +192,16 @@ export default function PrevisaoColheita() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Pressas Previstas *</Label>
+              <Label className="text-xs">Hastes Previstas *</Label>
               <Input
                 type="number"
-                placeholder="Quantidade de pressas"
+                placeholder="Quantidade de hastes"
                 value={form.pressas_previstas}
                 onChange={(e) => updateForm("pressas_previstas", e.target.value)}
                 min={1}
               />
             </div>
-
-            <p className="text-xs text-muted-foreground font-medium">Localização (opcional)</p>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs">Estufa</Label>
                 <Select value={String(form.estufa || "")} onValueChange={(v) => updateForm("estufa", v ? parseInt(v) : null)}>
@@ -223,33 +214,12 @@ export default function PrevisaoColheita() {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Lado</Label>
-                <Select value={form.lado || ""} onValueChange={(v) => updateForm("lado", v)}>
-                  <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="A">Lado A</SelectItem>
-                    <SelectItem value="B">Lado B</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
                 <Label className="text-xs">Vão</Label>
                 <Select value={String(form.vao || "")} onValueChange={(v) => updateForm("vao", v ? parseInt(v) : null)}>
                   <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
                   <SelectContent>
-                    {[...Array(16)].map((_, i) => (
-                      <SelectItem key={i+1} value={String(i+1)}>Vão {i+1}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Canteiro</Label>
-                <Select value={String(form.canteiro || "")} onValueChange={(v) => updateForm("canteiro", v ? parseInt(v) : null)}>
-                  <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
-                  <SelectContent>
-                    {[1, 2, 3, 4].map((n) => (
-                      <SelectItem key={n} value={String(n)}>Canteiro {n}</SelectItem>
+                    {Array.from({ length: 32 }, (_, i) => i + 1).map((n) => (
+                      <SelectItem key={n} value={String(n)}>Vão {n}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
