@@ -292,7 +292,7 @@ export default function DescarteWizard({ open, onClose, onSaved }) {
           </DialogTitle>
         </DialogHeader>
         <ProgressBar step={step} />
-        <div className="min-h-[200px]">
+        <div className="min-h-[200px] max-h-[60vh] overflow-y-auto pr-1">
           {step === 0 && <StepLocal form={form} onChange={updateForm} />}
           {step === 1 && <StepVariedade form={form} onChange={updateForm} variedades={variedades} />}
           {step === 2 && <StepDescarte form={form} onChange={updateForm} />}
