@@ -3,14 +3,14 @@ import { Flower2, LayoutDashboard, Warehouse, Sprout, Scissors, Trash2, BarChart
 import { useState } from "react";
 
 const navItems = [
-  { path: "/", label: "Dashboard", icon: LayoutDashboard },
-  { path: "/estufas", label: "Estufas", icon: Warehouse },
-  { path: "/plantio", label: "Plantio", icon: Sprout },
-  { path: "/colheita", label: "Colheita", icon: Scissors },
-  { path: "/descarte", label: "Descarte", icon: Trash2 },
-  { path: "/previsao", label: "Previsão", icon: CalendarClock },
-  { path: "/produtividade", label: "Produtividade", icon: BarChart3 },
-];
+{ path: "/", label: "Dashboard", icon: LayoutDashboard },
+{ path: "/estufas", label: "Estufas", icon: Warehouse },
+{ path: "/plantio", label: "Plantio", icon: Sprout },
+{ path: "/colheita", label: "Colheita", icon: Scissors },
+{ path: "/descarte", label: "Descarte", icon: Trash2 },
+{ path: "/previsao", label: "Previsão", icon: CalendarClock },
+{ path: "/produtividade", label: "Produtividade", icon: BarChart3 }];
+
 
 export default function Layout() {
   const location = useLocation();
@@ -19,9 +19,9 @@ export default function Layout() {
   return (
     <div className="flex h-screen overflow-hidden">
       {/* Mobile overlay */}
-      {mobileOpen && (
-        <div className="fixed inset-0 bg-black/40 z-40 lg:hidden" onClick={() => setMobileOpen(false)} />
-      )}
+      {mobileOpen &&
+      <div className="fixed inset-0 bg-black/40 z-40 lg:hidden" onClick={() => setMobileOpen(false)} />
+      }
 
       {/* Sidebar */}
       <aside className={`
@@ -34,33 +34,33 @@ export default function Layout() {
             <Flower2 className="w-6 h-6 text-sidebar-primary" />
           </div>
           <div>
-            <h1 className="text-lg font-semibold tracking-tight">FloraBase</h1>
+            <h1 className="text-lg font-semibold tracking-tight">Flores da Terra
+</h1>
             <p className="text-xs text-sidebar-foreground/50">Gestão de Estufas</p>
           </div>
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-1">
-          {navItems.map((item) => {
-            const isActive = location.pathname === item.path;
-            const Icon = item.icon;
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                onClick={() => setMobileOpen(false)}
-                className={`
+          {navItems.map((item) => {const isActive = location.pathname === item.path;
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  onClick={() => setMobileOpen(false)}
+                  className={`
                   flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200
-                  ${isActive
-                    ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-lg shadow-sidebar-primary/25"
-                    : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
-                  }
-                `}
-              >
+                  ${isActive ?
+                  "bg-sidebar-primary text-sidebar-primary-foreground shadow-lg shadow-sidebar-primary/25" :
+                  "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"}
+                `
+                  }>
+                  
                 <Icon className="w-4.5 h-4.5" />
                 {item.label}
-              </Link>
-            );
-          })}
+              </Link>);
+
+            })}
         </nav>
 
         <div className="px-4 py-4 border-t border-sidebar-border">
@@ -86,6 +86,6 @@ export default function Layout() {
           <Outlet />
         </main>
       </div>
-    </div>
-  );
+    </div>);
+
 }
