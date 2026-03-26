@@ -65,9 +65,9 @@ export default function NotaFiscalDialog({ open, onClose, onSaved }) {
       
       let prompt = "";
       if (isMudaFlor) {
-        prompt = `Extraia variedades e quantidades desta nota fiscal Muda Flor.\n\nPadrão: "MUDAS DE CRISANTEMO NOME (COD) COM RAIZ". Extraia o NOME entre "MUDAS DE CRISANTEMO " e " (".\nEx: "MUDAS DE CRISANTEMO ABBEY (DLFABB12)" → nome="ABBEY".\n\nQuantidade em coluna "QUANT" formato "1.000,0000". Remova últimos 4 zeros, converta para inteiro.\nEx: "1.000,0000"=1000, "500,0000"=500.\n\nRetorne apenas itens que seguem o padrão, com variedade e quantidade.`;
+        prompt = `Extraia variedades e quantidades deste PDF da Muda Flor. Pode ter MÚLTIPLAS NOTAS - extraia de TODAS.\n\nPadrão: "MUDAS DE CRISANTEMO NOME (COD) COM RAIZ". Extraia o NOME entre "MUDAS DE CRISANTEMO " e " (".\nEx: "MUDAS DE CRISANTEMO ABBEY (DLFABB12)" → nome="ABBEY".\n\nQuantidade em coluna "QUANT" formato "1.000,0000". Remova últimos 4 zeros, converta para inteiro.\nEx: "1.000,0000"=1000, "500,0000"=500.\n\nCombine todos os itens de TODAS as notas. Retorne apenas itens que seguem o padrão, com variedade e quantidade.`;
       } else {
-        prompt = `Extraia variedades e quantidades desta nota fiscal de mudas.\n\nPadrão: "MUDAS CRIS. NOME C/ RAIZ". Extraia o NOME entre "MUDAS CRIS." e "C/ RAIZ".\nEx: "MUDAS CRIS. CALIMERO PINK C/ RAIZ" → nome="CALIMERO PINK".\n\nQuantidade em coluna "QUANT" formato "1,000" (vírgula=milhar). Converta para inteiro.\nEx: "1,000"=1000, "500"=500.\n\nRetorne apenas itens que seguem o padrão, com variedade e quantidade.`;
+        prompt = `Extraia variedades e quantidades deste PDF. Pode ter MÚLTIPLAS NOTAS - extraia de TODAS.\n\nPadrão: "MUDAS CRIS. NOME C/ RAIZ". Extraia o NOME entre "MUDAS CRIS." e "C/ RAIZ".\nEx: "MUDAS CRIS. CALIMERO PINK C/ RAIZ" → nome="CALIMERO PINK".\n\nQuantidade em coluna "QUANT" formato "1,000" (vírgula=milhar). Converta para inteiro.\nEx: "1,000"=1000, "500"=500.\n\nCombine todos os itens de TODAS as notas. Retorne apenas itens que seguem o padrão, com variedade e quantidade.`;
       }
       
       const result = await base44.integrations.Core.InvokeLLM({
