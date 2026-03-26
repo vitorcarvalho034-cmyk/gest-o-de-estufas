@@ -3,7 +3,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { FileText, Loader2, Plus, Trash2, CheckCircle2, PackageOpen } from "lucide-react";
+import { FileText, Loader2, Plus, Trash2, CheckCircle2, PackageOpen, Printer } from "lucide-react";
+import { printCroqui } from "./CroquiPrint";
 import { base44 } from "@/api/base44Client";
 import { toast } from "sonner";
 import moment from "moment";
@@ -300,7 +301,14 @@ Retorne a lista de variedades com suas quantidades.`,
               </Button>
             </>
           )}
-          {step === "done" && <Button onClick={handleClose}>Fecher</Button>}
+          {step === "done" && (
+          <div className="flex gap-2 w-full">
+            <Button variant="outline" className="flex-1" onClick={() => printCroqui(items, dataPlantio)}>
+              <Printer className="w-4 h-4 mr-1" /> Imprimir Croqui
+            </Button>
+            <Button className="flex-1" onClick={handleClose}>Fechar</Button>
+          </div>
+        )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
