@@ -39,16 +39,32 @@ export default function NotaFiscalDialog({ open, onClose, onSaved }) {
     setStep("extracting");
 
     const aggregated = {};
-    for (const file of validFiles) {
+    for (let fileIdx = 0; fileIdx < validFiles.length; fileIdx++) {
+      const file = validFiles[fileIdx];
       const { file_url } = await base44.integrations.Core.UploadFile({ file });
-      const result = await base44.integrations.Core.InvokeLLM({
-        prompt: `Esta é uma nota fiscal de mudas. Extraia todas as variedades e quantidades seguindo estas regras:
+      
+      // Determinar fornecedor por posição: 0=Terra Viva, 1=Muda Flor, 2=Brasil Flor
+      const fornecedor = ["Terra Viva", "Muda Flor", "Brasil Flor"][fileIdx] || "Terra Viva";
+      const isMudaFlor = fornecedor === "Muda Flor";
+      
+      const prompt = isMudaFlor 
+        ? `Esta é uma nota fiscal da Muda Flor de mudas. Extraia todas as variedades e quantidades seguindo estas regras:
+
+1. O nome do produto aparece no formato "MUDAS DE CRISANTEMO NOME_DA_VARIEDADE (CODIGOALGUM) COM RAIZ...". Extraia APENAS o que está entre "MUDAS DE CRISANTEMO " e " (" como nome da variedade. Exemplo: "MUDAS DE CRISANTEMO ABBEY (DLFABB12) COM RAIZ" → variedade = "ABBEY".
+2. A quantidade está na coluna "QUANT" no formato "1.000,0000". Remova os últimos 4 zeros após a vírgula e converta para número inteiro: "1.000,0000" = 1000, "500,0000" = 500.
+3. Ignore qualquer item que não siga o padrão "MUDAS DE CRISANTEMO".
+
+Retorne a lista de variedades com suas quantidades.`
+        : `Esta é uma nota fiscal de mudas. Extraia todas as variedades e quantidades seguindo estas regras:
 
 1. O nome do produto aparece no formato "MUDAS CRIS. NOME_DA_VARIEDADE C/ RAIZ". Extraia APENAS o que está entre "MUDAS CRIS." e "C/ RAIZ" como nome da variedade. Exemplo: "MUDAS CRIS. CALIMERO PINK C/ RAIZ" → variedade = "CALIMERO PINK".
 2. A quantidade está na coluna "QUANT" no formato "1,000" onde a vírgula é separador de milhar. Converta para número inteiro: "1,000" = 1000, "500" = 500.
 3. Ignore qualquer item que não siga o padrão "MUDAS CRIS.".
 
-Retorne a lista de variedades com suas quantidades.`,
+Retorne a lista de variedades com suas quantidades.`;
+      
+      const result = await base44.integrations.Core.InvokeLLM({
+        prompt,
         file_urls: [file_url],
         response_json_schema: {
           type: "object",
