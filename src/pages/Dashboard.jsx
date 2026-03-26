@@ -28,10 +28,11 @@ export default function Dashboard() {
   const [stats, setStats] = useState({
     totalMudas: 0,
     totalCestos: 0,
-    totalPressas: 0,
+    totalHastes: 0,
     totalDescartes: 0,
     canteirosAtivos: 0,
   });
+  const [estufaStats, setEstufaStats] = useState({});
   const [alertas, setAlertas] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -47,8 +48,23 @@ export default function Dashboard() {
       const totalMudas = canteiros.reduce((sum, c) => sum + (c.total_mudas || 0), 0);
       const canteirosAtivos = canteiros.filter((c) => (c.total_mudas || 0) > 0).length;
       const totalCestos = colheitas.reduce((sum, c) => sum + (c.cestos || 0), 0);
-      const totalPressas = colheitas.reduce((sum, c) => sum + (c.pressas || 0), 0);
+      const totalHastes = colheitas.reduce((sum, c) => sum + (c.pressas || 0), 0);
       const totalDescartes = descartes.reduce((sum, d) => sum + (d.quantidade || 0), 0);
+
+      // Per-estufa stats
+      const estufaMap = {};
+      for (let e = 1; e <= 4; e++) {
+        const ec = canteiros.filter((c) => c.estufa === e);
+        const totalC = ec.length;
+        const ativosC = ec.filter((c) => (c.total_mudas || 0) > 0).length;
+        const mudas = ec.reduce((s, c) => s + (c.total_mudas || 0), 0);
+        const cestos = colheitas.filter((c) => c.estufa === e).reduce((s, c) => s + (c.cestos || 0), 0);
+        const hastes = colheitas.filter((c) => c.estufa === e).reduce((s, c) => s + (c.pressas || 0), 0);
+        const desc = descartes.filter((d) => d.estufa === e).reduce((s, d) => s + (d.quantidade || 0), 0);
+        const ocupacao = totalC > 0 ? Math.round((ativosC / totalC) * 100) : 0;
+        estufaMap[e] = { totalC, ativosC, mudas, cestos, hastes, desc, ocupacao };
+      }
+      setEstufaStats(estufaMap);
 
       // Alertas de corte de luz: plantios com >= 25 dias sem colheita registrada
       const hoje = moment();
@@ -69,7 +85,7 @@ export default function Dashboard() {
       });
       alertasCorte.sort((a, b) => b.dias - a.dias);
 
-      setStats({ totalMudas, totalCestos, totalPressas, totalDescartes, canteirosAtivos });
+      setStats({ totalMudas, totalCestos, totalHastes, totalDescartes, canteirosAtivos });
       setAlertas(alertasCorte);
       setLoading(false);
     }
@@ -137,7 +153,7 @@ export default function Dashboard() {
           icon={Scissors}
           label="Cestos Colhidos"
           value={stats.totalCestos.toLocaleString("pt-BR")}
-          subtitle={`${stats.totalPressas.toLocaleString("pt-BR")} pressas`}
+          subtitle={`${stats.totalHastes.toLocaleString("pt-BR")} hastes`}
           color="bg-accent/20 text-accent-foreground"
         />
         <StatCard
@@ -158,29 +174,70 @@ export default function Dashboard() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Estrutura das Estufas</CardTitle>
+          <CardTitle className="text-lg flex items-center gap-2"><Warehouse className="w-5 h-5 text-primary" /> Estrutura das Estufas</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {[1, 2, 3, 4].map((estufa) => (
-              <div key={estufa} className="rounded-xl border border-border p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Warehouse className="w-4 h-4 text-primary" />
-                    <span className="font-semibold">Estufa {estufa}</span>
-                  </div>
-                  <span className="text-xs text-muted-foreground font-medium">{TOTAL_VAOS[estufa]} vãos</span>
-                </div>
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  {["A", "B"].map((lado) => (
-                    <div key={lado} className="bg-muted rounded-lg p-2 text-center">
-                      <p className="font-medium">Lado {lado}</p>
-                      <p className="text-muted-foreground">{TOTAL_VAOS[estufa] / 2} vãos</p>
+            {[1, 2, 3, 4].map((estufa) => {
+              const s = estufaStats[estufa] || {};
+              const ocupacao = s.ocupacao || 0;
+              return (
+                <div key={estufa} className="rounded-xl border border-border p-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Warehouse className="w-4 h-4 text-primary" />
+                      <span className="font-bold text-base">Estufa {estufa}</span>
                     </div>
-                  ))}
+                    <span className="text-xs bg-primary/10 text-primary font-semibold px-2 py-0.5 rounded-full">{TOTAL_VAOS[estufa]} vãos</span>
+                  </div>
+
+                  {/* Ocupação */}
+                  <div>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="text-muted-foreground">Ocupação</span>
+                      <span className="font-semibold">{ocupacao}%</span>
+                    </div>
+                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{ width: `${ocupacao}%`, background: ocupacao > 80 ? 'hsl(var(--destructive))' : ocupacao > 50 ? 'hsl(var(--accent))' : 'hsl(var(--primary))' }}
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">{s.ativosC || 0} / {s.totalC || 0} canteiros com mudas</p>
+                  </div>
+
+                  {/* Métricas */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="bg-muted/40 rounded-lg p-2 text-center">
+                      <p className="text-lg font-bold text-primary">{(s.mudas || 0).toLocaleString("pt-BR")}</p>
+                      <p className="text-[10px] text-muted-foreground">mudas</p>
+                    </div>
+                    <div className="bg-muted/40 rounded-lg p-2 text-center">
+                      <p className="text-lg font-bold text-chart-2">{s.cestos || 0}</p>
+                      <p className="text-[10px] text-muted-foreground">cestos colhidos</p>
+                    </div>
+                    <div className="bg-muted/40 rounded-lg p-2 text-center">
+                      <p className="text-lg font-bold text-chart-3">{s.hastes || 0}</p>
+                      <p className="text-[10px] text-muted-foreground">hastes</p>
+                    </div>
+                    <div className="bg-muted/40 rounded-lg p-2 text-center">
+                      <p className="text-lg font-bold text-destructive">{s.desc || 0}</p>
+                      <p className="text-[10px] text-muted-foreground">descartadas</p>
+                    </div>
+                  </div>
+
+                  {/* Lados */}
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    {["A", "B"].map((lado) => (
+                      <div key={lado} className="bg-muted/30 border border-border/50 rounded-lg p-2 text-center">
+                        <p className="font-semibold">Lado {lado}</p>
+                        <p className="text-muted-foreground">{TOTAL_VAOS[estufa] / 2} vãos</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </CardContent>
       </Card>
