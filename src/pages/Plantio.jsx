@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Sprout, Plus, LayoutGrid, FileUp } from "lucide-react";
+import { Sprout, Plus, LayoutGrid, FileUp, FileDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,6 +32,26 @@ export default function Plantio() {
     quantidade: "",
     data_plantio: new Date().toISOString().split("T")[0],
   });
+
+  async function exportCSV() {
+    const canteiros = await base44.entities.Canteiro.list();
+    const totais = {};
+    for (const c of canteiros) {
+      for (const v of (c.variedades || [])) {
+        totais[v.nome] = (totais[v.nome] || 0) + v.quantidade;
+      }
+    }
+    const linhas = [["variedade", "quantidade"], ...Object.entries(totais)];
+    const csv = linhas.map((r) => r.join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `variedades_${new Date().toISOString().split("T")[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("CSV exportado!");
+  }
 
   async function loadPlantios() {
     const data = await base44.entities.Plantio.list("-created_date", 50);
@@ -116,6 +136,9 @@ export default function Plantio() {
           <p className="text-muted-foreground">Registre novos plantios nos canteiros</p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={exportCSV} className="gap-2">
+            <FileDown className="w-4 h-4" /> Exportar Variedades
+          </Button>
           <Button variant="outline" onClick={() => setCsvDialogOpen(true)} className="gap-2">
             <FileUp className="w-4 h-4" /> Importar CSV
           </Button>
