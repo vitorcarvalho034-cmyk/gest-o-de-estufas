@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Sprout, Plus } from "lucide-react";
+import { Sprout, Plus, LayoutGrid } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import LocationSelect from "../components/LocationSelect";
+import PlantioVaoDialog from "../components/PlantioVaoDialog";
 import { toast } from "sonner";
 import moment from "moment";
 
@@ -19,6 +20,7 @@ export default function Plantio() {
   const [plantios, setPlantios] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [vaoDialogOpen, setVaoDialogOpen] = useState(false);
   const [form, setForm] = useState({
     estufa: null,
     lado: "",
@@ -111,9 +113,14 @@ export default function Plantio() {
           </div>
           <p className="text-muted-foreground">Registre novos plantios nos canteiros</p>
         </div>
-        <Button onClick={() => setDialogOpen(true)} className="gap-2">
-          <Plus className="w-4 h-4" /> Novo Plantio
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setVaoDialogOpen(true)} className="gap-2">
+            <LayoutGrid className="w-4 h-4" /> Plantio por Vão
+          </Button>
+          <Button onClick={() => setDialogOpen(true)} className="gap-2">
+            <Plus className="w-4 h-4" /> Unitário
+          </Button>
+        </div>
       </div>
 
       <Card>
@@ -201,6 +208,12 @@ export default function Plantio() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <PlantioVaoDialog
+        open={vaoDialogOpen}
+        onClose={() => setVaoDialogOpen(false)}
+        onSaved={loadPlantios}
+      />
     </div>
   );
 }
