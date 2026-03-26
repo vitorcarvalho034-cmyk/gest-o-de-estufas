@@ -126,6 +126,36 @@ export default function Dashboard() {
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          icon={Sprout}
+          label="Total de Mudas"
+          value={stats.totalMudas.toLocaleString("pt-BR")}
+          subtitle={`${stats.canteirosAtivos} vãos ativos`}
+          color="bg-primary/10 text-primary"
+        />
+        <StatCard
+          icon={Scissors}
+          label="Cestos Colhidos"
+          value={stats.totalCestos.toLocaleString("pt-BR")}
+          subtitle={`${stats.totalPressas.toLocaleString("pt-BR")} pressas`}
+          color="bg-accent/20 text-accent-foreground"
+        />
+        <StatCard
+          icon={Trash2}
+          label="Descartes"
+          value={stats.totalDescartes.toLocaleString("pt-BR")}
+          subtitle="mudas descartadas"
+          color="bg-destructive/10 text-destructive"
+        />
+        <StatCard
+          icon={Warehouse}
+          label="Estufas"
+          value="4"
+          subtitle="120 vãos"
+          color="bg-chart-3/10 text-chart-3"
+        />
+      </div>
+
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Estrutura das Estufas</CardTitle>
