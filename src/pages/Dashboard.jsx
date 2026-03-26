@@ -55,14 +55,14 @@ export default function Dashboard() {
       const estufaMap = {};
       for (let e = 1; e <= 4; e++) {
         const ec = canteiros.filter((c) => c.estufa === e);
-        const totalC = ec.length;
-        const ativosC = ec.filter((c) => (c.total_mudas || 0) > 0).length;
+        const totalVaos = TOTAL_VAOS[e] * 2; // cada vão tem lado A e B
+        const vaosComMudas = new Set(ec.filter((c) => (c.total_mudas || 0) > 0).map((c) => `${c.vao}-${c.lado}`)).size;
         const mudas = ec.reduce((s, c) => s + (c.total_mudas || 0), 0);
         const cestos = colheitas.filter((c) => c.estufa === e).reduce((s, c) => s + (c.cestos || 0), 0);
         const hastes = colheitas.filter((c) => c.estufa === e).reduce((s, c) => s + (c.pressas || 0), 0);
         const desc = descartes.filter((d) => d.estufa === e).reduce((s, d) => s + (d.quantidade || 0), 0);
-        const ocupacao = totalC > 0 ? Math.round((ativosC / totalC) * 100) : 0;
-        estufaMap[e] = { totalC, ativosC, mudas, cestos, hastes, desc, ocupacao };
+        const ocupacao = totalVaos > 0 ? Math.round((vaosComMudas / totalVaos) * 100) : 0;
+        estufaMap[e] = { totalVaos, vaosComMudas, mudas, cestos, hastes, desc, ocupacao };
       }
       setEstufaStats(estufaMap);
 
@@ -203,7 +203,7 @@ export default function Dashboard() {
                         style={{ width: `${ocupacao}%`, background: ocupacao > 80 ? 'hsl(var(--destructive))' : ocupacao > 50 ? 'hsl(var(--accent))' : 'hsl(var(--primary))' }}
                       />
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1">{s.ativosC || 0} / {s.totalC || 0} canteiros com mudas</p>
+                    <p className="text-xs text-muted-foreground mt-1">{s.vaosComMudas || 0} / {s.totalVaos || 0} vãos ocupados</p>
                   </div>
 
                   {/* Métricas */}
