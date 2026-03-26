@@ -183,23 +183,24 @@ export function printCroqui(items, dataPlantio) {
   <meta charset="utf-8"/>
   <title>Croqui de Endereçamento</title>
   <style>
+    @page { size: A4 landscape; margin: 6mm; }
     @media print { body { margin: 0; } }
-    body { font-family: Arial, sans-serif; font-size: 10px; background: #fff; padding: 12px; }
-    .title { font-size: 14px; font-weight: bold; text-align: center; margin-bottom: 12px; }
-    .sub { text-align: center; font-size: 10px; margin-bottom: 16px; color: #555; }
-    table { border-collapse: collapse; width: 100%; table-layout: fixed; margin-bottom: 24px; page-break-inside: avoid; }
-    td { border: 1px solid #555; font-size: 8px; }
-    .estufa-label { background: #c6efce; text-align: center; width: 24px; writing-mode: vertical-rl; font-weight: bold; font-size: 9px; }
+    body { font-family: Arial, sans-serif; font-size: 8px; background: #fff; padding: 6px; }
+    .title { font-size: 11px; font-weight: bold; text-align: center; margin-bottom: 4px; }
+    .sub { text-align: center; font-size: 8px; margin-bottom: 8px; color: #555; }
+    table { border-collapse: collapse; width: 100%; table-layout: fixed; margin-bottom: 10px; page-break-inside: avoid; }
+    td { border: 1px solid #555; font-size: 7px; }
+    .estufa-label { background: #c6efce; text-align: center; width: 16px; writing-mode: vertical-rl; font-weight: bold; font-size: 8px; padding: 0; }
     .estufa-label-inner { transform: rotate(180deg); display: block; }
-    .sem-header { background: #d9e1f2; text-align: center; font-weight: bold; padding: 4px; font-size: 11px; }
-    .vao-header { background: #d9e1f2; text-align: center; font-weight: bold; padding: 2px; font-size: 9px; }
-    .lado-label { background: #ffeb9c; text-align: center; width: 16px; padding: 1px; }
-    .lado-text { font-weight: bold; font-size: 8px; color: #c00; text-align: center; line-height: 1.4; }
-    .c-label { text-align: center; font-size: 8px; padding: 1px; background: #f2f2f2; }
-    .cell { height: 85px; width: 20px; vertical-align: middle; padding: 1px; }
-    .cell-inner { display: flex; justify-content: center; align-items: center; height: 100%; gap: 2px; }
-    .rotated { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 8px; white-space: nowrap; text-align: center; line-height: 1.2; }
-    .sep-row td { height: 5px; border-top: 2px solid #333 !important; background: #eee; }
+    .sem-header { background: #d9e1f2; text-align: center; font-weight: bold; padding: 2px; font-size: 9px; }
+    .vao-header { background: #d9e1f2; text-align: center; font-weight: bold; padding: 1px; font-size: 7px; }
+    .lado-label { background: #ffeb9c; text-align: center; width: 12px; padding: 0; }
+    .lado-text { font-weight: bold; font-size: 7px; color: #c00; text-align: center; line-height: 1.2; }
+    .c-label { text-align: center; font-size: 6px; padding: 0px; background: #f2f2f2; height: 8px; }
+    .cell { height: 55px; width: 18px; vertical-align: middle; padding: 1px; }
+    .cell-inner { display: flex; justify-content: center; align-items: center; height: 100%; gap: 1px; }
+    .rotated { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 7px; white-space: nowrap; text-align: center; line-height: 1.1; }
+    .sep-row td { height: 3px; border-top: 2px solid #333 !important; background: #ddd; }
   </style>
 </head>
 <body>
