@@ -13,6 +13,7 @@ import Colheita from './pages/Colheita';
 import Descarte from './pages/Descarte';
 import PrevisaoColheita from './pages/PrevisaoColheita';
 import Produtividade from './pages/Produtividade';
+import Historico from './pages/Historico';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -48,6 +49,7 @@ const AuthenticatedApp = () => {
         <Route path="/descarte" element={<Descarte />} />
         <Route path="/previsao" element={<PrevisaoColheita />} />
         <Route path="/produtividade" element={<Produtividade />} />
+        <Route path="/historico" element={<Historico />} />
         <Route path="*" element={<PageNotFound />} />
       </Route>
     </Routes>

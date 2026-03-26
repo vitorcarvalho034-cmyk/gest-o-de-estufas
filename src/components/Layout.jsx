@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation } from "react-router-dom";
-import { Flower2, LayoutDashboard, Warehouse, Sprout, Scissors, Trash2, BarChart3, CalendarClock, Menu, X } from "lucide-react";
+import { Flower2, LayoutDashboard, Warehouse, Sprout, Scissors, Trash2, BarChart3, CalendarClock, Menu, X, History } from "lucide-react";
 import { useState } from "react";
 
 const navItems = [
@@ -9,7 +9,8 @@ const navItems = [
 { path: "/colheita", label: "Colheita", icon: Scissors },
 { path: "/descarte", label: "Descarte", icon: Trash2 },
 { path: "/previsao", label: "Previsão", icon: CalendarClock },
-{ path: "/produtividade", label: "Produtividade", icon: BarChart3 }];
+{ path: "/produtividade", label: "Produtividade", icon: BarChart3 },
+{ path: "/historico", label: "Histórico", icon: History }];
 
 
 export default function Layout() {
