@@ -18,6 +18,7 @@ function getWeekNumber(date) {
 export default function NotaFiscalDialog({ open, onClose, onSaved }) {
   const [step, setStep] = useState("upload");
   const [files, setFiles] = useState([null, null, null]);
+  const [fornecedores, setFornecedores] = useState(["", "", ""]); // Fornecedor de cada arquivo
   const [dataPlantio, setDataPlantio] = useState(new Date().toISOString().split("T")[0]);
   const [items, setItems] = useState([]); // [{variedade, total, remaining, allocations:[{estufa,lado,vao,canteiro,quantidade}]}]
   const [loading, setLoading] = useState(false);
@@ -32,19 +33,34 @@ export default function NotaFiscalDialog({ open, onClose, onSaved }) {
     setFiles(copy);
   }
 
+  function handleFornecedorChange(i, fornecedor) {
+    const copy = [...fornecedores];
+    copy[i] = fornecedor;
+    setFornecedores(copy);
+  }
+
   async function handleExtract() {
     const validFiles = files.filter(Boolean);
     if (validFiles.length === 0) { toast.error("Adicione pelo menos uma nota fiscal"); return; }
+    
+    // Validar que cada arquivo tem fornecedor selecionado
+    for (let i = 0; i < files.length; i++) {
+      if (files[i] && !fornecedores[i]) {
+        toast.error(`Selecione o fornecedor para a nota fiscal ${i + 1}`);
+        return;
+      }
+    }
+    
     setLoading(true);
     setStep("extracting");
 
     const aggregated = {};
-    for (let fileIdx = 0; fileIdx < validFiles.length; fileIdx++) {
-      const file = validFiles[fileIdx];
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+    for (let fileIdx = 0; fileIdx < files.length; fileIdx++) {
+      const file = files[fileIdx];
+      if (!file) continue;
       
-      // Determinar fornecedor por posição: 0=Terra Viva, 1=Muda Flor, 2=Brasil Flor
-      const fornecedor = ["Terra Viva", "Muda Flor", "Brasil Flor"][fileIdx] || "Terra Viva";
+      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      const fornecedor = fornecedores[fileIdx];
       const isMudaFlor = fornecedor === "Muda Flor";
       
       const prompt = isMudaFlor 
@@ -173,6 +189,7 @@ Retorne a lista de variedades com suas quantidades.`;
   function handleClose() {
     setStep("upload");
     setFiles([null, null, null]);
+    setFornecedores(["", "", ""]);
     setItems([]);
     setAllocForm({ variedadeIdx: null, estufa: "", lado: "", vao: "", canteiro: "", quantidade: "" });
     onClose();
@@ -198,9 +215,19 @@ Retorne a lista de variedades com suas quantidades.`;
             <p className="text-sm text-muted-foreground">Envie até 3 notas fiscais — a IA lê e agrupa todas as variedades e quantidades.</p>
             <div className="grid gap-3">
               {[0, 1, 2].map((i) => (
-                <div key={i} className="space-y-1">
+                <div key={i} className="space-y-1.5">
                   <Label className="text-xs">Nota Fiscal {i + 1}{i === 0 ? " *" : " (opcional)"}</Label>
                   <Input type="file" accept="image/*,.pdf" onChange={(e) => handleFileChange(i, e.target.files[0])} />
+                  {files[i] && (
+                    <Select value={fornecedores[i]} onValueChange={(v) => handleFornecedorChange(i, v)}>
+                      <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione o fornecedor..." /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Terra Viva">Terra Viva</SelectItem>
+                        <SelectItem value="Muda Flor">Muda Flor</SelectItem>
+                        <SelectItem value="Brasil Flor">Brasil Flor</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
               ))}
             </div>
