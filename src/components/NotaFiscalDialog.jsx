@@ -63,21 +63,12 @@ export default function NotaFiscalDialog({ open, onClose, onSaved }) {
       const fornecedor = fornecedores[fileIdx];
       const isMudaFlor = fornecedor === "Muda Flor";
       
-      const prompt = isMudaFlor 
-        ? `Esta é uma nota fiscal da Muda Flor de mudas. Extraia todas as variedades e quantidades seguindo estas regras:
-
-1. O nome do produto aparece no formato "MUDAS DE CRISANTEMO NOME_DA_VARIEDADE (CODIGOALGUM) COM RAIZ...". Extraia APENAS o que está entre "MUDAS DE CRISANTEMO " e " (" como nome da variedade. Exemplo: "MUDAS DE CRISANTEMO ABBEY (DLFABB12) COM RAIZ" → variedade = "ABBEY".
-2. A quantidade está na coluna "QUANT" no formato "1.000,0000". Remova os últimos 4 zeros após a vírgula e converta para número inteiro: "1.000,0000" = 1000, "500,0000" = 500.
-3. Ignore qualquer item que não siga o padrão "MUDAS DE CRISANTEMO".
-
-Retorne a lista de variedades com suas quantidades.`
-        : `Esta é uma nota fiscal de mudas. Extraia todas as variedades e quantidades seguindo estas regras:
-
-1. O nome do produto aparece no formato "MUDAS CRIS. NOME_DA_VARIEDADE C/ RAIZ". Extraia APENAS o que está entre "MUDAS CRIS." e "C/ RAIZ" como nome da variedade. Exemplo: "MUDAS CRIS. CALIMERO PINK C/ RAIZ" → variedade = "CALIMERO PINK".
-2. A quantidade está na coluna "QUANT" no formato "1,000" onde a vírgula é separador de milhar. Converta para número inteiro: "1,000" = 1000, "500" = 500.
-3. Ignore qualquer item que não siga o padrão "MUDAS CRIS.".
-
-Retorne a lista de variedades com suas quantidades.`;
+      let prompt = "";
+      if (isMudaFlor) {
+        prompt = `Extraia variedades e quantidades desta nota fiscal Muda Flor.\n\nPadrão: "MUDAS DE CRISANTEMO NOME (COD) COM RAIZ". Extraia o NOME entre "MUDAS DE CRISANTEMO " e " (".\nEx: "MUDAS DE CRISANTEMO ABBEY (DLFABB12)" → nome="ABBEY".\n\nQuantidade em coluna "QUANT" formato "1.000,0000". Remova últimos 4 zeros, converta para inteiro.\nEx: "1.000,0000"=1000, "500,0000"=500.\n\nRetorne apenas itens que seguem o padrão, com variedade e quantidade.`;
+      } else {
+        prompt = `Extraia variedades e quantidades desta nota fiscal de mudas.\n\nPadrão: "MUDAS CRIS. NOME C/ RAIZ". Extraia o NOME entre "MUDAS CRIS." e "C/ RAIZ".\nEx: "MUDAS CRIS. CALIMERO PINK C/ RAIZ" → nome="CALIMERO PINK".\n\nQuantidade em coluna "QUANT" formato "1,000" (vírgula=milhar). Converta para inteiro.\nEx: "1,000"=1000, "500"=500.\n\nRetorne apenas itens que seguem o padrão, com variedade e quantidade.`;
+      }
       
       const result = await base44.integrations.Core.InvokeLLM({
         prompt,
