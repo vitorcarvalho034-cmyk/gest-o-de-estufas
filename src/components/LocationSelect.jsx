@@ -1,4 +1,5 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { getVaosArray } from "@/lib/estufasConfig";
 import { Label } from "@/components/ui/label";
 
 export default function LocationSelect({ estufa, lado, canteiro, onChange, required = true }) {
@@ -26,12 +27,12 @@ export default function LocationSelect({ estufa, lado, canteiro, onChange, requi
         </Select>
       </div>
       <div className="space-y-1.5">
-        <Label className="text-xs">Canteiro {required && "*"}</Label>
+        <Label className="text-xs">Vão {required && "*"}</Label>
         <Select value={String(canteiro || "")} onValueChange={(v) => onChange("canteiro", parseInt(v))}>
-          <SelectTrigger><SelectValue placeholder="Canteiro" /></SelectTrigger>
+          <SelectTrigger><SelectValue placeholder="Vão" /></SelectTrigger>
           <SelectContent>
-            {[1, 2, 3, 4].map((n) => (
-              <SelectItem key={n} value={String(n)}>Canteiro {n}</SelectItem>
+            {getVaosArray(estufa).map((n) => (
+              <SelectItem key={n} value={String(n)}>Vão {n}</SelectItem>
             ))}
           </SelectContent>
         </Select>

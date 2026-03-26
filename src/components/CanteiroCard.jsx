@@ -11,7 +11,7 @@ export default function CanteiroCard({ canteiro, onClick }) {
       className="w-full text-left rounded-xl border border-border bg-card p-4 hover:shadow-md hover:border-primary/30 transition-all duration-200 group"
     >
       <div className="flex items-center justify-between mb-3">
-        <span className="text-sm font-semibold">Canteiro {canteiro.numero}</span>
+        <span className="text-sm font-semibold">Vão {canteiro.numero}</span>
         <span className="text-xs text-muted-foreground">{totalMudas}/2000</span>
       </div>
 

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Warehouse } from "lucide-react";
+import { TOTAL_VAOS } from "@/lib/estufasConfig";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import CanteiroCard from "../components/CanteiroCard";
 import CanteiroDialog from "../components/CanteiroDialog";
@@ -47,7 +48,7 @@ export default function Estufas() {
           <Warehouse className="w-8 h-8 text-primary" />
           <h1 className="text-3xl font-bold tracking-tight">Estufas</h1>
         </div>
-        <p className="text-muted-foreground">Gerencie os canteiros de cada estufa</p>
+        <p className="text-muted-foreground">Gerencie os vãos de cada estufa</p>
       </div>
 
       <Tabs defaultValue="1">
@@ -66,13 +67,13 @@ export default function Estufas() {
                     <div className={`w-3 h-3 rounded-full ${lado === "A" ? "bg-primary" : "bg-accent"}`} />
                     Lado {lado}
                   </h3>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                     {getCanteiros(estufa, lado).map((canteiro) => (
                       <CanteiroCard key={canteiro.id} canteiro={canteiro} onClick={openEdit} />
                     ))}
                     {getCanteiros(estufa, lado).length === 0 && (
                       <p className="text-sm text-muted-foreground col-span-2 italic">
-                        Nenhum canteiro encontrado
+                        Nenhum vão encontrado
                       </p>
                     )}
                   </div>
