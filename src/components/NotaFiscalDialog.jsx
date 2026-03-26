@@ -66,7 +66,13 @@ export default function NotaFiscalDialog({ open, onClose, onSaved }) {
     setStep("extracting");
     const { file_url } = await base44.integrations.Core.UploadFile({ file });
     const result = await base44.integrations.Core.InvokeLLM({
-      prompt: `Esta é uma nota fiscal de mudas/plantas. Extraia todas as variedades de flores/plantas e suas respectivas quantidades (número de mudas). Retorne apenas os itens que são claramente mudas ou plantas. Ignore itens como embalagens, fretes, etc.`,
+      prompt: `Esta é uma nota fiscal de mudas. Extraia todas as variedades e quantidades seguindo estas regras:
+
+1. O nome do produto aparece no formato "MUDAS CRIS. NOME_DA_VARIEDADE C/ RAIZ". Extraia APENAS o que está entre "MUDAS CRIS." e "C/ RAIZ" como nome da variedade. Exemplo: "MUDAS CRIS. CALIMERO PINK C/ RAIZ" → variedade = "CALIMERO PINK".
+2. A quantidade está na coluna "QUANT" no formato "1,000" onde a vírgula é separador de milhar. Converta para número inteiro: "1,000" = 1000, "500" = 500.
+3. Ignore qualquer item que não siga o padrão "MUDAS CRIS.".
+
+Retorne a lista de variedades com suas quantidades.`,
       file_urls: [file_url],
       response_json_schema: {
         type: "object",
