@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Warehouse, Plus } from "lucide-react";
+import { Warehouse } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ESTUFA_VAOS, TOTAL_VAOS } from "@/lib/estufasConfig";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -11,15 +12,15 @@ const CANTEIRO_EMPTY = "bg-muted/40 border-border hover:bg-muted/70 text-muted-f
 const CANTEIRO_PARTIAL = "bg-primary/5 border-primary/20 hover:bg-primary/10";
 const CANTEIRO_FULL = "bg-primary/20 border-primary/40 hover:bg-primary/30";
 
-function MiniCanteiro({ canteiro, onClick, estufa, lado, vao, numero }) {
+function MiniCanteiro({ canteiro, onClick, numero }) {
   const mudas = canteiro?.total_mudas || 0;
   const pct = Math.min((mudas / 2000) * 100, 100);
   const colorClass = !canteiro ? CANTEIRO_EMPTY : pct >= 80 ? CANTEIRO_FULL : CANTEIRO_PARTIAL;
+  const variedades = canteiro?.variedades || [];
 
-  return (
+  const btn = (
     <button
       onClick={() => canteiro && onClick(canteiro)}
-      title={canteiro ? `Cant. ${numero} — ${mudas} mudas` : `Cant. ${numero} — vazio`}
       className={`relative w-full h-10 rounded border text-xs font-medium transition-all ${colorClass} overflow-hidden`}
     >
       {pct > 0 && (
@@ -30,6 +31,20 @@ function MiniCanteiro({ canteiro, onClick, estufa, lado, vao, numero }) {
       )}
       <span className="relative z-10 text-[10px]">{numero}</span>
     </button>
+  );
+
+  if (!canteiro || variedades.length === 0) return btn;
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{btn}</TooltipTrigger>
+      <TooltipContent side="top" className="max-w-[180px]">
+        <p className="font-semibold text-xs mb-1">Canteiro {numero} — {mudas} mudas</p>
+        {variedades.map((v, i) => (
+          <p key={i} className="text-xs">{v.nome}: <span className="font-medium">{v.quantidade}</span></p>
+        ))}
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -162,8 +177,9 @@ export default function Estufas() {
                   </div>
 
                   {/* Rows */}
-                  <div className="space-y-1">
-                    {Array.from({ length: vaosPerLado }, (_, i) => i + 1).map((vao) => (
+                   <TooltipProvider delayDuration={200}>
+                   <div className="space-y-1">
+                     {Array.from({ length: vaosPerLado }, (_, i) => i + 1).map((vao) => (
                       <div key={vao} className="grid grid-cols-[1fr_40px_1fr] gap-2 items-center">
                         {/* Lado A */}
                         <div className={`grid grid-cols-4 gap-1 p-1.5 rounded-lg border ${LADO_COLORS.A}`}>
@@ -172,9 +188,6 @@ export default function Estufas() {
                               key={num}
                               canteiro={getCanteiro(estufa, "A", vao, num)}
                               onClick={openEdit}
-                              estufa={estufa}
-                              lado="A"
-                              vao={vao}
                               numero={num}
                             />
                           ))}
@@ -194,19 +207,17 @@ export default function Estufas() {
                               key={num}
                               canteiro={getCanteiro(estufa, "B", vao, num)}
                               onClick={openEdit}
-                              estufa={estufa}
-                              lado="B"
-                              vao={vao}
                               numero={num}
                             />
                           ))}
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </TabsContent>
+                        </div>
+                        ))}
+                        </div>
+                        </TooltipProvider>
+                        </div>
+                        </div>
+                        </TabsContent>
           );
         })}
       </Tabs>
