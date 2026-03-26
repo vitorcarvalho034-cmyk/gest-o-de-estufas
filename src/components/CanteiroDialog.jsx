@@ -35,7 +35,6 @@ export default function CanteiroDialog({ canteiro, open, onClose, onSaved }) {
     if (canteiro && open) {
       setShowFinalizarConfirm(false);
       setObsFinalizacao("");
-      setTab("info");
       loadData();
     }
   }, [canteiro, open]);
