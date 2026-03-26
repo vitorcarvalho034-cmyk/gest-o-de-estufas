@@ -20,8 +20,8 @@ function MiniCanteiro({ canteiro, onClick, numero, colheitas }) {
 
   const totalPressas = colheitas?.reduce((s, c) => s + (c.pressas || 0), 0) || 0;
   const totalCestos = colheitas?.reduce((s, c) => s + (c.cestos || 0), 0) || 0;
-  // Harvest % based on pressas vs expected (1 presa per ~12 mudas roughly, cap at 100%)
-  const colheitaPct = mudas > 0 ? Math.min((totalPressas / (mudas / 12)) * 100, 100) : 0;
+  // Colheita %: pressas colhidas vs mudas disponíveis
+  const colheitaPct = mudas > 0 ? Math.min((totalPressas / mudas) * 100, 100) : 0;
 
   const btn = (
     <button
@@ -36,11 +36,16 @@ function MiniCanteiro({ canteiro, onClick, numero, colheitas }) {
       )}
       {colheitaPct > 0 && (
         <div
-          className="absolute bottom-0 left-0 bg-amber-400/50 transition-all"
-          style={{ height: `${colheitaPct}%`, width: '4px' }}
+          className="absolute bottom-0 left-0 right-0 bg-amber-400/50 transition-all"
+          style={{ height: `${colheitaPct}%` }}
         />
       )}
-      <span className="relative z-10 text-[10px]">{numero}</span>
+      <div className="relative z-10 flex flex-col items-center justify-center h-full">
+        <span className="text-[10px]">{numero}</span>
+        {colheitaPct > 0 && mudas > 0 && (
+          <span className="text-[8px] font-semibold text-amber-700">{colheitaPct.toFixed(0)}%</span>
+        )}
+      </div>
     </button>
   );
 
@@ -57,10 +62,7 @@ function MiniCanteiro({ canteiro, onClick, numero, colheitas }) {
         {totalPressas > 0 && (
           <div className="mt-1.5 pt-1.5 border-t border-border">
             <p className="text-xs text-amber-600 font-medium">🌸 Colhido: {totalPressas} pressas ({totalCestos} cestos)</p>
-            <div className="mt-1 h-1.5 w-full bg-muted rounded-full overflow-hidden">
-              <div className="h-full bg-amber-400 rounded-full" style={{ width: `${colheitaPct}%` }} />
-            </div>
-            <p className="text-[10px] text-muted-foreground mt-0.5">{colheitaPct.toFixed(0)}% da capacidade colhida</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">{colheitaPct.toFixed(0)}% de {mudas} mudas</p>
           </div>
         )}
       </TooltipContent>
