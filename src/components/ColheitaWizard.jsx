@@ -209,7 +209,7 @@ function StepColheita({ form, onChange }) {
               }`}
             >
               <p className="font-semibold">{name}</p>
-              <p className={`text-xs mt-0.5 ${form.destino === name ? "opacity-70" : "text-muted-foreground"}`}>{p} pressas/cesto</p>
+              <p className={`text-xs mt-0.5 ${form.destino === name ? "opacity-70" : "text-muted-foreground"}`}>{p} hastes/cesto</p>
             </button>
           ))}
         </div>
@@ -240,7 +240,7 @@ function StepColheita({ form, onChange }) {
         <div className="bg-primary/5 border-2 border-primary/20 rounded-2xl p-5 text-center">
           <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Total</p>
           <p className="text-5xl font-black text-primary">{total.toLocaleString("pt-BR")}</p>
-          <p className="text-sm text-muted-foreground mt-1">pressas</p>
+          <p className="text-sm text-muted-foreground mt-1">hastes</p>
           <p className="text-xs text-muted-foreground mt-2">{form.cestos} cestos × {pressasPorCesto} = {total}</p>
         </div>
       )}
@@ -273,7 +273,7 @@ function StepConfirm({ form, onChange }) {
         </div>
         <div className="h-px bg-border" />
         <div className="flex items-center justify-between">
-          <span className="text-muted-foreground text-sm">Total pressas</span>
+          <span className="text-muted-foreground text-sm">Total hastes</span>
           <span className="text-2xl font-black text-primary">{total.toLocaleString("pt-BR")}</span>
         </div>
       </div>
@@ -336,7 +336,7 @@ export default function ColheitaWizard({ open, onClose, onSaved }) {
       data_colheita: form.data_colheita,
       semana: getWeekNumber(form.data_colheita),
     });
-    toast.success(`✂️ ${form.cestos} cestos registrados — ${pressas} pressas`);
+    toast.success(`✂️ ${form.cestos} cestos registrados — ${pressas} hastes`);
     setSaving(false);
     handleClose();
     onSaved();

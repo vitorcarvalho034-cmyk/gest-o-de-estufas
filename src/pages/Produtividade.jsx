@@ -140,7 +140,7 @@ export default function Produtividade() {
           <CardContent className="p-5 text-center">
             <p className="text-sm text-muted-foreground">Cestos Colhidos</p>
             <p className="text-3xl font-bold text-primary">{totalCestos.toLocaleString("pt-BR")}</p>
-            <p className="text-xs text-muted-foreground">{totalPressas.toLocaleString("pt-BR")} pressas</p>
+            <p className="text-xs text-muted-foreground">{totalPressas.toLocaleString("pt-BR")} hastes</p>
           </CardContent>
         </Card>
         <Card>
@@ -274,7 +274,7 @@ export default function Produtividade() {
                   </div>
                   <p className="text-2xl font-bold text-primary">{e.cestos}</p>
                   <p className="text-xs text-muted-foreground">cestos</p>
-                  <p className="text-xs text-muted-foreground mt-1">{e.pressas} pressas</p>
+                  <p className="text-xs text-muted-foreground mt-1">{e.pressas} hastes</p>
                   <p className="text-xs text-destructive mt-1">{e.descartes} descartes</p>
                 </CardContent>
               </Card>
@@ -309,7 +309,7 @@ export default function Produtividade() {
         <TabsContent value="mensal">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Colheita por Mês — Cestos & Pressas</CardTitle>
+              <CardTitle className="text-base">Colheita por Mês — Cestos & Hastes</CardTitle>
             </CardHeader>
             <CardContent>
               {monthLabeled.length === 0 ? (
@@ -323,7 +323,7 @@ export default function Produtividade() {
                     <Tooltip {...tooltipStyle} />
                     <Legend />
                     <Line type="monotone" dataKey="cestos" name="Cestos" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 4 }} />
-                    <Line type="monotone" dataKey="pressas" name="Pressas" stroke="hsl(var(--accent))" strokeWidth={2} dot={{ r: 4 }} />
+                    <Line type="monotone" dataKey="pressas" name="Hastes" stroke="hsl(var(--accent))" strokeWidth={2} dot={{ r: 4 }} />
                   </LineChart>
                 </ResponsiveContainer>
               )}

@@ -168,7 +168,7 @@ export default function Colheita() {
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard icon={Package} label="Cestos" value={totalCestos.toLocaleString("pt-BR")} />
-        <StatCard icon={TrendingUp} label="Pressas" value={totalPressasTotal.toLocaleString("pt-BR")} color="text-green-600" />
+        <StatCard icon={TrendingUp} label="Hastes" value={totalPressasTotal.toLocaleString("pt-BR")} color="text-green-600" />
         <StatCard icon={Target} label="Registros" value={filtradas.length} />
         <StatCard icon={Calendar} label="Hoje" value={hojeCount} sub="colheitas" />
       </div>
@@ -209,7 +209,7 @@ export default function Colheita() {
                     {moment(date).format("DD [de] MMMM")}
                   </div>
                   <div className="h-px flex-1 bg-border" />
-                  <span className="text-xs text-muted-foreground">{cestosDia} cestos · {pressasDia} pressas</span>
+                  <span className="text-xs text-muted-foreground">{cestosDia} cestos · {pressasDia} hastes</span>
                 </div>
                 <div className="grid gap-2">
                   {registros.map((c) => (
@@ -230,7 +230,7 @@ export default function Colheita() {
                       </div>
                       <div className="text-right flex-shrink-0">
                         <p className="font-bold text-sm">{c.cestos} cestos</p>
-                        <p className="text-xs text-muted-foreground">{c.pressas} pressas</p>
+                        <p className="text-xs text-muted-foreground">{c.pressas} hastes</p>
                       </div>
                     </div>
                   ))}
