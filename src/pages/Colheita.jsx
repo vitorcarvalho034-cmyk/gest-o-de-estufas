@@ -51,13 +51,8 @@ function StatCard({ icon: Icon, label, value, sub, color = "text-primary" }) {
 
 export default function Colheita() {
   const [colheitas, setColheitas] = useState([]);
+  const [previsoes, setPrevisoes] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [filtroEstufa, setFiltroEstufa] = useState("todas");
-  const [buscaVariedade, setBuscaVariedade] = useState("");
-  const [canteirosDisponiveis, setCanteirosDisponiveis] = useState([]);
-  const [variedadesDisponiveis, setVariedadesDisponiveis] = useState([]);
-  const [saving, setSaving] = useState(false);
 
   const [form, setForm] = useState({
     estufa: "", lado: "", vao: "", canteiro: "",
@@ -102,43 +97,9 @@ export default function Colheita() {
 
   const pressasPorCesto = form.destino ? DESTINOS[form.destino] : 0;
   const totalPressas = (parseInt(form.cestos) || 0) * pressasPorCesto;
-
-  async function handleSubmit() {
-    if (!form.estufa || !form.lado || !form.vao || !form.canteiro || !form.variedade || !form.destino || !form.cestos) {
-      toast.error("Preencha todos os campos obrigatórios");
-      return;
-    }
-    setSaving(true);
-    await base44.entities.Colheita.create({
-      estufa: parseInt(form.estufa),
-      lado: form.lado,
-      vao: parseInt(form.vao),
-      canteiro: parseInt(form.canteiro),
-      variedade: form.variedade,
-      destino: form.destino,
-      cestos: parseInt(form.cestos),
-      pressas: totalPressas,
-      data_colheita: form.data_colheita,
-      semana: getWeekNumber(form.data_colheita),
-    });
-    toast.success(`✂️ ${parseInt(form.cestos)} cestos registrados — ${totalPressas} pressas`);
-    setSaving(false);
-    setDialogOpen(false);
-    setForm({ estufa: "", lado: "", vao: "", canteiro: "", variedade: "", destino: "", cestos: "", data_colheita: new Date().toISOString().split("T")[0] });
-    setVariedadesDisponiveis([]);
-    loadColheitas();
-  }
-
-  const filtradas = colheitas
-    .filter((c) => filtroEstufa === "todas" || c.estufa === parseInt(filtroEstufa))
-    .filter((c) => !buscaVariedade || c.variedade?.toLowerCase().includes(buscaVariedade.toLowerCase()));
-  const totalCestos = filtradas.reduce((s, c) => s + (c.cestos || 0), 0);
-  const totalPressasTotal = filtradas.reduce((s, c) => s + (c.pressas || 0), 0);
-  const hojeCount = filtradas.filter((c) => c.data_colheita === new Date().toISOString().split("T")[0]).length;
-  const vaosArray = form.estufa ? getVaosArray(parseInt(form.estufa)) : [];
+  const currentWeek = moment().isoWeek();
 
   // Weekly trend data (last 8 weeks)
-  const currentWeek = moment().isoWeek();
   const weeklyTrend = [];
   for (let i = 7; i >= 0; i--) {
     const w = currentWeek - i;
@@ -216,30 +177,61 @@ export default function Colheita() {
         )}
       </div>
 
+      {/* Meta da semana */}
+      {previstoSemana > 0 && (
+        <div className="bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20 rounded-xl p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold text-foreground">Meta da Semana {currentWeek}</p>
+            <span className={`text-xl font-bold ${
+              pctMeta >= 100 ? "text-green-600" : 
+              pctMeta >= 75 ? "text-amber-600" : 
+              "text-red-600"
+            }`}>{pctMeta}%</span>
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Colhido</span>
+              <span className="font-semibold">{colhidoSemanaAtual.toLocaleString("pt-BR")} hastes</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Previsto</span>
+              <span className="font-semibold">{previstoSemana.toLocaleString("pt-BR")} hastes</span>
+            </div>
+            <div className="h-2.5 bg-muted rounded-full overflow-hidden">
+              <div className={`h-full rounded-full transition-all ${
+                pctMeta >= 100 ? "bg-green-500" :
+                pctMeta >= 75 ? "bg-amber-500" :
+                "bg-red-500"
+              }`} style={{ width: `${Math.min(pctMeta, 100)}%` }} />
+            </div>
+            {pctMeta < 100 && (
+              <p className="text-xs text-muted-foreground text-right">
+                Faltam {(previstoSemana - colhidoSemanaAtual).toLocaleString("pt-BR")} hastes
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Filter tabs */}
       <div className="flex gap-2 flex-wrap">
-        {["todas", "1", "2", "3", "4"].map((e) => (
-          <button
-            key={e}
-            onClick={() => setFiltroEstufa(e)}
-            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all border ${
-              filtroEstufa === e
-                ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                : "bg-background border-border text-muted-foreground hover:border-primary/50 hover:text-primary"
-            }`}
-          >
-            {e === "todas" ? "Todas" : `Estufa ${e}`}
-          </button>
-        ))}
+       {["todas", "1", "2", "3", "4"].map((e) => (
+         <button
+           key={e}
+           onClick={() => setFiltroEstufa(e)}
+           className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all border ${
+             filtroEstufa === e
+               ? "bg-primary text-primary-foreground border-primary shadow-sm"
+               : "bg-background border-border text-muted-foreground hover:border-primary/50 hover:text-primary"
+           }`}
+         >
+           {e === "todas" ? "Todas" : `Estufa ${e}`}
+         </button>
+       ))}
       </div>
 
       {/* Timeline by date */}
       {sortedDates.length === 0 ? (
-        <div className="text-center py-20 text-muted-foreground">
-          <Scissors className="w-10 h-10 mx-auto mb-3 opacity-30" />
-          <p>Nenhuma colheita registrada</p>
-        </div>
-      ) : (
         <div className="space-y-6">
           {sortedDates.map((date) => {
             const registros = groupedByDate[date];
