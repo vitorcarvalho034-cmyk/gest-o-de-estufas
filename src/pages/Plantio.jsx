@@ -25,6 +25,7 @@ export default function Plantio() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [vaoDialogOpen, setVaoDialogOpen] = useState(false);
   const [notaDialogOpen, setNotaDialogOpen] = useState(false);
+  const [buscaVariedade, setBuscaVariedade] = useState("");
   const [form, setForm] = useState({
     estufa: null,
     lado: "",
@@ -156,27 +157,43 @@ export default function Plantio() {
         </div>
       )}
 
+      {/* Search */}
+      <div className="relative">
+        <input
+          type="text"
+          placeholder="Buscar por variedade..."
+          value={buscaVariedade}
+          onChange={(e) => setBuscaVariedade(e.target.value)}
+          className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        />
+        {buscaVariedade && (
+          <button onClick={() => setBuscaVariedade("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs">✕</button>
+        )}
+      </div>
+
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Plantios Recentes</CardTitle>
         </CardHeader>
         <CardContent>
-          {plantios.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-8">Nenhum plantio registrado</p>
+          {(() => {
+            const filtered = plantios.filter((p) => !buscaVariedade || p.variedade?.toLowerCase().includes(buscaVariedade.toLowerCase()));
+            return filtered.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-8">{buscaVariedade ? `Nenhum resultado para "${buscaVariedade}"` : "Nenhum plantio registrado"}</p>
           ) : (
             <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Data</TableHead>
-                    <TableHead>Semana</TableHead>
-                    <TableHead>Local</TableHead>
-                    <TableHead>Variedade</TableHead>
-                    <TableHead className="text-right">Mudas</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {plantios.map((p) => (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Data</TableHead>
+                  <TableHead>Semana</TableHead>
+                  <TableHead>Local</TableHead>
+                  <TableHead>Variedade</TableHead>
+                  <TableHead className="text-right">Mudas</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.map((p) => (
                     <TableRow key={p.id}>
                       <TableCell>{moment(p.data_plantio).format("DD/MM/YYYY")}</TableCell>
                       <TableCell>Sem. {p.semana}</TableCell>
@@ -188,7 +205,7 @@ export default function Plantio() {
                 </TableBody>
               </Table>
             </div>
-          )}
+          )})()}
         </CardContent>
       </Card>
 

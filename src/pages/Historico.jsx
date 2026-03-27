@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { History, Sprout, Scissors, Trash2, Calendar, Download } from "lucide-react";
+import { History, Sprout, Scissors, Trash2, Calendar, Download, GitCompare, X } from "lucide-react";
 import moment from "moment";
 import { Button } from "@/components/ui/button";
 import { jsPDF } from "jspdf";
@@ -19,6 +19,16 @@ export default function Historico() {
   const [historicos, setHistoricos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filtroEstufa, setFiltroEstufa] = useState("todas");
+  const [buscaVariedade, setBuscaVariedade] = useState("");
+  const [comparando, setComparando] = useState([]); // max 2 ids
+
+  function toggleComparar(id) {
+    setComparando((prev) => {
+      if (prev.includes(id)) return prev.filter((x) => x !== id);
+      if (prev.length >= 2) return [...prev.slice(1), id];
+      return [...prev, id];
+    });
+  }
 
   function exportPDF(filtrados) {
     const doc = new jsPDF();
@@ -51,9 +61,11 @@ export default function Historico() {
     });
   }, []);
 
-  const filtrados = filtroEstufa === "todas"
-    ? historicos
-    : historicos.filter((h) => String(h.estufa) === filtroEstufa);
+  const filtrados = historicos
+    .filter((h) => filtroEstufa === "todas" || String(h.estufa) === filtroEstufa)
+    .filter((h) => !buscaVariedade || (h.variedades || []).some((v) => v.nome?.toLowerCase().includes(buscaVariedade.toLowerCase())));
+
+  const ciclosComparados = comparando.map((id) => historicos.find((h) => h.id === id)).filter(Boolean);
 
   if (loading) {
     return (
@@ -73,10 +85,72 @@ export default function Historico() {
           </div>
           <p className="text-muted-foreground">Ciclos finalizados arquivados para comparação</p>
         </div>
-        {filtrados.length > 0 && (
-          <Button variant="outline" onClick={() => exportPDF(filtrados)} className="gap-2">
-            <Download className="w-4 h-4" /> Exportar PDF
-          </Button>
+        <div className="flex gap-2">
+          {comparando.length > 0 && (
+            <Button variant="outline" onClick={() => setComparando([])} className="gap-2">
+              <X className="w-4 h-4" /> Limpar comparação
+            </Button>
+          )}
+          {filtrados.length > 0 && (
+            <Button variant="outline" onClick={() => exportPDF(filtrados)} className="gap-2">
+              <Download className="w-4 h-4" /> Exportar PDF
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Comparativo */}
+      {ciclosComparados.length === 2 && (
+        <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <GitCompare className="w-4 h-4 text-primary" />
+            <span className="font-semibold text-sm">Comparativo de Ciclos</span>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            {ciclosComparados.map((h) => (
+              <div key={h.id} className="bg-white rounded-lg p-4 border space-y-2">
+                <p className="font-bold text-sm">E{h.estufa} — {h.lado} — Vão {h.vao} — C{h.canteiro}</p>
+                <p className="text-xs text-muted-foreground">{(h.variedades || []).map((v) => v.nome).join(", ") || "—"}</p>
+                <div className="grid grid-cols-2 gap-2 text-center">
+                  <div className="bg-muted/40 rounded p-2">
+                    <p className="text-lg font-bold text-primary">{h.total_mudas || 0}</p>
+                    <p className="text-[10px] text-muted-foreground">mudas</p>
+                  </div>
+                  <div className="bg-muted/40 rounded p-2">
+                    <p className="text-lg font-bold text-chart-2">{h.total_colhido_cestos || 0}</p>
+                    <p className="text-[10px] text-muted-foreground">cestos</p>
+                  </div>
+                  <div className="bg-muted/40 rounded p-2">
+                    <p className="text-lg font-bold text-chart-3">{h.total_colhido_pressas || 0}</p>
+                    <p className="text-[10px] text-muted-foreground">hastes</p>
+                  </div>
+                  <div className="bg-muted/40 rounded p-2">
+                    <p className="text-lg font-bold text-destructive">{h.total_descartado || 0}</p>
+                    <p className="text-[10px] text-muted-foreground">descarte</p>
+                  </div>
+                </div>
+                {h.data_plantio && h.data_finalizacao && (
+                  <p className="text-xs text-center text-primary font-semibold">
+                    Ciclo de {moment(h.data_finalizacao).diff(moment(h.data_plantio), "days")} dias
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Busca */}
+      <div className="relative">
+        <input
+          type="text"
+          placeholder="Buscar por variedade..."
+          value={buscaVariedade}
+          onChange={(e) => setBuscaVariedade(e.target.value)}
+          className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        />
+        {buscaVariedade && (
+          <button onClick={() => setBuscaVariedade("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs">✕</button>
         )}
       </div>
 
@@ -137,7 +211,7 @@ export default function Historico() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {filtrados.map((h) => (
-            <Card key={h.id} className="hover:shadow-md transition-shadow">
+            <Card key={h.id} className={`hover:shadow-md transition-shadow cursor-pointer border-2 ${ comparando.includes(h.id) ? "border-primary" : "border-border" }`}>
               <CardContent className="p-5 space-y-4">
                 {/* Header */}
                 <div className="flex items-start justify-between">
@@ -148,9 +222,21 @@ export default function Historico() {
                       Finalizado em {h.data_finalizacao ? moment(h.data_finalizacao).format("DD/MM/YYYY") : "—"}
                     </p>
                   </div>
-                  <span className="text-xs bg-primary/10 text-primary font-semibold px-2 py-0.5 rounded-full">
-                    {h.total_mudas || 0} mudas
-                  </span>
+                  <div className="flex flex-col items-end gap-1">
+                    <span className="text-xs bg-primary/10 text-primary font-semibold px-2 py-0.5 rounded-full">
+                      {h.total_mudas || 0} mudas
+                    </span>
+                    <button
+                      onClick={() => toggleComparar(h.id)}
+                      className={`text-[10px] px-2 py-0.5 rounded-full border font-medium transition-all ${
+                        comparando.includes(h.id)
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "border-border text-muted-foreground hover:border-primary/50"
+                      }`}
+                    >
+                      {comparando.includes(h.id) ? "✓ Selecionado" : "Comparar"}
+                    </button>
+                  </div>
                 </div>
 
                 {/* Variedades */}

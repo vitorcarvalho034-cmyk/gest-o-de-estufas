@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Warehouse } from "lucide-react";
+import { Warehouse, Thermometer, LayoutGrid } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ESTUFA_VAOS, TOTAL_VAOS } from "@/lib/estufasConfig";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -8,6 +8,14 @@ import { Badge } from "@/components/ui/badge";
 import CanteiroDialog from "../components/CanteiroDialog";
 
 const LADO_COLORS = { A: "bg-primary/10 border-primary/30", B: "bg-accent/10 border-accent/30" };
+
+function heatColor(pct) {
+  if (pct === 0) return "bg-muted/40 border-border text-muted-foreground";
+  if (pct < 25) return "bg-emerald-100 border-emerald-200 text-emerald-800";
+  if (pct < 50) return "bg-emerald-200 border-emerald-300 text-emerald-900";
+  if (pct < 75) return "bg-emerald-400 border-emerald-500 text-white";
+  return "bg-emerald-600 border-emerald-700 text-white";
+}
 const CANTEIRO_EMPTY = "bg-muted/40 border-border hover:bg-muted/70 text-muted-foreground";
 const CANTEIRO_PARTIAL = "bg-primary/5 border-primary/20 hover:bg-primary/10";
 const CANTEIRO_FULL = "bg-primary/20 border-primary/40 hover:bg-primary/30";
@@ -76,6 +84,7 @@ export default function Estufas() {
   const [loading, setLoading] = useState(true);
   const [selectedCanteiro, setSelectedCanteiro] = useState(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [viewMode, setViewMode] = useState("grid"); // "grid" | "heat"
 
   async function loadCanteiros() {
     const [data, cols] = await Promise.all([
@@ -132,6 +141,26 @@ export default function Estufas() {
         <p className="text-muted-foreground">Layout completo — cada vão tem 4 canteiros por lado</p>
       </div>
 
+      {/* View toggle */}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => setViewMode("grid")}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-all ${
+            viewMode === "grid" ? "bg-primary text-primary-foreground border-primary" : "bg-background border-border text-muted-foreground hover:border-primary/50"
+          }`}
+        >
+          <LayoutGrid className="w-3.5 h-3.5" /> Grade
+        </button>
+        <button
+          onClick={() => setViewMode("heat")}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-all ${
+            viewMode === "heat" ? "bg-primary text-primary-foreground border-primary" : "bg-background border-border text-muted-foreground hover:border-primary/50"
+          }`}
+        >
+          <Thermometer className="w-3.5 h-3.5" /> Mapa de Calor
+        </button>
+      </div>
+
       <Tabs defaultValue="1">
         <TabsList className="grid grid-cols-4 w-full max-w-md">
           {[1, 2, 3, 4].map((n) => {
@@ -174,6 +203,50 @@ export default function Estufas() {
                 </div>
               </div>
 
+              {viewMode === "heat" ? (
+                // HEAT MAP VIEW
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                    <span className="font-medium">Legenda (ocupação por vão):</span>
+                    {[["Vazio","bg-muted/40 border border-border"],["1-25%","bg-emerald-100 border border-emerald-200"],["26-50%","bg-emerald-200 border border-emerald-300"],["51-75%","bg-emerald-400 border border-emerald-500"],["76-100%","bg-emerald-600 border border-emerald-700"]].map(([label, cls]) => (
+                      <div key={label} className="flex items-center gap-1">
+                        <div className={`w-4 h-4 rounded ${cls}`} />
+                        <span>{label}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-[auto_1fr_1fr] gap-2 items-center">
+                    <div />
+                    <div className="text-center text-xs font-semibold text-primary">Lado A</div>
+                    <div className="text-center text-xs font-semibold text-amber-700">Lado B</div>
+                  </div>
+                  <div className="space-y-1">
+                    {Array.from({ length: vaosPerLado }, (_, i) => i + 1).map((vao) => {
+                      const getVaoPct = (lado) => {
+                        const total = [1,2,3,4].reduce((s, n) => s + (getCanteiro(estufa, lado, vao, n)?.total_mudas || 0), 0);
+                        return Math.min(Math.round((total / 8000) * 100), 100);
+                      };
+                      const pctA = getVaoPct("A");
+                      const pctB = getVaoPct("B");
+                      return (
+                        <div key={vao} className="grid grid-cols-[40px_1fr_1fr] gap-2 items-center">
+                          <span className="text-[11px] font-bold text-center text-muted-foreground bg-muted rounded px-1 py-0.5">V{vao}</span>
+                          <div className={`rounded-lg border px-3 py-2 flex items-center justify-between ${heatColor(pctA)}`}>
+                            <span className="text-xs font-medium">Lado A</span>
+                            <span className="text-xs font-bold">{pctA}%</span>
+                          </div>
+                          <div className={`rounded-lg border px-3 py-2 flex items-center justify-between ${heatColor(pctB)}`}>
+                            <span className="text-xs font-medium">Lado B</span>
+                            <span className="text-xs font-bold">{pctB}%</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                // GRID VIEW (original)
+                <>
               {/* Legend */}
               <div className="flex items-center gap-4 text-xs text-muted-foreground">
                 <div className="flex items-center gap-1.5">
@@ -263,7 +336,9 @@ export default function Estufas() {
                         </TooltipProvider>
                         </div>
                         </div>
-                        </TabsContent>
+                </>
+              )}
+            </TabsContent>
           );
         })}
       </Tabs>

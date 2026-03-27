@@ -54,6 +54,7 @@ export default function Colheita() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [filtroEstufa, setFiltroEstufa] = useState("todas");
+  const [buscaVariedade, setBuscaVariedade] = useState("");
   const [canteirosDisponiveis, setCanteirosDisponiveis] = useState([]);
   const [variedadesDisponiveis, setVariedadesDisponiveis] = useState([]);
   const [saving, setSaving] = useState(false);
@@ -128,7 +129,9 @@ export default function Colheita() {
     loadColheitas();
   }
 
-  const filtradas = filtroEstufa === "todas" ? colheitas : colheitas.filter((c) => c.estufa === parseInt(filtroEstufa));
+  const filtradas = colheitas
+    .filter((c) => filtroEstufa === "todas" || c.estufa === parseInt(filtroEstufa))
+    .filter((c) => !buscaVariedade || c.variedade?.toLowerCase().includes(buscaVariedade.toLowerCase()));
   const totalCestos = filtradas.reduce((s, c) => s + (c.cestos || 0), 0);
   const totalPressasTotal = filtradas.reduce((s, c) => s + (c.pressas || 0), 0);
   const hojeCount = filtradas.filter((c) => c.data_colheita === new Date().toISOString().split("T")[0]).length;
@@ -197,6 +200,20 @@ export default function Colheita() {
             <Bar dataKey="hastes" fill="hsl(var(--accent))" radius={[3, 3, 0, 0]} name="hastes" />
           </BarChart>
         </ResponsiveContainer>
+      </div>
+
+      {/* Search */}
+      <div className="relative">
+        <input
+          type="text"
+          placeholder="Buscar por variedade..."
+          value={buscaVariedade}
+          onChange={(e) => setBuscaVariedade(e.target.value)}
+          className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        />
+        {buscaVariedade && (
+          <button onClick={() => setBuscaVariedade("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs">✕</button>
+        )}
       </div>
 
       {/* Filter tabs */}
