@@ -53,6 +53,10 @@ export default function Colheita() {
   const [colheitas, setColheitas] = useState([]);
   const [previsoes, setPrevisoes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [buscaVariedade, setBuscaVariedade] = useState("");
+  const [filtroEstufa, setFiltroEstufa] = useState("todas");
+  const [variedadesDisponiveis, setVariedadesDisponiveis] = useState([]);
 
   const [form, setForm] = useState({
     estufa: "", lado: "", vao: "", canteiro: "",
@@ -62,7 +66,9 @@ export default function Colheita() {
 
   async function loadColheitas() {
     const data = await base44.entities.Colheita.list("-data_colheita", 100);
+    const prevs = await base44.entities.PrevisaoColheita.list();
     setColheitas(data);
+    setPrevisoes(prevs);
     setLoading(false);
   }
 
@@ -98,6 +104,21 @@ export default function Colheita() {
   const pressasPorCesto = form.destino ? DESTINOS[form.destino] : 0;
   const totalPressas = (parseInt(form.cestos) || 0) * pressasPorCesto;
   const currentWeek = moment().isoWeek();
+
+  // Filter and calculate stats
+  const filtradas = colheitas.filter((c) => {
+    if (filtroEstufa !== "todas" && c.estufa.toString() !== filtroEstufa) return false;
+    if (buscaVariedade && !c.variedade.toLowerCase().includes(buscaVariedade.toLowerCase())) return false;
+    return true;
+  });
+
+  const totalCestos = filtradas.reduce((s, c) => s + (c.cestos || 0), 0);
+  const totalPressasTotal = filtradas.reduce((s, c) => s + (c.pressas || 0), 0);
+  const hojeCount = filtradas.filter((c) => moment(c.data_colheita).isSame(moment(), "day")).length;
+
+  const colhidoSemanaAtual = filtradas.filter(c => c.semana === currentWeek).reduce((s, c) => s + (c.pressas || 0), 0);
+  const previstoSemana = previsoes.reduce((s, p) => s + (p.pressas_previstas || 0), 0);
+  const pctMeta = previstoSemana > 0 ? Math.round((colhidoSemanaAtual / previstoSemana) * 100) : 0;
 
   // Weekly trend data (last 8 weeks)
   const weeklyTrend = [];
@@ -215,23 +236,28 @@ export default function Colheita() {
 
       {/* Filter tabs */}
       <div className="flex gap-2 flex-wrap">
-       {["todas", "1", "2", "3", "4"].map((e) => (
-         <button
-           key={e}
-           onClick={() => setFiltroEstufa(e)}
-           className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all border ${
-             filtroEstufa === e
-               ? "bg-primary text-primary-foreground border-primary shadow-sm"
-               : "bg-background border-border text-muted-foreground hover:border-primary/50 hover:text-primary"
-           }`}
-         >
-           {e === "todas" ? "Todas" : `Estufa ${e}`}
-         </button>
-       ))}
+        {["todas", "1", "2", "3", "4"].map((e) => (
+          <button
+            key={e}
+            onClick={() => setFiltroEstufa(e)}
+            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all border ${
+              filtroEstufa === e
+                ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                : "bg-background border-border text-muted-foreground hover:border-primary/50 hover:text-primary"
+            }`}
+          >
+            {e === "todas" ? "Todas" : `Estufa ${e}`}
+          </button>
+        ))}
       </div>
 
       {/* Timeline by date */}
       {sortedDates.length === 0 ? (
+        <div className="text-center py-20 text-muted-foreground">
+          <Scissors className="w-10 h-10 mx-auto mb-3 opacity-30" />
+          <p>Nenhuma colheita registrada</p>
+        </div>
+      ) : (
         <div className="space-y-6">
           {sortedDates.map((date) => {
             const registros = groupedByDate[date];
