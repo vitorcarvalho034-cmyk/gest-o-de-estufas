@@ -140,6 +140,7 @@ export default function CanteiroDialog({ canteiro, open, onClose, onSaved }) {
             </DialogFooter>
           </div>
         ) : (
+          <div className="max-h-[70vh] overflow-y-auto pr-1">
           <div className="space-y-4 pt-1">
               {/* Datas */}
               <div className="rounded-lg border bg-muted/20 p-3 space-y-0.5">
@@ -250,6 +251,7 @@ export default function CanteiroDialog({ canteiro, open, onClose, onSaved }) {
                 <Archive className="w-4 h-4 mr-2" /> Finalizar e Liberar Canteiro
               </Button>
             </div>
+          </div>
         )}
       </DialogContent>
     </Dialog>
