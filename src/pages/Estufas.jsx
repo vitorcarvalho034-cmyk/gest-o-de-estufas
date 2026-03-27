@@ -25,7 +25,7 @@ function MiniCanteiro({ canteiro, onClick, numero, colheitas }) {
   const btn = (
     <button
       onClick={() => canteiro && onClick(canteiro)}
-      className={`relative w-full h-10 rounded border text-xs font-medium transition-all ${colorClass} overflow-hidden`}
+      className={`relative w-full h-7 sm:h-10 rounded border text-xs font-medium transition-all ${colorClass} overflow-hidden`}
     >
       {pct > 0 && (
         <div className="absolute bottom-0 left-0 right-0 bg-primary/30 transition-all" style={{ height: `${pct}%` }} />
@@ -121,7 +121,7 @@ export default function Estufas() {
           <Warehouse className="w-8 h-8 text-primary" />
           <h1 className="text-3xl font-bold tracking-tight">Estufas</h1>
         </div>
-        <p className="text-muted-foreground">Layout completo — cada vão tem 4 canteiros por lado</p>
+        <p className="text-muted-foreground hidden sm:block">Layout completo — cada vão tem 4 canteiros por lado</p>
       </div>
 
       <Tabs defaultValue="1">
@@ -167,27 +167,27 @@ export default function Estufas() {
               </div>
 
               {/* Legend */}
-              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs text-muted-foreground">
                 <div className="flex items-center gap-1.5">
-                  <div className="w-4 h-4 rounded border bg-muted/40 border-border" /> Vazio
+                  <div className="w-3 h-3 sm:w-4 sm:h-4 rounded border bg-muted/40 border-border" /> Vazio
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <div className="w-4 h-4 rounded border bg-primary/10 border-primary/30" /> Com mudas
+                  <div className="w-3 h-3 sm:w-4 sm:h-4 rounded border bg-primary/10 border-primary/30" /> Com mudas
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <div className="w-4 h-4 rounded border bg-primary/30 border-primary/50" /> &gt;80% cheio
+                  <div className="w-3 h-3 sm:w-4 sm:h-4 rounded border bg-primary/30 border-primary/50" /> &gt;80% cheio
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <div className="w-1 h-4 rounded bg-amber-400/50" /> Colhido
+                  <div className="w-1 h-3 sm:h-4 rounded bg-amber-400/50" /> Colhido
                 </div>
-                <span className="text-muted-foreground/60">Clique para editar</span>
+                <span className="text-muted-foreground/60 hidden sm:inline">Clique para editar</span>
               </div>
 
               {/* Greenhouse layout */}
-              <div className="overflow-x-auto">
-                <div className="min-w-[700px]">
+              <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+                <div className="min-w-[320px]">
                   {/* Header */}
-                  <div className="grid grid-cols-[1fr_40px_1fr] gap-2 mb-2">
+                  <div className="grid grid-cols-[1fr_28px_1fr] sm:grid-cols-[1fr_40px_1fr] gap-1 sm:gap-2 mb-2">
                     <div className="text-center">
                       <Badge variant="outline" className="bg-primary/10 border-primary/30 text-primary text-xs">
                         Lado A — {vaosPerLado} meio-vãos
@@ -202,12 +202,12 @@ export default function Estufas() {
                   </div>
 
                   {/* Canteiro columns header */}
-                  <div className="grid grid-cols-[1fr_40px_1fr] gap-2 mb-1 text-[10px] text-muted-foreground">
-                    <div className="grid grid-cols-4 gap-1 text-center">
+                  <div className="grid grid-cols-[1fr_28px_1fr] sm:grid-cols-[1fr_40px_1fr] gap-1 sm:gap-2 mb-1 text-[10px] text-muted-foreground">
+                    <div className="grid grid-cols-4 gap-0.5 sm:gap-1 text-center">
                       <span>C1</span><span>C2</span><span>C3</span><span>C4</span>
                     </div>
                     <div />
-                    <div className="grid grid-cols-4 gap-1 text-center">
+                    <div className="grid grid-cols-4 gap-0.5 sm:gap-1 text-center">
                       <span>C1</span><span>C2</span><span>C3</span><span>C4</span>
                     </div>
                   </div>
@@ -216,9 +216,9 @@ export default function Estufas() {
                   <TooltipProvider delayDuration={200}>
                     <div className="space-y-1">
                       {Array.from({ length: vaosPerLado }, (_, i) => i + 1).map((vao) => (
-                        <div key={vao} className="grid grid-cols-[1fr_40px_1fr] gap-2 items-center">
+                        <div key={vao} className="grid grid-cols-[1fr_28px_1fr] sm:grid-cols-[1fr_40px_1fr] gap-1 sm:gap-2 items-center">
                           {/* Lado A */}
-                          <div className={`grid grid-cols-4 gap-1 p-1.5 rounded-lg border ${LADO_COLORS.A}`}>
+                          <div className={`grid grid-cols-4 gap-0.5 sm:gap-1 p-1 sm:p-1.5 rounded-lg border ${LADO_COLORS.A}`}>
                             {[1, 2, 3, 4].map((num) => (
                               <MiniCanteiro
                                 key={num}
@@ -232,13 +232,13 @@ export default function Estufas() {
 
                           {/* Vão number */}
                           <div className="flex items-center justify-center">
-                            <span className="text-[10px] font-bold text-muted-foreground bg-muted rounded px-1 py-0.5">
+                            <span className="text-[9px] sm:text-[10px] font-bold text-muted-foreground bg-muted rounded px-0.5 sm:px-1 py-0.5">
                               {vao}
                             </span>
                           </div>
 
                           {/* Lado B */}
-                          <div className={`grid grid-cols-4 gap-1 p-1.5 rounded-lg border ${LADO_COLORS.B}`}>
+                          <div className={`grid grid-cols-4 gap-0.5 sm:gap-1 p-1 sm:p-1.5 rounded-lg border ${LADO_COLORS.B}`}>
                             {[1, 2, 3, 4].map((num) => (
                               <MiniCanteiro
                                 key={num}
