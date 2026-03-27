@@ -176,12 +176,12 @@ export default function CanteiroDialog({ canteiro, open, onClose, onSaved }) {
                 <InfoRow label="🗑 Mudas descartadas" value={descarteTotal} />
               </div>
 
-              {/* Descarte rápido */}
+              {/* Mortalidade de Mudas */}
               <div className="border-t pt-3">
                 <div className="flex items-center justify-between mb-2">
-                  <Label className="text-sm font-medium">Registrar Descarte</Label>
+                  <Label className="text-sm font-medium">Mortalidade de Mudas</Label>
                   <Button variant="ghost" size="sm" onClick={() => setShowDescarte(!showDescarte)} className="text-xs h-7">
-                    {showDescarte ? "Ocultar" : "+ Descarte"}
+                    {showDescarte ? "Ocultar" : "+ Registrar"}
                   </Button>
                 </div>
                 {showDescarte && (
@@ -218,25 +218,39 @@ export default function CanteiroDialog({ canteiro, open, onClose, onSaved }) {
                       disabled={saving || !descarteForm.variedade || !descarteForm.quantidade}
                       onClick={async () => {
                         setSaving(true);
+                        const qtd = parseInt(descarteForm.quantidade);
                         await base44.entities.Descarte.create({
                           estufa: canteiro.estufa,
                           lado: canteiro.lado,
                           vao: canteiro.vao,
                           canteiro: canteiro.numero,
                           variedade: descarteForm.variedade,
-                          quantidade: parseInt(descarteForm.quantidade),
+                          quantidade: qtd,
                           motivo: descarteForm.motivo,
                           observacao: descarteForm.observacao,
                           data_descarte: new Date().toISOString().split("T")[0],
                         });
-                        toast.success("Descarte registrado!");
+                        // Abater do canteiro
+                        const novasVarEdades = (canteiro.variedades || []).map(v =>
+                          v.nome === descarteForm.variedade
+                            ? { ...v, quantidade: Math.max(0, v.quantidade - qtd) }
+                            : v
+                        );
+                        const novoTotal = novasVarEdades.reduce((s, v) => s + v.quantidade, 0);
+                        await base44.entities.Canteiro.update(canteiro.id, {
+                          variedades: novasVarEdades,
+                          total_mudas: novoTotal,
+                        });
+                        canteiro.variedades = novasVarEdades;
+                        canteiro.total_mudas = novoTotal;
+                        toast.success("Mortalidade registrada e estoque atualizado!");
                         setDescarteForm({ variedade: "", quantidade: "", motivo: "Qualidade", observacao: "" });
                         setShowDescarte(false);
                         await loadData();
                         setSaving(false);
                       }}
                     >
-                      Confirmar Descarte
+                      Confirmar Mortalidade
                     </Button>
                   </div>
                 )}
