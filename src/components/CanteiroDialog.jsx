@@ -42,11 +42,10 @@ export default function CanteiroDialog({ canteiro, open, onClose, onSaved }) {
   async function loadData() {
     if (!canteiro) return;
     setLoading(true);
-    const [plantios, colheitas, descartes] = await Promise.all([
-      base44.entities.Plantio.filter({ estufa: canteiro.estufa, lado: canteiro.lado, vao: canteiro.vao, canteiro: canteiro.numero }),
-      base44.entities.Colheita.filter({ estufa: canteiro.estufa, lado: canteiro.lado, vao: canteiro.vao, canteiro: canteiro.numero }),
-      base44.entities.Descarte.filter({ estufa: canteiro.estufa, lado: canteiro.lado, vao: canteiro.vao, canteiro: canteiro.numero }),
-    ]);
+    const loc = { estufa: canteiro.estufa, lado: canteiro.lado, vao: canteiro.vao, canteiro: canteiro.numero };
+    const plantios = await base44.entities.Plantio.filter(loc);
+    const colheitas = await base44.entities.Colheita.filter(loc);
+    const descartes = await base44.entities.Descarte.filter(loc);
 
     // Earliest plantio date
     if (plantios.length > 0) {
