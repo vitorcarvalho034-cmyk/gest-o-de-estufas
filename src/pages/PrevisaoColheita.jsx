@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { CalendarClock, Plus, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
+import { CalendarClock, Plus, ChevronLeft, ChevronRight, Trash2, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -88,6 +88,31 @@ export default function PrevisaoColheita() {
     loadPrevisoes();
   }
 
+  async function autoPopulate() {
+    // Fetch plantios and calculate harvest week (plantio + 65 days)
+    const plantios = await base44.entities.Plantio.list("-data_plantio", 200);
+    const grouped = {};
+    plantios.forEach((p) => {
+      const harvestDate = moment(p.data_plantio).add(65, "days");
+      const harvestWeek = harvestDate.isoWeek();
+      const harvestYear = harvestDate.year();
+      if (harvestWeek !== semana || harvestYear !== ano) return;
+      const key = p.variedade;
+      if (!grouped[key]) grouped[key] = { variedade: key, pressas: 0 };
+      // Estimate: ~0.5 pressas per muda
+      grouped[key].pressas += Math.round((p.quantidade || 0) * 0.5);
+    });
+    const items = Object.values(grouped);
+    if (items.length === 0) { toast.error("Nenhum plantio previsto para colheita nesta semana (65 dias após plantio)"); return; }
+    for (const item of items) {
+      await base44.entities.PrevisaoColheita.create({
+        semana, ano, variedade: item.variedade, pressas_previstas: item.pressas
+      });
+    }
+    toast.success(`${items.length} previsão(ões) gerada(s) automaticamente`);
+    loadPrevisoes();
+  }
+
   const totalPressas = previsoes.reduce((sum, p) => sum + (p.pressas_previstas || 0), 0);
   const weekDates = getWeekDates(semana, ano);
 
@@ -101,9 +126,14 @@ export default function PrevisaoColheita() {
           </div>
           <p className="text-muted-foreground">Planejamento semanal de colheita por variedade</p>
         </div>
-        <Button onClick={() => setDialogOpen(true)} className="gap-2">
-          <Plus className="w-4 h-4" /> Nova Previsão
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={autoPopulate} className="gap-2">
+            <Zap className="w-4 h-4" /> Auto-preencher
+          </Button>
+          <Button onClick={() => setDialogOpen(true)} className="gap-2">
+            <Plus className="w-4 h-4" /> Nova Previsão
+          </Button>
+        </div>
       </div>
 
       {/* Week navigator */}

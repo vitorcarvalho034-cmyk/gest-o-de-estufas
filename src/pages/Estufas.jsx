@@ -134,9 +134,17 @@ export default function Estufas() {
 
       <Tabs defaultValue="1">
         <TabsList className="grid grid-cols-4 w-full max-w-md">
-          {[1, 2, 3, 4].map((n) => (
-            <TabsTrigger key={n} value={String(n)}>Estufa {n}</TabsTrigger>
-          ))}
+          {[1, 2, 3, 4].map((n) => {
+            const s = getEstufaStats(n);
+            const totalPossivel = TOTAL_VAOS[n] * 2 * 4; // vaos * lados * canteiros
+            const pct = totalPossivel > 0 ? Math.round((s.comMudas / totalPossivel) * 100) : 0;
+            return (
+              <TabsTrigger key={n} value={String(n)} className="flex flex-col gap-0.5 h-auto py-1.5">
+                <span>Estufa {n}</span>
+                <span className="text-[9px] opacity-60">{pct}% ocup.</span>
+              </TabsTrigger>
+            );
+          })}
         </TabsList>
 
         {[1, 2, 3, 4].map((estufa) => {

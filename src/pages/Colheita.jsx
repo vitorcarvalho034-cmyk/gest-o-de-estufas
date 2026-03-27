@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Scissors, Plus, TrendingUp, Package, Target, Calendar } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import ColheitaWizard from "../components/ColheitaWizard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -133,6 +134,16 @@ export default function Colheita() {
   const hojeCount = filtradas.filter((c) => c.data_colheita === new Date().toISOString().split("T")[0]).length;
   const vaosArray = form.estufa ? getVaosArray(parseInt(form.estufa)) : [];
 
+  // Weekly trend data (last 8 weeks)
+  const currentWeek = moment().isoWeek();
+  const weeklyTrend = [];
+  for (let i = 7; i >= 0; i--) {
+    const w = currentWeek - i;
+    const wLabel = `S${w > 0 ? w : w + 52}`;
+    const wColheitas = filtradas.filter((c) => c.semana === (w > 0 ? w : w + 52));
+    weeklyTrend.push({ semana: wLabel, cestos: wColheitas.reduce((s, c) => s + (c.cestos || 0), 0), hastes: wColheitas.reduce((s, c) => s + (c.pressas || 0), 0) });
+  }
+
   const groupedByDate = filtradas.reduce((acc, c) => {
     const key = c.data_colheita;
     if (!acc[key]) acc[key] = [];
@@ -171,6 +182,21 @@ export default function Colheita() {
         <StatCard icon={TrendingUp} label="Hastes" value={totalPressasTotal.toLocaleString("pt-BR")} color="text-green-600" />
         <StatCard icon={Target} label="Registros" value={filtradas.length} />
         <StatCard icon={Calendar} label="Hoje" value={hojeCount} sub="colheitas" />
+      </div>
+
+      {/* Weekly trend chart */}
+      <div className="bg-card border rounded-xl p-4">
+        <p className="text-sm font-semibold mb-3 text-foreground">Tendência Semanal — Últimas 8 Semanas</p>
+        <ResponsiveContainer width="100%" height={160}>
+          <BarChart data={weeklyTrend} margin={{ top: 0, right: 0, left: -25, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+            <XAxis dataKey="semana" tick={{ fontSize: 10 }} />
+            <YAxis tick={{ fontSize: 10 }} />
+            <Tooltip formatter={(val, name) => [val.toLocaleString("pt-BR"), name === "cestos" ? "Cestos" : "Hastes"]} />
+            <Bar dataKey="cestos" fill="hsl(var(--primary))" radius={[3, 3, 0, 0]} name="cestos" />
+            <Bar dataKey="hastes" fill="hsl(var(--accent))" radius={[3, 3, 0, 0]} name="hastes" />
+          </BarChart>
+        </ResponsiveContainer>
       </div>
 
       {/* Filter tabs */}

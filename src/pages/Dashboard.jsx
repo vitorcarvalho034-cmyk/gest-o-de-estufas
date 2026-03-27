@@ -4,6 +4,7 @@ import { Sprout, Scissors, Trash2, BarChart3, Warehouse, Flower2, AlertTriangle,
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TOTAL_VAOS } from "@/lib/estufasConfig";
 import moment from "moment";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 
 function StatCard({ icon: Icon, label, value, subtitle, color }) {
   return (
@@ -34,6 +35,8 @@ export default function Dashboard() {
   });
   const [estufaStats, setEstufaStats] = useState({});
   const [alertas, setAlertas] = useState([]);
+  const [weeklyData, setWeeklyData] = useState([]);
+  const [topVariedades, setTopVariedades] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -84,6 +87,34 @@ export default function Dashboard() {
         }
       });
       alertasCorte.sort((a, b) => b.dias - a.dias);
+
+      // Weekly colheita chart (last 8 weeks)
+      const currentWeek = moment().isoWeek();
+      const currentYear = moment().year();
+      const weeklyMap = {};
+      for (let i = 7; i >= 0; i--) {
+        const w = currentWeek - i;
+        const label = `Sem ${w > 0 ? w : w + 52}`;
+        weeklyMap[label] = { semana: label, cestos: 0, hastes: 0 };
+      }
+      colheitas.forEach((c) => {
+        const label = `Sem ${c.semana}`;
+        if (weeklyMap[label]) {
+          weeklyMap[label].cestos += c.cestos || 0;
+          weeklyMap[label].hastes += c.pressas || 0;
+        }
+      });
+      setWeeklyData(Object.values(weeklyMap));
+
+      // Top variedades
+      const varMap = {};
+      colheitas.forEach((c) => {
+        if (!varMap[c.variedade]) varMap[c.variedade] = { variedade: c.variedade, hastes: 0, cestos: 0 };
+        varMap[c.variedade].hastes += c.pressas || 0;
+        varMap[c.variedade].cestos += c.cestos || 0;
+      });
+      const top = Object.values(varMap).sort((a, b) => b.hastes - a.hastes).slice(0, 6);
+      setTopVariedades(top);
 
       setStats({ totalMudas, totalCestos, totalHastes, totalDescartes, canteirosAtivos });
       setAlertas(alertasCorte);
@@ -170,6 +201,56 @@ export default function Dashboard() {
           subtitle="120 vãos"
           color="bg-chart-3/10 text-chart-3"
         />
+      </div>
+
+      {/* Weekly harvest chart */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2"><Scissors className="w-4 h-4 text-primary" /> Colheita Semanal (8 semanas)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={weeklyData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="semana" tick={{ fontSize: 10 }} />
+                <YAxis tick={{ fontSize: 10 }} />
+                <Tooltip formatter={(val, name) => [val.toLocaleString("pt-BR"), name === "cestos" ? "Cestos" : "Hastes"]} />
+                <Bar dataKey="cestos" fill="hsl(var(--primary))" radius={[3, 3, 0, 0]} name="cestos" />
+                <Bar dataKey="hastes" fill="hsl(var(--accent))" radius={[3, 3, 0, 0]} name="hastes" />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2"><BarChart3 className="w-4 h-4 text-primary" /> Top Variedades por Produção</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {topVariedades.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-12">Nenhuma colheita registrada</p>
+            ) : (
+              <div className="space-y-2">
+                {topVariedades.map((v, i) => {
+                  const maxHastes = topVariedades[0].hastes || 1;
+                  const pct = Math.round((v.hastes / maxHastes) * 100);
+                  return (
+                    <div key={i}>
+                      <div className="flex justify-between text-xs mb-1">
+                        <span className="font-medium truncate max-w-[60%]">{v.variedade}</span>
+                        <span className="text-muted-foreground">{v.hastes.toLocaleString("pt-BR")} hastes · {v.cestos} cestos</span>
+                      </div>
+                      <div className="h-2 bg-muted rounded-full overflow-hidden">
+                        <div className="h-full bg-primary rounded-full" style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       <Card>

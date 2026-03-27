@@ -20,6 +20,7 @@ function getWeekNumber(date) {
 
 export default function Plantio() {
   const [plantios, setPlantios] = useState([]);
+  const [canteiros, setCanteiros] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [vaoDialogOpen, setVaoDialogOpen] = useState(false);
@@ -35,8 +36,12 @@ export default function Plantio() {
   });
 
   async function loadPlantios() {
-    const data = await base44.entities.Plantio.list("-created_date", 50);
+    const [data, cants] = await Promise.all([
+      base44.entities.Plantio.list("-created_date", 50),
+      base44.entities.Canteiro.list(),
+    ]);
     setPlantios(data);
+    setCanteiros(cants);
     setLoading(false);
   }
 
@@ -129,6 +134,27 @@ export default function Plantio() {
           </Button>
         </div>
       </div>
+
+      {/* Alertas de canteiros quase cheios */}
+      {canteiros.filter((c) => (c.total_mudas || 0) >= 1600).length > 0 && (
+        <div className="rounded-xl border border-orange-300 bg-orange-50 p-4 space-y-2">
+          <div className="flex items-center gap-2 text-orange-800">
+            <Sprout className="w-4 h-4 text-orange-500" />
+            <span className="font-semibold text-sm">Canteiros com Capacidade Alta (&gt;80%)</span>
+            <span className="ml-auto text-xs bg-orange-200 text-orange-800 rounded-full px-2 py-0.5 font-semibold">
+              {canteiros.filter((c) => (c.total_mudas || 0) >= 1600).length} canteiro(s)
+            </span>
+          </div>
+          <div className="space-y-1">
+            {canteiros.filter((c) => (c.total_mudas || 0) >= 1600).slice(0, 5).map((c) => (
+              <div key={c.id} className="flex items-center justify-between bg-white rounded-lg px-3 py-2 border border-orange-200 text-sm">
+                <span className="font-medium">E{c.estufa} {c.lado} V{c.vao}-C{c.numero}</span>
+                <span className="text-orange-700 font-bold">{c.total_mudas} / 2000 mudas ({Math.round((c.total_mudas / 2000) * 100)}%)</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <Card>
         <CardHeader>

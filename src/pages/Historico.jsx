@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { History, Sprout, Scissors, Trash2, Calendar } from "lucide-react";
+import { History, Sprout, Scissors, Trash2, Calendar, Download } from "lucide-react";
 import moment from "moment";
+import { Button } from "@/components/ui/button";
+import { jsPDF } from "jspdf";
 
 function StatPill({ label, value, color }) {
   return (
@@ -17,6 +19,30 @@ export default function Historico() {
   const [historicos, setHistoricos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filtroEstufa, setFiltroEstufa] = useState("todas");
+
+  function exportPDF(filtrados) {
+    const doc = new jsPDF();
+    doc.setFontSize(18);
+    doc.text("Histórico de Vãos — Flores da Terra", 14, 20);
+    doc.setFontSize(10);
+    doc.text(`Gerado em ${moment().format("DD/MM/YYYY HH:mm")}`, 14, 28);
+    doc.setFontSize(11);
+    let y = 40;
+    filtrados.forEach((h, idx) => {
+      if (y > 260) { doc.addPage(); y = 20; }
+      doc.setFont(undefined, "bold");
+      doc.text(`${idx + 1}. E${h.estufa} — ${h.lado} — Vão ${h.vao} — C${h.canteiro}`, 14, y);
+      doc.setFont(undefined, "normal");
+      y += 6;
+      const varStr = (h.variedades || []).map((v) => `${v.nome} (${v.quantidade})`).join(", ") || "—";
+      doc.text(`Variedades: ${varStr}`, 14, y); y += 5;
+      doc.text(`Plantio: ${h.data_plantio ? moment(h.data_plantio).format("DD/MM/YYYY") : "—"}   Finalização: ${h.data_finalizacao ? moment(h.data_finalizacao).format("DD/MM/YYYY") : "—"}`, 14, y); y += 5;
+      doc.text(`Colhido: ${h.total_colhido_cestos || 0} cestos / ${h.total_colhido_pressas || 0} hastes   Descarte: ${h.total_descartado || 0}`, 14, y); y += 8;
+      doc.setDrawColor(220, 220, 220);
+      doc.line(14, y - 2, 196, y - 2);
+    });
+    doc.save(`historico-vãos-${moment().format("YYYY-MM-DD")}.pdf`);
+  }
 
   useEffect(() => {
     base44.entities.HistoricoVao.list("-data_finalizacao", 200).then((data) => {
@@ -39,12 +65,19 @@ export default function Historico() {
 
   return (
     <div className="p-6 lg:p-10 max-w-7xl mx-auto space-y-8">
-      <div>
-        <div className="flex items-center gap-3 mb-2">
-          <History className="w-8 h-8 text-primary" />
-          <h1 className="text-3xl font-bold tracking-tight">Histórico de Vãos</h1>
+      <div className="flex items-start justify-between">
+        <div>
+          <div className="flex items-center gap-3 mb-2">
+            <History className="w-8 h-8 text-primary" />
+            <h1 className="text-3xl font-bold tracking-tight">Histórico de Vãos</h1>
+          </div>
+          <p className="text-muted-foreground">Ciclos finalizados arquivados para comparação</p>
         </div>
-        <p className="text-muted-foreground">Ciclos finalizados arquivados para comparação</p>
+        {filtrados.length > 0 && (
+          <Button variant="outline" onClick={() => exportPDF(filtrados)} className="gap-2">
+            <Download className="w-4 h-4" /> Exportar PDF
+          </Button>
+        )}
       </div>
 
       {/* Filtro */}
