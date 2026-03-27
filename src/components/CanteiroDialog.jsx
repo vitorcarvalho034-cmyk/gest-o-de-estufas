@@ -176,6 +176,35 @@ export default function CanteiroDialog({ canteiro, open, onClose, onSaved }) {
                 <InfoRow label="🗑 Mudas descartadas" value={descarteTotal} />
               </div>
 
+              {/* Produtividade */}
+              {(canteiro.total_mudas || 0) > 0 && (
+                <div className="rounded-lg border bg-gradient-to-br from-accent/10 to-primary/5 p-3 space-y-2">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase mb-1">📊 Produtividade do Canteiro</p>
+                  {(() => {
+                    const totalMudas = canteiro.total_mudas || 0;
+                    const pctColhida = totalMudas > 0 ? Math.round((colheitaTotal.hastes / totalMudas) * 100) : 0;
+                    const pctComDescartes = totalMudas > 0 ? Math.round(((colheitaTotal.hastes + descarteTotal) / totalMudas) * 100) : 0;
+                    const pctPerdas = pctComDescartes > pctColhida ? pctComDescartes - pctColhida : 0;
+                    return (
+                      <>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">Hastes colhidas</span>
+                          <span className="font-bold text-primary">{pctColhida}%</span>
+                        </div>
+                        <div className="h-2 bg-muted rounded-full overflow-hidden">
+                          <div className="h-full bg-primary rounded-full" style={{ width: `${Math.min(pctColhida, 100)}%` }} />
+                        </div>
+                        {pctPerdas > 0 && (
+                          <div className="text-xs text-muted-foreground text-right">
+                            {pctPerdas}% com descartes
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
+
               {/* Mortalidade de Mudas */}
               <div className="border-t pt-3">
                 <div className="flex items-center justify-between mb-2">
