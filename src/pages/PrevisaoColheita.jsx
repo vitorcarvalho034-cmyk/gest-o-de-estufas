@@ -46,7 +46,7 @@ export default function PrevisaoColheita() {
 
   async function loadVariedades() {
     const canteiros = await base44.entities.Canteiro.list();
-    const EXCLUIR = ['magnun', 'sobras', 'spartac'];
+    const EXCLUIR = ['magnun', 'magnus', 'sobras', 'sobra', 'spartak', 'spartac'];
     const seen = new Set();
     const nomes = [];
     canteiros.forEach((c) => {
