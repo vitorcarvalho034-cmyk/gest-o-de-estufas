@@ -324,6 +324,7 @@ const MOTIVOS_DESCARTE = [
 
 // Step 4: Confirm
 function StepConfirm({ form, onChange }) {
+  const [showDescarte, setShowDescarte] = useState(false);
   const pressasPorCesto = form.destino ? DESTINOS[form.destino] : 0;
   const hastesPorMaco = form.destino ? (HASTES_POR_MACO[form.destino] || 0) : 0;
   const total = form.modo === "macos"
