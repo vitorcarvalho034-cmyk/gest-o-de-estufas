@@ -199,9 +199,9 @@ function StepColheita({ form, onChange }) {
   const pressasPorCesto = form.destino ? DESTINOS[form.destino] : 0;
   const hastesPorMaco = form.destino ? (HASTES_POR_MACO[form.destino] || 0) : 0;
   const canUseMacos = !!hastesPorMaco;
-  const total = form.modo === "macos"
-    ? (parseInt(form.macos) || 0) * hastesPorMaco
-    : (parseInt(form.cestos) || 0) * pressasPorCesto;
+  const totalCestos = (parseInt(form.cestos) || 0) * pressasPorCesto;
+  const totalMacos = (parseInt(form.macos) || 0) * hastesPorMaco;
+  const total = totalCestos + totalMacos;
 
   return (
     <div className="space-y-4">
@@ -211,7 +211,7 @@ function StepColheita({ form, onChange }) {
           {Object.entries(DESTINOS).map(([name, p]) => (
             <button
               key={name}
-              onClick={() => { onChange("destino", name); onChange("modo", "cestos"); }}
+              onClick={() => onChange("destino", name)}
               className={`p-4 rounded-xl border-2 text-left transition-all ${
                 form.destino === name
                   ? "bg-primary text-primary-foreground border-primary shadow-md"
@@ -226,89 +226,63 @@ function StepColheita({ form, onChange }) {
       </div>
 
       {form.destino && (
-        <div>
-          <p className="text-sm font-medium text-muted-foreground mb-2">Tipo de registro</p>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              onClick={() => onChange("modo", "cestos")}
-              className={`py-3 px-4 rounded-xl border-2 font-semibold text-sm transition-all ${
-                form.modo !== "macos" ? "bg-primary text-primary-foreground border-primary" : "bg-background border-border hover:border-primary/50"
-              }`}
-            >
-              🧺 Cestos
-            </button>
-            <button
-              onClick={() => canUseMacos && onChange("modo", "macos")}
-              disabled={!canUseMacos}
-              className={`py-3 px-4 rounded-xl border-2 font-semibold text-sm transition-all ${
-                form.modo === "macos" ? "bg-primary text-primary-foreground border-primary" :
-                canUseMacos ? "bg-background border-border hover:border-primary/50" : "bg-muted text-muted-foreground border-border opacity-40 cursor-not-allowed"
-              }`}
-            >
-              💐 Maços
-            </button>
+        <>
+          <div>
+            <p className="text-sm font-medium text-muted-foreground mb-2">🧺 Cestos <span className="text-xs">({pressasPorCesto} hastes/cesto)</span></p>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => onChange("cestos", String(Math.max(0, (parseInt(form.cestos) || 0) - 1)))}
+                className="w-12 h-12 rounded-xl border-2 border-border text-2xl font-bold hover:border-primary/50 transition-all flex items-center justify-center"
+              >−</button>
+              <input
+                type="number"
+                value={form.cestos}
+                onChange={(e) => onChange("cestos", e.target.value)}
+                className="flex-1 text-center text-3xl font-bold h-14 rounded-xl border-2 border-border focus:border-primary focus:outline-none bg-background"
+                min={0}
+              />
+              <button
+                onClick={() => onChange("cestos", String((parseInt(form.cestos) || 0) + 1))}
+                className="w-12 h-12 rounded-xl border-2 border-border text-2xl font-bold hover:border-primary/50 transition-all flex items-center justify-center"
+              >+</button>
+            </div>
           </div>
-          {!canUseMacos && form.destino && (
-            <p className="text-xs text-muted-foreground mt-1">Maços não disponível para Barracão</p>
-          )}
-        </div>
-      )}
 
-      {form.destino && form.modo === "macos" ? (
-        <div>
-          <p className="text-sm font-medium text-muted-foreground mb-1">Quantidade de maços <span className="text-xs">({hastesPorMaco} hastes/maço)</span></p>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => onChange("macos", String(Math.max(0, (parseInt(form.macos) || 0) - 1)))}
-              className="w-12 h-12 rounded-xl border-2 border-border text-2xl font-bold hover:border-primary/50 transition-all flex items-center justify-center"
-            >−</button>
-            <input
-              type="number"
-              value={form.macos}
-              onChange={(e) => onChange("macos", e.target.value)}
-              className="flex-1 text-center text-3xl font-bold h-14 rounded-xl border-2 border-border focus:border-primary focus:outline-none bg-background"
-              min={0}
-            />
-            <button
-              onClick={() => onChange("macos", String((parseInt(form.macos) || 0) + 1))}
-              className="w-12 h-12 rounded-xl border-2 border-border text-2xl font-bold hover:border-primary/50 transition-all flex items-center justify-center"
-            >+</button>
-          </div>
-        </div>
-      ) : form.destino ? (
-        <div>
-          <p className="text-sm font-medium text-muted-foreground mb-2">Quantidade de cestos</p>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => onChange("cestos", String(Math.max(0, (parseInt(form.cestos) || 0) - 1)))}
-              className="w-12 h-12 rounded-xl border-2 border-border text-2xl font-bold hover:border-primary/50 transition-all flex items-center justify-center"
-            >−</button>
-            <input
-              type="number"
-              value={form.cestos}
-              onChange={(e) => onChange("cestos", e.target.value)}
-              className="flex-1 text-center text-3xl font-bold h-14 rounded-xl border-2 border-border focus:border-primary focus:outline-none bg-background"
-              min={0}
-            />
-            <button
-              onClick={() => onChange("cestos", String((parseInt(form.cestos) || 0) + 1))}
-              className="w-12 h-12 rounded-xl border-2 border-border text-2xl font-bold hover:border-primary/50 transition-all flex items-center justify-center"
-            >+</button>
-          </div>
-        </div>
-      ) : null}
-
-      {form.destino && total > 0 && (
-        <div className="bg-primary/5 border-2 border-primary/20 rounded-2xl p-5 text-center">
-          <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Total</p>
-          <p className="text-5xl font-black text-primary">{total.toLocaleString("pt-BR")}</p>
-          <p className="text-sm text-muted-foreground mt-1">hastes</p>
-          {form.modo === "macos" ? (
-            <p className="text-xs text-muted-foreground mt-2">{form.macos} maços × {hastesPorMaco} = {total}</p>
-          ) : (
-            <p className="text-xs text-muted-foreground mt-2">{form.cestos} cestos × {pressasPorCesto} = {total}</p>
+          {canUseMacos && (
+            <div>
+              <p className="text-sm font-medium text-muted-foreground mb-2">💐 Maços <span className="text-xs">({hastesPorMaco} hastes/maço)</span></p>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => onChange("macos", String(Math.max(0, (parseInt(form.macos) || 0) - 1)))}
+                  className="w-12 h-12 rounded-xl border-2 border-border text-2xl font-bold hover:border-primary/50 transition-all flex items-center justify-center"
+                >−</button>
+                <input
+                  type="number"
+                  value={form.macos}
+                  onChange={(e) => onChange("macos", e.target.value)}
+                  className="flex-1 text-center text-3xl font-bold h-14 rounded-xl border-2 border-border focus:border-primary focus:outline-none bg-background"
+                  min={0}
+                />
+                <button
+                  onClick={() => onChange("macos", String((parseInt(form.macos) || 0) + 1))}
+                  className="w-12 h-12 rounded-xl border-2 border-border text-2xl font-bold hover:border-primary/50 transition-all flex items-center justify-center"
+                >+</button>
+              </div>
+            </div>
           )}
-        </div>
+
+          {total > 0 && (
+            <div className="bg-primary/5 border-2 border-primary/20 rounded-2xl p-5 text-center">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Total</p>
+              <p className="text-5xl font-black text-primary">{total.toLocaleString("pt-BR")}</p>
+              <p className="text-sm text-muted-foreground mt-1">hastes</p>
+              <div className="text-xs text-muted-foreground mt-2 space-y-0.5">
+                {(parseInt(form.cestos) || 0) > 0 && <p>{form.cestos} cestos × {pressasPorCesto} = {totalCestos}</p>}
+                {(parseInt(form.macos) || 0) > 0 && canUseMacos && <p>{form.macos} maços × {hastesPorMaco} = {totalMacos}</p>}
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
@@ -327,9 +301,9 @@ function StepConfirm({ form, onChange }) {
   const [showDescarte, setShowDescarte] = useState(false);
   const pressasPorCesto = form.destino ? DESTINOS[form.destino] : 0;
   const hastesPorMaco = form.destino ? (HASTES_POR_MACO[form.destino] || 0) : 0;
-  const total = form.modo === "macos"
-    ? (parseInt(form.macos) || 0) * hastesPorMaco
-    : (parseInt(form.cestos) || 0) * pressasPorCesto;
+  const total =
+    (parseInt(form.cestos) || 0) * pressasPorCesto +
+    (parseInt(form.macos) || 0) * hastesPorMaco;
 
   return (
     <div className="space-y-4">
@@ -346,15 +320,16 @@ function StepConfirm({ form, onChange }) {
           <span className="text-muted-foreground">Destino</span>
           <span className="font-semibold">{form.destino}</span>
         </div>
-        {form.modo === "macos" ? (
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Maços</span>
-            <span className="font-semibold">{form.macos} maços ({hastesPorMaco} hastes/maço)</span>
-          </div>
-        ) : (
+        {parseInt(form.cestos) > 0 && (
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">Cestos</span>
             <span className="font-semibold">{form.cestos}</span>
+          </div>
+        )}
+        {parseInt(form.macos) > 0 && (
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Maços</span>
+            <span className="font-semibold">{form.macos} maços ({hastesPorMaco} hastes/maço)</span>
           </div>
         )}
         <div className="h-px bg-border" />
@@ -464,8 +439,7 @@ export default function ColheitaWizard({ open, onClose, onSaved }) {
     if (step === 1) return form.variedade.trim().length > 0;
     if (step === 2) {
       if (!form.destino) return false;
-      if (form.modo === "macos") return parseInt(form.macos) > 0;
-      return parseInt(form.cestos) > 0;
+      return parseInt(form.cestos) > 0 || parseInt(form.macos) > 0;
     }
     return true;
   }
@@ -473,10 +447,10 @@ export default function ColheitaWizard({ open, onClose, onSaved }) {
   async function handleSave() {
     setSaving(true);
     const hastesPorMaco = HASTES_POR_MACO[form.destino] || 0;
-    const pressas = form.modo === "macos"
-      ? (parseInt(form.macos) || 0) * hastesPorMaco
-      : (parseInt(form.cestos) || 0) * DESTINOS[form.destino];
-    const cestos = form.modo === "macos" ? 0 : parseInt(form.cestos);
+    const pressas =
+      (parseInt(form.cestos) || 0) * DESTINOS[form.destino] +
+      (parseInt(form.macos) || 0) * hastesPorMaco;
+    const cestos = parseInt(form.cestos) || 0;
     await base44.entities.Colheita.create({
       estufa: parseInt(form.estufa), lado: form.lado,
       vao: parseInt(form.vao), canteiro: parseInt(form.canteiro),
@@ -495,7 +469,10 @@ export default function ColheitaWizard({ open, onClose, onSaved }) {
       });
     }
     const descarteMsg = form.descarte_motivo && parseInt(form.descarte_quantidade) > 0 ? ` · ${form.descarte_quantidade} descartadas` : "";
-    const qtyLabel = form.modo === "macos" ? `${form.macos} maços` : `${form.cestos} cestos`;
+    const parts = [];
+    if (parseInt(form.cestos) > 0) parts.push(`${form.cestos} cestos`);
+    if (parseInt(form.macos) > 0) parts.push(`${form.macos} maços`);
+    const qtyLabel = parts.join(" + ") || "0 cestos";
     toast.success(`✂️ ${qtyLabel} registrados — ${pressas} hastes${descarteMsg}`);
     setSaving(false);
     handleClose();
