@@ -28,6 +28,7 @@ export default function PrevisaoColheita() {
   const [previsoes, setPrevisoes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [variedadesPlantadas, setVariedadesPlantadas] = useState([]);
   const [semana, setSemana] = useState(getCurrentWeek());
   const [ano, setAno] = useState(getCurrentYear());
   const [form, setForm] = useState({
@@ -43,10 +44,21 @@ export default function PrevisaoColheita() {
     setLoading(false);
   }
 
+  async function loadVariedades() {
+    const canteiros = await base44.entities.Canteiro.list();
+    const nomes = new Set();
+    canteiros.forEach((c) => {
+      (c.variedades || []).forEach((v) => { if (v.nome) nomes.add(v.nome); });
+    });
+    setVariedadesPlantadas([...nomes].sort());
+  }
+
   useEffect(() => {
     setLoading(true);
     loadPrevisoes();
   }, [semana, ano]);
+
+  useEffect(() => { loadVariedades(); }, []);
 
   function updateForm(field, value) {
     setForm({ ...form, [field]: value });
@@ -220,6 +232,27 @@ export default function PrevisaoColheita() {
                 value={form.variedade}
                 onChange={(e) => updateForm("variedade", e.target.value)}
               />
+              {variedadesPlantadas.length > 0 && (
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1.5">Plantadas atualmente:</p>
+                  <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto">
+                    {variedadesPlantadas.map((v) => (
+                      <button
+                        key={v}
+                        type="button"
+                        onClick={() => updateForm("variedade", v)}
+                        className={`px-2.5 py-1 rounded-full text-xs border transition-all ${
+                          form.variedade === v
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "bg-background border-border hover:border-primary/50 hover:text-primary"
+                        }`}
+                      >
+                        {v}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Hastes Previstas *</Label>
