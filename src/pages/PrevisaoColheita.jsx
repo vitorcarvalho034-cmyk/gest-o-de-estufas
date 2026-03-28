@@ -28,6 +28,7 @@ export default function PrevisaoColheita() {
   const [previsoes, setPrevisoes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [viewMode, setViewMode] = useState("total"); // "total" | "por_estufa"
   const [variedadesPlantadas, setVariedadesPlantadas] = useState([]);
   const [semana, setSemana] = useState(getCurrentWeek());
   const [ano, setAno] = useState(getCurrentYear());
@@ -186,6 +187,23 @@ export default function PrevisaoColheita() {
         </CardContent>
       </Card>
 
+      {/* View toggle */}
+      <div className="flex gap-2">
+        {[{value: "total", label: "Total"}, {value: "por_estufa", label: "Por Estufa"}].map((v) => (
+          <button
+            key={v.value}
+            onClick={() => setViewMode(v.value)}
+            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all border ${
+              viewMode === v.value
+                ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                : "bg-background border-border text-muted-foreground hover:border-primary/50 hover:text-primary"
+            }`}
+          >
+            {v.label}
+          </button>
+        ))}
+      </div>
+
       {/* Total */}
       <div className="bg-primary/5 rounded-xl p-4 flex items-center justify-between border border-primary/10">
         <span className="text-sm font-medium text-muted-foreground">Total Previsto</span>
@@ -193,6 +211,7 @@ export default function PrevisaoColheita() {
       </div>
 
       {/* Table */}
+      {viewMode === "total" ? (
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Previsões da Semana {semana}</CardTitle>
@@ -238,6 +257,61 @@ export default function PrevisaoColheita() {
           )}
         </CardContent>
       </Card>
+      ) : (
+      <div className="space-y-4">
+        {loading ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="w-6 h-6 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+          </div>
+        ) : previsoes.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-8">Nenhuma previsão para esta semana</p>
+        ) : (
+          [1, 2, 3, 4].map((estufa) => {
+            const itens = previsoes.filter((p) => p.estufa === estufa);
+            const semEstufa = estufa === 1 ? previsoes.filter((p) => !p.estufa) : [];
+            const itensMostrar = estufa === 1 ? [...semEstufa, ...itens] : itens;
+            const totalEstufa = itensMostrar.reduce((s, p) => s + (p.pressas_previstas || 0), 0);
+            if (itensMostrar.length === 0) return null;
+            return (
+              <Card key={estufa}>
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base">Estufa {estufa}</CardTitle>
+                    <span className="text-sm font-bold text-primary">{totalEstufa.toLocaleString("pt-BR")} hastes</span>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Variedade</TableHead>
+                        <TableHead>Vão</TableHead>
+                        <TableHead className="text-right">Hastes</TableHead>
+                        <TableHead className="w-12" />
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {itensMostrar.map((p) => (
+                        <TableRow key={p.id}>
+                          <TableCell className="font-medium">{p.variedade}</TableCell>
+                          <TableCell className="text-muted-foreground">{p.vao ? `Vão ${p.vao}` : "—"}</TableCell>
+                          <TableCell className="text-right font-semibold">{p.pressas_previstas?.toLocaleString("pt-BR")}</TableCell>
+                          <TableCell>
+                            <Button variant="ghost" size="icon" onClick={() => handleDelete(p.id)}>
+                              <Trash2 className="w-4 h-4 text-muted-foreground" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            );
+          })
+        )}
+      </div>
+      )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-md">
