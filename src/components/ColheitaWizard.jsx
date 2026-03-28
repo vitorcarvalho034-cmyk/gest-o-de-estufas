@@ -375,7 +375,7 @@ function StepConfirm({ form, onChange }) {
                 {MOTIVOS_DESCARTE.map((m) => {
                   const Icon = m.icon;
                   return (
-                    <button key={m.label} onClick={() => onChange("descarte_motivo", m.label)}
+                    <button key={m.label} onClick={() => { onChange("descarte_motivo", m.label); onChange("descarte_observacao", ""); }}
                       className={`p-2 rounded-lg border text-xs flex flex-col items-center gap-1 transition-all ${
                         form.descarte_motivo === m.label ? "bg-destructive text-white border-destructive" : "bg-background border-border hover:border-destructive/40"
                       }`}>
@@ -385,6 +385,18 @@ function StepConfirm({ form, onChange }) {
                   );
                 })}
               </div>
+              {form.descarte_motivo && (
+                <div className="mt-2">
+                  <p className="text-xs text-muted-foreground mb-1">Especifique ({form.descarte_motivo})</p>
+                  <input
+                    type="text"
+                    placeholder={`Ex: ${form.descarte_motivo === "Doença" ? "Vírus, trips..." : form.descarte_motivo === "Praga" ? "Ácaros, pulgão..." : form.descarte_motivo === "Qualidade" ? "Haste curta, deformada..." : "Descreva melhor..."}`}
+                    value={form.descarte_observacao}
+                    onChange={(e) => onChange("descarte_observacao", e.target.value)}
+                    className="w-full h-9 rounded-lg border border-border px-3 text-sm focus:border-destructive focus:outline-none bg-background"
+                  />
+                </div>
+              )}
             </div>
             <div>
               <p className="text-xs text-muted-foreground mb-1.5">Quantidade de mudas</p>
@@ -413,7 +425,7 @@ export default function ColheitaWizard({ open, onClose, onSaved }) {
     estufa: "", lado: "", vao: "", canteiro: "",
     variedade: "", destino: "", cestos: "", macos: "", modo: "cestos",
     data_colheita: new Date().toISOString().split("T")[0],
-    descarte_motivo: "", descarte_quantidade: "",
+    descarte_motivo: "", descarte_quantidade: "", descarte_observacao: "",
   });
 
   useEffect(() => {
@@ -465,6 +477,7 @@ export default function ColheitaWizard({ open, onClose, onSaved }) {
         vao: parseInt(form.vao), canteiro: parseInt(form.canteiro),
         variedade: form.variedade, quantidade: parseInt(form.descarte_quantidade),
         motivo: form.descarte_motivo,
+        observacao: form.descarte_observacao || undefined,
         data_descarte: form.data_colheita,
       });
     }
@@ -481,7 +494,7 @@ export default function ColheitaWizard({ open, onClose, onSaved }) {
 
   function handleClose() {
     setStep(0);
-    setForm({ estufa: "", lado: "", vao: "", canteiro: "", variedade: "", destino: "", cestos: "", macos: "", modo: "cestos", data_colheita: new Date().toISOString().split("T")[0], descarte_motivo: "", descarte_quantidade: "" });
+    setForm({ estufa: "", lado: "", vao: "", canteiro: "", variedade: "", destino: "", cestos: "", macos: "", modo: "cestos", data_colheita: new Date().toISOString().split("T")[0], descarte_motivo: "", descarte_quantidade: "", descarte_observacao: "" });
     setVariedades([]);
     onClose();
   }
