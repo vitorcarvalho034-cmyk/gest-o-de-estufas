@@ -46,11 +46,20 @@ export default function PrevisaoColheita() {
 
   async function loadVariedades() {
     const canteiros = await base44.entities.Canteiro.list();
-    const nomes = new Set();
+    const EXCLUIR = ['magnun', 'sobras', 'spartac'];
+    const seen = new Set();
+    const nomes = [];
     canteiros.forEach((c) => {
-      (c.variedades || []).forEach((v) => { if (v.nome) nomes.add(v.nome); });
+      (c.variedades || []).forEach((v) => {
+        if (!v.nome) return;
+        const lower = v.nome.toLowerCase().trim();
+        if (seen.has(lower)) return;
+        if (EXCLUIR.includes(lower)) return;
+        seen.add(lower);
+        nomes.push(v.nome);
+      });
     });
-    setVariedadesPlantadas([...nomes].sort());
+    setVariedadesPlantadas(nomes.sort());
   }
 
   useEffect(() => {
