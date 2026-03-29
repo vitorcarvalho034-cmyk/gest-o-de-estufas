@@ -161,8 +161,8 @@ export default function PrevisaoColheita() {
   const hastesSobra = Math.max(0, totalPressas - hastesMercado);
   const hastesOfertas = Math.round(hastesSobra * 0.5);
   const hastesBarracao = hastesSobra - hastesOfertas;
-  const cestosOfertas = hastesOfertas > 0 ? (hastesOfertas / 60).toFixed(1) : "0";
-  const cestosBarracao = hastesBarracao > 0 ? (hastesBarracao / 50).toFixed(1) : "0";
+  const cestosOfertas = hastesOfertas > 0 ? Math.floor(hastesOfertas / 60) : 0;
+  const cestosBarracao = hastesBarracao > 0 ? Math.floor(hastesBarracao / 50) : 0;
 
   return (
     <div className="p-6 lg:p-10 max-w-7xl mx-auto space-y-8">
@@ -267,7 +267,7 @@ export default function PrevisaoColheita() {
                     )}
                   </div>
                   <div className="text-right">
-                    <p className="text-xl font-bold text-primary">{parseFloat(cestosOfertas).toLocaleString("pt-BR")} cestos</p>
+                    <p className="text-xl font-bold text-primary">{cestosOfertas.toLocaleString("pt-BR")} cestos</p>
                   </div>
                 </div>
               </div>
@@ -280,7 +280,7 @@ export default function PrevisaoColheita() {
                     <p className="text-xs text-muted-foreground mt-0.5">{hastesBarracao.toLocaleString("pt-BR")} hastes (50% da sobra) ÷ 50</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-xl font-bold text-primary">{parseFloat(cestosBarracao).toLocaleString("pt-BR")} cestos</p>
+                    <p className="text-xl font-bold text-primary">{cestosBarracao.toLocaleString("pt-BR")} cestos</p>
                   </div>
                 </div>
               </div>
