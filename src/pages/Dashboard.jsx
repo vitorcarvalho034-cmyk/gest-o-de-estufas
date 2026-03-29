@@ -36,14 +36,13 @@ export default function Dashboard() {
   const [estufaStats, setEstufaStats] = useState({});
   const [alertas, setAlertas] = useState([]);
   const [confirmedIds, setConfirmedIds] = useState(() => {
-    try { return new Set(JSON.parse(localStorage.getItem("corte_luz_confirmed") || "[]")); } catch { return new Set(); }
+    try { return JSON.parse(localStorage.getItem("corte_luz_confirmed") || "[]"); } catch { return []; }
   });
 
   function confirmarCorte(id) {
-    const updated = new Set(confirmedIds);
-    updated.add(id);
+    const updated = [...confirmedIds, id];
     setConfirmedIds(updated);
-    localStorage.setItem("corte_luz_confirmed", JSON.stringify([...updated]));
+    localStorage.setItem("corte_luz_confirmed", JSON.stringify(updated));
   }
   const [weeklyData, setWeeklyData] = useState([]);
   const [topVariedades, setTopVariedades] = useState([]);
@@ -151,18 +150,18 @@ export default function Dashboard() {
         <p className="text-muted-foreground">Visão geral das estufas de flores</p>
       </div>
 
-      {alertas.filter(a => !confirmedIds.has(a.id)).length > 0 && (
+      {alertas.filter(a => !confirmedIds.includes(a.id)).length > 0 && (
         <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 space-y-3">
           <div className="flex items-center gap-2 text-amber-800">
             <Zap className="w-5 h-5 text-amber-500" />
             <span className="font-semibold text-sm">Alerta de Corte de Luz</span>
             <span className="ml-auto text-xs bg-amber-200 text-amber-800 rounded-full px-2 py-0.5 font-semibold">
-              {alertas.filter(a => !confirmedIds.has(a.id)).length} plantio{alertas.filter(a => !confirmedIds.has(a.id)).length > 1 ? "s" : ""}
+              {alertas.filter(a => !confirmedIds.includes(a.id)).length} plantio{alertas.filter(a => !confirmedIds.includes(a.id)).length > 1 ? "s" : ""}
             </span>
           </div>
           <p className="text-xs text-amber-700">Os plantios abaixo atingiram 25+ dias e requerem corte de luz:</p>
           <div className="space-y-2">
-            {alertas.filter(a => !confirmedIds.has(a.id)).slice(0, 5).map((a) => (
+            {alertas.filter(a => !confirmedIds.includes(a.id)).slice(0, 5).map((a) => (
               <div key={a.id} className="flex items-center justify-between bg-white rounded-lg px-3 py-2 border border-amber-200">
                 <div className="flex items-center gap-2">
                   <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
@@ -184,8 +183,8 @@ export default function Dashboard() {
                 </div>
               </div>
             ))}
-            {alertas.filter(a => !confirmedIds.has(a.id)).length > 5 && (
-              <p className="text-xs text-amber-600 text-center">+ {alertas.filter(a => !confirmedIds.has(a.id)).length - 5} mais plantios</p>
+            {alertas.filter(a => !confirmedIds.includes(a.id)).length > 5 && (
+              <p className="text-xs text-amber-600 text-center">+ {alertas.filter(a => !confirmedIds.includes(a.id)).length - 5} mais plantios</p>
             )}
           </div>
         </div>
