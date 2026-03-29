@@ -150,8 +150,22 @@ export default function PrevisaoColheita() {
   const totalPressas = previsoes.reduce((sum, p) => sum + (p.pressas_previstas || 0), 0);
   const weekDates = getWeekDates(semana, ano);
 
-  // Hastes de Anast.
-  const hastesAnast = previsoes.filter(p => p.variedade?.toLowerCase().startsWith("anast.")).reduce((s, p) => s + (p.pressas_previstas || 0), 0);
+  // Anast. 80 hastes/cesto
+  const ANAST_80 = ['dark green', 'chispa', 'cipria', 'sunny', 'boda', 'fiebre', 'magnum'];
+  const isAnast80 = (nome) => {
+    const lower = (nome || '').toLowerCase();
+    return lower.startsWith('anast.') && ANAST_80.some(v => lower.includes(v));
+  };
+  const isAnast60 = (nome) => {
+    const lower = (nome || '').toLowerCase();
+    return lower.startsWith('anast.') && !ANAST_80.some(v => lower.includes(v));
+  };
+
+  const hastesAnast = previsoes.filter(p => p.variedade?.toLowerCase().startsWith('anast.')).reduce((s, p) => s + (p.pressas_previstas || 0), 0);
+  const hastesAnast80 = previsoes.filter(p => isAnast80(p.variedade)).reduce((s, p) => s + (p.pressas_previstas || 0), 0);
+  const hastesAnast60 = previsoes.filter(p => isAnast60(p.variedade)).reduce((s, p) => s + (p.pressas_previstas || 0), 0);
+  const cestosAnast80 = hastesAnast80 > 0 ? Math.floor(hastesAnast80 / 80) : 0;
+  const cestosAnast60 = hastesAnast60 > 0 ? Math.floor(hastesAnast60 / 60) : 0;
 
   // Mercado: usuário define quantos cestos. Hastes usadas = cestos * 60
   const cestosMercadoNum = parseFloat(cestosMercadoInput) || 0;
@@ -263,7 +277,14 @@ export default function PrevisaoColheita() {
                     <p className="font-semibold text-sm">🌸 Ofertas</p>
                     <p className="text-xs text-muted-foreground mt-0.5">{hastesOfertas.toLocaleString("pt-BR")} hastes (50% da sobra) ÷ 60</p>
                     {hastesAnast > 0 && (
-                      <p className="text-xs text-muted-foreground">Inclui Anast.: {hastesAnast.toLocaleString("pt-BR")} hastes</p>
+                      <div className="mt-1 space-y-0.5">
+                        {cestosAnast80 > 0 && (
+                          <p className="text-xs text-muted-foreground">→ Anast. 80h/cesto: {hastesAnast80.toLocaleString('pt-BR')} hastes = <span className="font-semibold text-foreground">{cestosAnast80} cestos</span></p>
+                        )}
+                        {cestosAnast60 > 0 && (
+                          <p className="text-xs text-muted-foreground">→ Anast. 60h/cesto: {hastesAnast60.toLocaleString('pt-BR')} hastes = <span className="font-semibold text-foreground">{cestosAnast60} cestos</span></p>
+                        )}
+                      </div>
                     )}
                   </div>
                   <div className="text-right">
