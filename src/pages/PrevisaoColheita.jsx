@@ -29,6 +29,7 @@ export default function PrevisaoColheita() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [viewMode, setViewMode] = useState("total"); // "total" | "por_estufa"
+  const [cestosMercadoInput, setCestosMercadoInput] = useState("");
   const [variedadesPlantadas, setVariedadesPlantadas] = useState([]);
   const [semana, setSemana] = useState(getCurrentWeek());
   const [ano, setAno] = useState(getCurrentYear());
@@ -149,18 +150,19 @@ export default function PrevisaoColheita() {
   const totalPressas = previsoes.reduce((sum, p) => sum + (p.pressas_previstas || 0), 0);
   const weekDates = getWeekDates(semana, ano);
 
-  // Distribuição
-  const totalOfertas = Math.round(totalPressas * 0.5);
-  const totalRestante = totalPressas - totalOfertas;
-  const totalMercado = Math.round(totalRestante * 0.5);
-  const totalBarracao = totalRestante - totalMercado;
-  const cestosOfertas = totalOfertas > 0 ? (totalOfertas / 60).toFixed(1) : 0;
-  const cestosMercado = totalMercado > 0 ? (totalMercado / 60).toFixed(1) : 0;
-  const cestosBarracao = totalBarracao > 0 ? (totalBarracao / 50).toFixed(1) : 0;
-
-  // Hastes de Anast. (vão direto p/ ofertas)
+  // Hastes de Anast.
   const hastesAnast = previsoes.filter(p => p.variedade?.toLowerCase().startsWith("anast.")).reduce((s, p) => s + (p.pressas_previstas || 0), 0);
-  const hastesNaoAnast = totalPressas - hastesAnast;
+
+  // Mercado: usuário define quantos cestos. Hastes usadas = cestos * 60
+  const cestosMercadoNum = parseFloat(cestosMercadoInput) || 0;
+  const hastesMercado = Math.round(cestosMercadoNum * 60);
+
+  // Sobra após mercado → redistribuída entre Ofertas (÷60) e Barracão (÷50)
+  const hastesSobra = Math.max(0, totalPressas - hastesMercado);
+  const hastesOfertas = Math.round(hastesSobra * 0.5);
+  const hastesBarracao = hastesSobra - hastesOfertas;
+  const cestosOfertas = hastesOfertas > 0 ? (hastesOfertas / 60).toFixed(1) : "0";
+  const cestosBarracao = hastesBarracao > 0 ? (hastesBarracao / 50).toFixed(1) : "0";
 
   return (
     <div className="p-6 lg:p-10 max-w-7xl mx-auto space-y-8">
@@ -230,14 +232,38 @@ export default function PrevisaoColheita() {
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Distribuição</p>
             </div>
             <div className="divide-y divide-border">
+              {/* Mercado — input livre */}
+              <div className="px-4 py-3">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex-1">
+                    <p className="font-semibold text-sm">🏪 Mercado</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {hastesMercado > 0 ? `${hastesMercado.toLocaleString("pt-BR")} hastes usadas` : "Informe quantos cestos serão destinados ao mercado"}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min={0}
+                      step={0.5}
+                      placeholder="0"
+                      value={cestosMercadoInput}
+                      onChange={(e) => setCestosMercadoInput(e.target.value)}
+                      className="w-24 text-right font-bold text-primary"
+                    />
+                    <span className="text-sm text-muted-foreground whitespace-nowrap">cestos</span>
+                  </div>
+                </div>
+              </div>
+
               {/* Ofertas */}
               <div className="px-4 py-3">
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="font-semibold text-sm">🌸 Ofertas</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{totalOfertas.toLocaleString("pt-BR")} hastes (50% total) ÷ 60</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{hastesOfertas.toLocaleString("pt-BR")} hastes (50% da sobra) ÷ 60</p>
                     {hastesAnast > 0 && (
-                      <p className="text-xs text-muted-foreground">Anast.: {hastesAnast.toLocaleString("pt-BR")} hastes + complemento: {(totalOfertas - hastesAnast).toLocaleString("pt-BR")} hastes</p>
+                      <p className="text-xs text-muted-foreground">Inclui Anast.: {hastesAnast.toLocaleString("pt-BR")} hastes</p>
                     )}
                   </div>
                   <div className="text-right">
@@ -245,24 +271,13 @@ export default function PrevisaoColheita() {
                   </div>
                 </div>
               </div>
-              {/* Mercado */}
-              <div className="px-4 py-3">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="font-semibold text-sm">🏪 Mercado</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{totalMercado.toLocaleString("pt-BR")} hastes (25% total) ÷ 60</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xl font-bold text-primary">{parseFloat(cestosMercado).toLocaleString("pt-BR")} cestos</p>
-                  </div>
-                </div>
-              </div>
+
               {/* Barracão */}
               <div className="px-4 py-3">
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="font-semibold text-sm">🏠 Barracão</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{totalBarracao.toLocaleString("pt-BR")} hastes (25% total) ÷ 50</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{hastesBarracao.toLocaleString("pt-BR")} hastes (50% da sobra) ÷ 50</p>
                   </div>
                   <div className="text-right">
                     <p className="text-xl font-bold text-primary">{parseFloat(cestosBarracao).toLocaleString("pt-BR")} cestos</p>
