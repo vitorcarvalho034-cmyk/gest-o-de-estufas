@@ -149,6 +149,19 @@ export default function PrevisaoColheita() {
   const totalPressas = previsoes.reduce((sum, p) => sum + (p.pressas_previstas || 0), 0);
   const weekDates = getWeekDates(semana, ano);
 
+  // Distribuição
+  const totalOfertas = Math.round(totalPressas * 0.5);
+  const totalRestante = totalPressas - totalOfertas;
+  const totalMercado = Math.round(totalRestante * 0.5);
+  const totalBarracao = totalRestante - totalMercado;
+  const cestosOfertas = totalOfertas > 0 ? (totalOfertas / 60).toFixed(1) : 0;
+  const cestosMercado = totalMercado > 0 ? (totalMercado / 60).toFixed(1) : 0;
+  const cestosBarracao = totalBarracao > 0 ? (totalBarracao / 50).toFixed(1) : 0;
+
+  // Hastes de Anast. (vão direto p/ ofertas)
+  const hastesAnast = previsoes.filter(p => p.variedade?.toLowerCase().startsWith("anast.")).reduce((s, p) => s + (p.pressas_previstas || 0), 0);
+  const hastesNaoAnast = totalPressas - hastesAnast;
+
   return (
     <div className="p-6 lg:p-10 max-w-7xl mx-auto space-y-8">
       <div className="flex items-center justify-between">
@@ -204,10 +217,61 @@ export default function PrevisaoColheita() {
         ))}
       </div>
 
-      {/* Total */}
-      <div className="bg-primary/5 rounded-xl p-4 flex items-center justify-between border border-primary/10">
-        <span className="text-sm font-medium text-muted-foreground">Total Previsto</span>
-        <span className="text-2xl font-bold text-primary">{totalPressas.toLocaleString("pt-BR")} hastes</span>
+      {/* Total + Distribuição */}
+      <div className="space-y-3">
+        <div className="bg-primary/5 rounded-xl p-4 flex items-center justify-between border border-primary/10">
+          <span className="text-sm font-medium text-muted-foreground">Total Previsto</span>
+          <span className="text-2xl font-bold text-primary">{totalPressas.toLocaleString("pt-BR")} hastes</span>
+        </div>
+
+        {totalPressas > 0 && (
+          <div className="rounded-xl border border-border overflow-hidden">
+            <div className="bg-muted/40 px-4 py-2 border-b border-border">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Distribuição</p>
+            </div>
+            <div className="divide-y divide-border">
+              {/* Ofertas */}
+              <div className="px-4 py-3">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="font-semibold text-sm">🌸 Ofertas</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{totalOfertas.toLocaleString("pt-BR")} hastes (50% total) ÷ 60</p>
+                    {hastesAnast > 0 && (
+                      <p className="text-xs text-muted-foreground">Anast.: {hastesAnast.toLocaleString("pt-BR")} hastes + complemento: {(totalOfertas - hastesAnast).toLocaleString("pt-BR")} hastes</p>
+                    )}
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xl font-bold text-primary">{parseFloat(cestosOfertas).toLocaleString("pt-BR")} cestos</p>
+                  </div>
+                </div>
+              </div>
+              {/* Mercado */}
+              <div className="px-4 py-3">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="font-semibold text-sm">🏪 Mercado</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{totalMercado.toLocaleString("pt-BR")} hastes (25% total) ÷ 60</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xl font-bold text-primary">{parseFloat(cestosMercado).toLocaleString("pt-BR")} cestos</p>
+                  </div>
+                </div>
+              </div>
+              {/* Barracão */}
+              <div className="px-4 py-3">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="font-semibold text-sm">🏠 Barracão</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{totalBarracao.toLocaleString("pt-BR")} hastes (25% total) ÷ 50</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xl font-bold text-primary">{parseFloat(cestosBarracao).toLocaleString("pt-BR")} cestos</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Table */}
