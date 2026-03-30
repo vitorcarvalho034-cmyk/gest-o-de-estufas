@@ -1,0 +1,79 @@
+{
+  "name": "Colheita",
+  "type": "object",
+  "properties": {
+    "estufa": {
+      "type": "integer",
+      "enum": [
+        1,
+        2,
+        3,
+        4
+      ]
+    },
+    "lado": {
+      "type": "string",
+      "enum": [
+        "A",
+        "B"
+      ]
+    },
+    "vao": {
+      "type": "integer",
+      "description": "N\u00famero do v\u00e3o"
+    },
+    "canteiro": {
+      "type": "integer",
+      "enum": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "description": "Canteiro dentro do v\u00e3o"
+    },
+    "variedade": {
+      "type": "string"
+    },
+    "destino": {
+      "type": "string",
+      "enum": [
+        "Barrac\u00e3o",
+        "Mercado",
+        "Oferta 60",
+        "Oferta 80"
+      ]
+    },
+    "cestos": {
+      "type": "integer",
+      "description": "Quantidade de cestos colhidos"
+    },
+    "pressas": {
+      "type": "integer",
+      "description": "Calculado automaticamente"
+    },
+    "data_colheita": {
+      "type": "string",
+      "format": "date"
+    },
+    "semana": {
+      "type": "integer"
+    }
+  },
+  "required": [
+    "estufa",
+    "lado",
+    "vao",
+    "canteiro",
+    "variedade",
+    "destino",
+    "cestos",
+    "data_colheita"
+  ],
+  "rls": {
+    "create": true,
+    "read": true,
+    "update": true,
+    "delete": true
+  }
+}
