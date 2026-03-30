@@ -171,10 +171,10 @@ export default function PrevisaoColheita() {
   const cestosMercadoNum = parseFloat(cestosMercadoInput) || 0;
   const hastesMercado = Math.round(cestosMercadoNum * 60);
 
-  // Sobra após mercado → redistribuída entre Ofertas (÷60) e Barracão (÷50)
-  const hastesSobra = Math.max(0, totalPressas - hastesMercado);
-  const hastesOfertas = Math.round(hastesSobra * 0.5);
-  const hastesBarracao = hastesSobra - hastesOfertas;
+  // Ofertas = fixo em 50% do total (não muda com o mercado)
+  // Barracão = restante após descontar Ofertas e Mercado
+  const hastesOfertas = Math.round(totalPressas * 0.5);
+  const hastesBarracao = Math.max(0, totalPressas - hastesOfertas - hastesMercado);
   const cestosOfertas = hastesOfertas > 0 ? Math.floor(hastesOfertas / 60) : 0;
   const cestosBarracao = hastesBarracao > 0 ? Math.floor(hastesBarracao / 50) : 0;
 
@@ -275,7 +275,7 @@ export default function PrevisaoColheita() {
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="font-semibold text-sm">🌸 Ofertas</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{hastesOfertas.toLocaleString("pt-BR")} hastes (50% da sobra) ÷ 60</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{hastesOfertas.toLocaleString("pt-BR")} hastes (50% do total) ÷ 60</p>
                     {hastesAnast > 0 && (
                       <div className="mt-1 space-y-0.5">
                         {cestosAnast80 > 0 && (
@@ -298,7 +298,7 @@ export default function PrevisaoColheita() {
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="font-semibold text-sm">🏠 Barracão</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{hastesBarracao.toLocaleString("pt-BR")} hastes (50% da sobra) ÷ 50</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{hastesBarracao.toLocaleString("pt-BR")} hastes (restante após Ofertas e Mercado) ÷ 50</p>
                   </div>
                   <div className="text-right">
                     <p className="text-xl font-bold text-primary">{cestosBarracao.toLocaleString("pt-BR")} cestos</p>
