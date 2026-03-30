@@ -53,15 +53,6 @@ export default function PrevisaoColheita() {
   async function loadVariedades() {
     const canteiros = await base44.entities.Canteiro.list();
     const EXCLUIR = ['magnun', 'magnus', 'sobras', 'sobra', 'spartak', 'spartac', 'anast.fuego'];
-    const RENAME_MAP = {
-      'boda': 'Anast. Boda',
-      'cipria': 'Anast. Cipria',
-      'chispa': 'Anast. Chispa',
-      'herreira': 'Anast. Herreira',
-      'fiebre': 'Anast. Fiebre',
-      'lotso': 'Anast. Lotso',
-      'magnum': 'Anast. Magnum',
-    };
     const seen = new Set();
     const nomes = [];
     canteiros.forEach((c) => {
@@ -69,11 +60,10 @@ export default function PrevisaoColheita() {
         if (!v.nome) return;
         const lower = v.nome.toLowerCase().trim();
         if (EXCLUIR.includes(lower)) return;
-        const displayName = RENAME_MAP[lower] || v.nome;
-        const key = displayName.toLowerCase();
+        const key = lower;
         if (seen.has(key)) return;
         seen.add(key);
-        nomes.push(displayName);
+        nomes.push(v.nome);
       });
     });
     setVariedadesPlantadas(nomes.sort());
