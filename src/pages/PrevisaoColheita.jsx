@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import moment from "moment";
+import { enqueue } from "@/lib/offlineQueue";
 
 function getCurrentWeek() {
   return moment().isoWeek();
@@ -112,17 +113,21 @@ export default function PrevisaoColheita() {
       toast.error("Preencha variedade e pressas previstas");
       return;
     }
-
-    await base44.entities.PrevisaoColheita.create({
-      semana,
-      ano,
+    const data = {
+      semana, ano,
       variedade: form.variedade,
       pressas_previstas: parseInt(form.pressas_previstas),
       estufa: form.estufa || undefined,
       vao: form.vao || undefined,
-    });
-
-    toast.success("Previsão adicionada");
+    };
+    if (!navigator.onLine) {
+      enqueue('PrevisaoColheita', data);
+      window.dispatchEvent(new Event('offline-queue-updated'));
+      toast.success("📴 Previsão salva offline — será sincronizada quando houver conexão");
+    } else {
+      await base44.entities.PrevisaoColheita.create(data);
+      toast.success("Previsão adicionada");
+    }
     setDialogOpen(false);
     setForm({ variedade: "", pressas_previstas: "", estufa: null, vao: null });
     loadPrevisoes();

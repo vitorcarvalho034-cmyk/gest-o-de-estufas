@@ -1,6 +1,7 @@
 import { Outlet, Link, useLocation } from "react-router-dom";
 import { Flower2, LayoutDashboard, Warehouse, Sprout, Scissors, Trash2, BarChart3, CalendarClock, Menu, X, History } from "lucide-react";
 import { useState } from "react";
+import OfflineBanner from "./OfflineBanner";
 
 const navItems = [
 { path: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -83,6 +84,7 @@ export default function Layout() {
           <div className="w-9" />
         </header>
 
+        <OfflineBanner />
         <main className="flex-1 overflow-y-auto bg-background">
           <Outlet />
         </main>

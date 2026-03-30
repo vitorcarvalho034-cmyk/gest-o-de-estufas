@@ -8,6 +8,7 @@ import { Scissors, ChevronRight, ChevronLeft, Check, MapPin, Leaf, Package, Cale
 import { toast } from "sonner";
 import moment from "moment";
 import { getVaosArray } from "@/lib/estufasConfig";
+import { enqueue } from "@/lib/offlineQueue";
 
 const DESTINOS = {
   "Barracão": 50,
@@ -463,30 +464,41 @@ export default function ColheitaWizard({ open, onClose, onSaved }) {
       (parseInt(form.cestos) || 0) * DESTINOS[form.destino] +
       (parseInt(form.macos) || 0) * hastesPorMaco;
     const cestos = parseInt(form.cestos) || 0;
-    await base44.entities.Colheita.create({
+    const colheitaData = {
       estufa: parseInt(form.estufa), lado: form.lado,
       vao: parseInt(form.vao), canteiro: parseInt(form.canteiro),
       variedade: form.variedade, destino: form.destino,
       cestos, pressas,
       data_colheita: form.data_colheita,
       semana: getWeekNumber(form.data_colheita),
-    });
-    if (form.descarte_motivo && parseInt(form.descarte_quantidade) > 0) {
-      await base44.entities.Descarte.create({
-        estufa: parseInt(form.estufa), lado: form.lado,
-        vao: parseInt(form.vao), canteiro: parseInt(form.canteiro),
-        variedade: form.variedade, quantidade: parseInt(form.descarte_quantidade),
-        motivo: form.descarte_motivo,
-        observacao: form.descarte_observacao || undefined,
-        data_descarte: form.data_colheita,
-      });
+    };
+    const descarteData = form.descarte_motivo && parseInt(form.descarte_quantidade) > 0 ? {
+      estufa: parseInt(form.estufa), lado: form.lado,
+      vao: parseInt(form.vao), canteiro: parseInt(form.canteiro),
+      variedade: form.variedade, quantidade: parseInt(form.descarte_quantidade),
+      motivo: form.descarte_motivo,
+      observacao: form.descarte_observacao || undefined,
+      data_descarte: form.data_colheita,
+    } : null;
+
+    const offline = !navigator.onLine;
+    if (offline) {
+      enqueue('Colheita', colheitaData);
+      if (descarteData) enqueue('Descarte', descarteData);
+      window.dispatchEvent(new Event('offline-queue-updated'));
+    } else {
+      await base44.entities.Colheita.create(colheitaData);
+      if (descarteData) await base44.entities.Descarte.create(descarteData);
     }
-    const descarteMsg = form.descarte_motivo && parseInt(form.descarte_quantidade) > 0 ? ` · ${form.descarte_quantidade} descartadas` : "";
+
+    const descarteMsg = descarteData ? ` · ${form.descarte_quantidade} descartadas` : "";
     const parts = [];
     if (parseInt(form.cestos) > 0) parts.push(`${form.cestos} cestos`);
     if (parseInt(form.macos) > 0) parts.push(`${form.macos} maços`);
     const qtyLabel = parts.join(" + ") || "0 cestos";
-    toast.success(`✂️ ${qtyLabel} registrados — ${pressas} hastes${descarteMsg}`);
+    toast.success(offline
+      ? `📴 ${qtyLabel} salvo offline — será sincronizado quando houver conexão`
+      : `✂️ ${qtyLabel} registrados — ${pressas} hastes${descarteMsg}`);
     setSaving(false);
     handleClose();
     onSaved();

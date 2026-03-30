@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Trash2, ChevronRight, ChevronLeft, Check, MapPin, Leaf, AlertTriangle, Calendar, Bug, Scale, MoreHorizontal } from "lucide-react";
 import { toast } from "sonner";
 import { getVaosArray } from "@/lib/estufasConfig";
+import { enqueue } from "@/lib/offlineQueue";
 
 const MOTIVOS = [
   { label: "Doença", icon: AlertTriangle, color: "text-red-600", active: "bg-red-500 text-white border-red-500" },
@@ -263,14 +264,22 @@ export default function DescarteWizard({ open, onClose, onSaved }) {
 
   async function handleSave() {
     setSaving(true);
-    await base44.entities.Descarte.create({
+    const data = {
       estufa: parseInt(form.estufa), lado: form.lado,
       vao: parseInt(form.vao), canteiro: parseInt(form.canteiro),
       variedade: form.variedade, quantidade: parseInt(form.quantidade),
       motivo: form.motivo, observacao: form.observacao,
       data_descarte: form.data_descarte,
-    });
-    toast.success(`🗑️ ${form.quantidade} mudas descartadas — ${form.motivo}`);
+    };
+    const offline = !navigator.onLine;
+    if (offline) {
+      enqueue('Descarte', data);
+      window.dispatchEvent(new Event('offline-queue-updated'));
+      toast.success(`📴 ${form.quantidade} mudas salvas offline — serão sincronizadas quando houver conexão`);
+    } else {
+      await base44.entities.Descarte.create(data);
+      toast.success(`🗑️ ${form.quantidade} mudas descartadas — ${form.motivo}`);
+    }
     setSaving(false);
     handleClose();
     onSaved();
