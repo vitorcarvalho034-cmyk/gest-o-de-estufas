@@ -30,6 +30,7 @@ export default function PrevisaoColheita() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [viewMode, setViewMode] = useState("total"); // "total" | "por_estufa"
   const [cestosMercadoInput, setCestosMercadoInput] = useState("");
+  const [mercadoConfirmado, setMercadoConfirmado] = useState(false);
   const [variedadesPlantadas, setVariedadesPlantadas] = useState([]);
   const [semana, setSemana] = useState(getCurrentWeek());
   const [ano, setAno] = useState(getCurrentYear());
@@ -39,6 +40,8 @@ export default function PrevisaoColheita() {
     estufa: null,
     vao: null,
   });
+
+  function mercadoKey(s, a) { return `mercado_cestos_${a}_${s}`; }
 
   async function loadPrevisoes() {
     const data = await base44.entities.PrevisaoColheita.filter({ semana, ano });
@@ -78,6 +81,15 @@ export default function PrevisaoColheita() {
   useEffect(() => {
     setLoading(true);
     loadPrevisoes();
+    // Carregar valor salvo do mercado para a semana
+    const saved = localStorage.getItem(mercadoKey(semana, ano));
+    if (saved !== null) {
+      setCestosMercadoInput(saved);
+      setMercadoConfirmado(true);
+    } else {
+      setCestosMercadoInput("");
+      setMercadoConfirmado(false);
+    }
   }, [semana, ano]);
 
   useEffect(() => { loadVariedades(); }, []);
@@ -246,7 +258,7 @@ export default function PrevisaoColheita() {
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Distribuição</p>
             </div>
             <div className="divide-y divide-border">
-              {/* Mercado — input livre */}
+              {/* Mercado — input com confirmação */}
               <div className="px-4 py-3">
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex-1">
@@ -262,10 +274,29 @@ export default function PrevisaoColheita() {
                       step={0.5}
                       placeholder="0"
                       value={cestosMercadoInput}
-                      onChange={(e) => setCestosMercadoInput(e.target.value)}
+                      onChange={(e) => { setCestosMercadoInput(e.target.value); setMercadoConfirmado(false); }}
+                      disabled={mercadoConfirmado}
                       className="w-24 text-right font-bold text-primary"
                     />
                     <span className="text-sm text-muted-foreground whitespace-nowrap">cestos</span>
+                    {!mercadoConfirmado ? (
+                      <button
+                        onClick={() => {
+                          localStorage.setItem(mercadoKey(semana, ano), cestosMercadoInput);
+                          setMercadoConfirmado(true);
+                        }}
+                        className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors"
+                      >
+                        Confirmar
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => setMercadoConfirmado(false)}
+                        className="px-3 py-1.5 rounded-lg border border-border text-xs text-muted-foreground hover:border-primary/50 hover:text-primary transition-colors"
+                      >
+                        Editar
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
