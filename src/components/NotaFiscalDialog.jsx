@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FileText, Loader2, Plus, Trash2, CheckCircle2, PackageOpen, Printer } from "lucide-react";
 import { printCroqui } from "./CroquiPrint";
-import { base44 } from "@/api/base44Client";
+import { plantiosAPI, canteirosAPI } from "@/api/supabaseClient";
 import { toast } from "sonner";
 import moment from "moment";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -142,27 +142,30 @@ export default function NotaFiscalDialog({ open, onClose, onSaved }) {
 
     for (const item of items) {
       for (const alloc of item.allocations) {
-        await base44.entities.Plantio.create({
+        await plantiosAPI.create({
           estufa: alloc.estufa, lado: alloc.lado, vao: alloc.vao, canteiro: alloc.canteiro,
           variedade: item.variedade, quantidade: alloc.quantidade,
           data_plantio: dataPlantio, semana,
         });
         // Update canteiro
-        const canteiros = await base44.entities.Canteiro.filter({
-          estufa: alloc.estufa, lado: alloc.lado, vao: alloc.vao, numero: alloc.canteiro
-        });
-        if (canteiros.length > 0) {
-          const c = canteiros[0];
+        const allCanteiros = await canteirosAPI.list();
+        const safeCanteiros = Array.isArray(allCanteiros) ? allCanteiros : [];
+        const matchCanteiros = safeCanteiros.filter(c =>
+          c.estufa === alloc.estufa && c.lado === alloc.lado &&
+          c.vao === alloc.vao && c.numero === alloc.canteiro
+        );
+        if (matchCanteiros.length > 0) {
+          const c = matchCanteiros[0];
           const variedades = [...(c.variedades || [])];
           const existing = variedades.find(v => v.nome === item.variedade);
           if (existing) existing.quantidade += alloc.quantidade;
           else variedades.push({ nome: item.variedade, quantidade: alloc.quantidade });
-          await base44.entities.Canteiro.update(c.id, {
+          await canteirosAPI.update(c.id, {
             variedades,
             total_mudas: (c.total_mudas || 0) + alloc.quantidade
           });
         } else {
-          await base44.entities.Canteiro.create({
+          await canteirosAPI.create({
             estufa: alloc.estufa, lado: alloc.lado, vao: alloc.vao, numero: alloc.canteiro,
             variedades: [{ nome: item.variedade, quantidade: alloc.quantidade }],
             total_mudas: alloc.quantidade

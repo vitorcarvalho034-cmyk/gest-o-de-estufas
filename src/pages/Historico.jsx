@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { plantiosAPI, colheitasAPI, descartesAPI } from "@/api/supabaseClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { History, Sprout, Scissors, Trash2, Calendar, Download, GitCompare, X } from "lucide-react";
 import moment from "moment";
@@ -55,10 +55,70 @@ export default function Historico() {
   }
 
   useEffect(() => {
-    base44.entities.HistoricoVao.list("-data_finalizacao", 200).then((data) => {
-      setHistoricos(data);
-      setLoading(false);
-    });
+    async function load() {
+      try {
+        // Constrói histórico a partir de plantios agrupados por semana
+        const [plantios, colheitas, descartes] = await Promise.all([
+          plantiosAPI.list(500),
+          colheitasAPI.list(1000),
+          descartesAPI.list(1000),
+        ]);
+        const safePlantios = Array.isArray(plantios) ? plantios : [];
+        const safeColheitas = Array.isArray(colheitas) ? colheitas : [];
+        const safeDescartes = Array.isArray(descartes) ? descartes : [];
+
+        // Agrupa por semana para criar "ciclos"
+        const semanaMap = {};
+        safePlantios.forEach((p) => {
+          const key = p.semana ? `${p.semana}` : 'sem-semana';
+          if (!semanaMap[key]) {
+            semanaMap[key] = {
+              id: key,
+              semana: p.semana,
+              estufa: p.estufa,
+              lado: p.lado,
+              vao: p.vao,
+              canteiro: p.canteiro,
+              variedades: [],
+              data_plantio: p.data_plantio,
+              data_finalizacao: null,
+              total_mudas: 0,
+              total_colhido_cestos: 0,
+              total_colhido_pressas: 0,
+              total_descartado: 0,
+            };
+          }
+          semanaMap[key].total_mudas += p.quantidade || 0;
+          if (p.variedade) {
+            const existing = semanaMap[key].variedades.find(v => v.nome === p.variedade);
+            if (existing) existing.quantidade += p.quantidade || 0;
+            else semanaMap[key].variedades.push({ nome: p.variedade, quantidade: p.quantidade || 0 });
+          }
+        });
+        safeColheitas.forEach((c) => {
+          const key = c.semana ? `${c.semana}` : 'sem-semana';
+          if (semanaMap[key]) {
+            semanaMap[key].total_colhido_cestos += c.cestos || 0;
+            semanaMap[key].total_colhido_pressas += c.pressas || 0;
+            if (c.data_colheita) semanaMap[key].data_finalizacao = c.data_colheita;
+          }
+        });
+        safeDescartes.forEach((d) => {
+          const key = d.semana ? `${d.semana}` : 'sem-semana';
+          if (semanaMap[key]) {
+            semanaMap[key].total_descartado += d.quantidade || 0;
+          }
+        });
+
+        const result = Object.values(semanaMap).sort((a, b) => (b.semana || 0) - (a.semana || 0));
+        setHistoricos(result);
+      } catch (e) {
+        console.warn('Historico load error:', e);
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
   }, []);
 
   const filtrados = historicos

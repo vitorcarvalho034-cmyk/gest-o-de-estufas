@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { canteirosAPI, descartesAPI } from "@/api/supabaseClient";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -239,12 +239,16 @@ export default function DescarteWizard({ open, onClose, onSaved }) {
 
   useEffect(() => {
     if (form.estufa && form.lado && form.vao && form.canteiro) {
-      base44.entities.Canteiro.filter({
-        estufa: parseInt(form.estufa), lado: form.lado,
-        vao: parseInt(form.vao), numero: parseInt(form.canteiro),
-      }).then((list) => {
-        setVariedades(list[0]?.variedades?.map((v) => v.nome) || []);
-      });
+      canteirosAPI.list().then((list) => {
+        const safelist = Array.isArray(list) ? list : [];
+        const match = safelist.find(c =>
+          c.estufa === parseInt(form.estufa) &&
+          c.lado === form.lado &&
+          c.vao === parseInt(form.vao) &&
+          c.numero === parseInt(form.canteiro)
+        );
+        setVariedades(match?.variedades?.map((v) => v.nome) || []);
+      }).catch(() => setVariedades([]));
     }
   }, [form.canteiro]);
 
@@ -277,7 +281,7 @@ export default function DescarteWizard({ open, onClose, onSaved }) {
       window.dispatchEvent(new Event('offline-queue-updated'));
       toast.success(`📴 ${form.quantidade} mudas salvas offline — serão sincronizadas quando houver conexão`);
     } else {
-      await base44.entities.Descarte.create(data);
+      await descartesAPI.create(data);
       toast.success(`🗑️ ${form.quantidade} mudas descartadas — ${form.motivo}`);
     }
     setSaving(false);

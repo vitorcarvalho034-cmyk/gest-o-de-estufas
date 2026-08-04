@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { plantiosAPI, canteirosAPI } from "@/api/supabaseClient";
 import { Sprout, Plus, LayoutGrid, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,13 +37,18 @@ export default function Plantio() {
   });
 
   async function loadPlantios() {
-    const [data, cants] = await Promise.all([
-      base44.entities.Plantio.list("-created_date", 50),
-      base44.entities.Canteiro.list(),
-    ]);
-    setPlantios(data);
-    setCanteiros(cants);
-    setLoading(false);
+    try {
+      const [data, cants] = await Promise.all([
+        plantiosAPI.list(50),
+        canteirosAPI.list(),
+      ]);
+      setPlantios(Array.isArray(data) ? data : []);
+      setCanteiros(Array.isArray(cants) ? cants : []);
+    } catch (e) {
+      console.warn('loadPlantios error:', e);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -60,48 +65,55 @@ export default function Plantio() {
       return;
     }
 
-    await base44.entities.Plantio.create({
-      ...form,
-      quantidade: parseInt(form.quantidade),
-      semana: getWeekNumber(form.data_plantio),
-    });
+    try {
+      await plantiosAPI.create({
+        ...form,
+        quantidade: parseInt(form.quantidade),
+        semana: getWeekNumber(form.data_plantio),
+      });
 
-    // Update canteiro
-    const canteiros = await base44.entities.Canteiro.filter({
-      estufa: form.estufa,
-      lado: form.lado,
-      vao: form.vao,
-      numero: form.canteiro,
-    });
+      // Update canteiro
+      const allCanteiros = await canteirosAPI.list();
+      const safeCanteiros = Array.isArray(allCanteiros) ? allCanteiros : [];
+      const matchingCanteiros = safeCanteiros.filter(c =>
+        c.estufa === form.estufa &&
+        c.lado === form.lado &&
+        c.vao === form.vao &&
+        c.numero === form.canteiro
+      );
 
-    if (canteiros.length > 0) {
-      const cant = canteiros[0];
-      const variedades = cant.variedades || [];
-      const existing = variedades.find((v) => v.nome === form.variedade);
-      let updated;
-      if (existing) {
-        updated = variedades.map((v) =>
-          v.nome === form.variedade ? { ...v, quantidade: v.quantidade + parseInt(form.quantidade) } : v
-        );
-      } else {
-        if (variedades.length >= 4) {
-          toast.error("Canteiro já possui 4 variedades");
+      if (matchingCanteiros.length > 0) {
+        const cant = matchingCanteiros[0];
+        const variedades = cant.variedades || [];
+        const existing = variedades.find((v) => v.nome === form.variedade);
+        let updated;
+        if (existing) {
+          updated = variedades.map((v) =>
+            v.nome === form.variedade ? { ...v, quantidade: v.quantidade + parseInt(form.quantidade) } : v
+          );
+        } else {
+          if (variedades.length >= 4) {
+            toast.error("Canteiro já possui 4 variedades");
+            return;
+          }
+          updated = [...variedades, { nome: form.variedade, quantidade: parseInt(form.quantidade) }];
+        }
+        const totalMudas = updated.reduce((s, v) => s + v.quantidade, 0);
+        if (totalMudas > 2000) {
+          toast.error("Total ultrapassaria 2000 mudas neste canteiro");
           return;
         }
-        updated = [...variedades, { nome: form.variedade, quantidade: parseInt(form.quantidade) }];
+        await canteirosAPI.update(cant.id, { variedades: updated, total_mudas: totalMudas });
       }
-      const totalMudas = updated.reduce((s, v) => s + v.quantidade, 0);
-      if (totalMudas > 2000) {
-        toast.error("Total ultrapassaria 2000 mudas neste canteiro");
-        return;
-      }
-      await base44.entities.Canteiro.update(cant.id, { variedades: updated, total_mudas: totalMudas });
-    }
 
-    toast.success("Plantio registrado");
-    setDialogOpen(false);
-    setForm({ estufa: null, lado: "", vao: null, canteiro: null, variedade: "", quantidade: "", data_plantio: new Date().toISOString().split("T")[0] });
-    loadPlantios();
+      toast.success("Plantio registrado");
+      setDialogOpen(false);
+      setForm({ estufa: null, lado: "", vao: null, canteiro: null, variedade: "", quantidade: "", data_plantio: new Date().toISOString().split("T")[0] });
+      loadPlantios();
+    } catch (e) {
+      console.error('handleSubmit error:', e);
+      toast.error("Erro ao registrar plantio");
+    }
   }
 
   if (loading) {
@@ -123,7 +135,6 @@ export default function Plantio() {
           <p className="text-muted-foreground">Registre novos plantios nos canteiros</p>
         </div>
         <div className="flex gap-2">
-
           <Button variant="outline" onClick={() => setNotaDialogOpen(true)} className="gap-2">
             <FileText className="w-4 h-4" /> Nota Fiscal
           </Button>

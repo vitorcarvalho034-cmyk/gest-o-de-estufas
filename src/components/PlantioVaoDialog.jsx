@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { plantiosAPI, canteirosAPI } from "@/api/supabaseClient";
 import { Plus, Trash2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -152,7 +152,7 @@ export default function PlantioVaoDialog({ open, onClose, onSaved }) {
 
       // Create plantio records
       for (const v of variedadesValidas) {
-        await base44.entities.Plantio.create({
+        await plantiosAPI.create({
           estufa,
           lado,
           vao,
@@ -165,7 +165,11 @@ export default function PlantioVaoDialog({ open, onClose, onSaved }) {
       }
 
       // Update canteiro entity
-      const canteirosExistentes = await base44.entities.Canteiro.filter({ estufa, lado, vao, numero });
+      const allCanteiros = await canteirosAPI.list();
+      const safeCanteiros = Array.isArray(allCanteiros) ? allCanteiros : [];
+      const canteirosExistentes = safeCanteiros.filter(c =>
+        c.estufa === estufa && c.lado === lado && c.vao === vao && c.numero === numero
+      );
       const variedadesMap = {};
       if (canteirosExistentes.length > 0) {
         (canteirosExistentes[0].variedades || []).forEach((v) => { variedadesMap[v.nome] = v.quantidade; });
@@ -177,9 +181,9 @@ export default function PlantioVaoDialog({ open, onClose, onSaved }) {
       const totalMudas = novasVariedades.reduce((s, v) => s + v.quantidade, 0);
 
       if (canteirosExistentes.length > 0) {
-        await base44.entities.Canteiro.update(canteirosExistentes[0].id, { variedades: novasVariedades, total_mudas: totalMudas });
+        await canteirosAPI.update(canteirosExistentes[0].id, { variedades: novasVariedades, total_mudas: totalMudas });
       } else {
-        await base44.entities.Canteiro.create({ estufa, lado, vao, numero, variedades: novasVariedades, total_mudas: totalMudas });
+        await canteirosAPI.create({ estufa, lado, vao, numero, variedades: novasVariedades, total_mudas: totalMudas });
       }
     }
 

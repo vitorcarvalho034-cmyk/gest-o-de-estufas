@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Upload, Download, CheckCircle2, AlertTriangle, Sprout } from "lucide-react";
-import { base44 } from "@/api/base44Client";
+import { plantiosAPI, canteirosAPI } from "@/api/supabaseClient";
 import { toast } from "sonner";
 import moment from "moment";
 
@@ -118,7 +118,8 @@ export default function PlantioCSVDialog({ open, onClose, onSaved }) {
   async function handlePreview() {
     if (rows.length === 0) { toast.error("Carregue um arquivo CSV primeiro"); return; }
     setSaving(true);
-    const canteiros = await base44.entities.Canteiro.list();
+    const canteiroData = await canteirosAPI.list();
+    const canteiros = Array.isArray(canteiroData) ? canteiroData : [];
     const { allocations, errors: errs, state } = alocarVariedades(canteiros, rows);
     setPreview({ allocations, state });
     setErrors(errs);
@@ -132,7 +133,7 @@ export default function PlantioCSVDialog({ open, onClose, onSaved }) {
 
     for (const alloc of preview.allocations) {
       const c = alloc.canteiroObj;
-      await base44.entities.Plantio.create({
+      await plantiosAPI.create({
         estufa: c.estufa,
         lado: c.lado,
         vao: c.vao,
@@ -148,7 +149,7 @@ export default function PlantioCSVDialog({ open, onClose, onSaved }) {
     for (const s of preview.state) {
       const orig = s.canteiro;
       if (JSON.stringify(orig.variedades) !== JSON.stringify(s.variedades)) {
-        await base44.entities.Canteiro.update(orig.id, {
+        await canteirosAPI.update(orig.id, {
           variedades: s.variedades,
           total_mudas: s.total_mudas,
         });

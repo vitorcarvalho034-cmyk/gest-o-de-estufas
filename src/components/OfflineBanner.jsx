@@ -1,14 +1,14 @@
 import { useState, useEffect, useCallback } from "react";
-import { base44 } from "@/api/base44Client";
+import { colheitasAPI, descartesAPI, previsaoColheitaAPI } from "@/api/supabaseClient";
 import { WifiOff, Wifi, RefreshCw } from "lucide-react";
 import { getTotalPending, getQueue, removeFromQueue, ENTITIES } from "@/lib/offlineQueue";
 import { toast } from "sonner";
-import moment from "moment";
 
-const ENTITY_MAP = {
-  Colheita: 'Colheita',
-  Descarte: 'Descarte',
-  PrevisaoColheita: 'PrevisaoColheita',
+// Mapeamento de entidade offline para API do Supabase
+const API_MAP = {
+  Colheita: colheitasAPI,
+  Descarte: descartesAPI,
+  PrevisaoColheita: previsaoColheitaAPI,
 };
 
 export default function OfflineBanner() {
@@ -25,10 +25,12 @@ export default function OfflineBanner() {
     let failed = 0;
     for (const entityName of ENTITIES) {
       const queue = getQueue(entityName);
+      const api = API_MAP[entityName];
+      if (!api) continue;
       for (const item of queue) {
         const { _offlineId, ...data } = item;
         try {
-          await base44.entities[entityName].create(data);
+          await api.create(data);
           removeFromQueue(entityName, _offlineId);
           synced++;
         } catch {

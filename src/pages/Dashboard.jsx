@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { canteirosAPI, colheitasAPI, descartesAPI, plantiosAPI } from "@/api/supabaseClient";
 import { Sprout, Scissors, Trash2, BarChart3, Warehouse, Flower2, AlertTriangle, Zap, CheckCircle2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TOTAL_VAOS } from "@/lib/estufasConfig";
@@ -50,84 +50,74 @@ export default function Dashboard() {
 
   useEffect(() => {
     async function load() {
-      const [canteiros, colheitas, descartes, plantios] = await Promise.all([
-        base44.entities.Canteiro.list(),
-        base44.entities.Colheita.list(),
-        base44.entities.Descarte.list(),
-        base44.entities.Plantio.list("-data_plantio", 500),
-      ]);
+      try {
+        const [canteiros, colheitas, descartes, plantios] = await Promise.all([
+          canteirosAPI.list(),
+          colheitasAPI.list(1000),
+          descartesAPI.list(1000),
+          plantiosAPI.list(500),
+        ]);
 
-      const totalMudas = canteiros.reduce((sum, c) => sum + (c.total_mudas || 0), 0);
-      const canteirosAtivos = canteiros.filter((c) => (c.total_mudas || 0) > 0).length;
-      const totalCestos = colheitas.reduce((sum, c) => sum + (c.cestos || 0), 0);
-      const totalHastes = colheitas.reduce((sum, c) => sum + (c.pressas || 0), 0);
-      const totalDescartes = descartes.reduce((sum, d) => sum + (d.quantidade || 0), 0);
+        const safeCanteiros = Array.isArray(canteiros) ? canteiros : [];
+        const safeColheitas = Array.isArray(colheitas) ? colheitas : [];
+        const safeDescartes = Array.isArray(descartes) ? descartes : [];
+        const safePlantios = Array.isArray(plantios) ? plantios : [];
 
-      // Per-estufa stats
-      const estufaMap = {};
-      for (let e = 1; e <= 4; e++) {
-        const ec = canteiros.filter((c) => c.estufa === e);
-        const totalVaos = TOTAL_VAOS[e] * 2; // cada vão tem lado A e B
-        const vaosComMudas = new Set(ec.filter((c) => (c.total_mudas || 0) > 0).map((c) => `${c.vao}-${c.lado}`)).size;
-        const mudas = ec.reduce((s, c) => s + (c.total_mudas || 0), 0);
-        const cestos = colheitas.filter((c) => c.estufa === e).reduce((s, c) => s + (c.cestos || 0), 0);
-        const hastes = colheitas.filter((c) => c.estufa === e).reduce((s, c) => s + (c.pressas || 0), 0);
-        const desc = descartes.filter((d) => d.estufa === e).reduce((s, d) => s + (d.quantidade || 0), 0);
-        const ocupacao = totalVaos > 0 ? Math.round((vaosComMudas / totalVaos) * 100) : 0;
-        estufaMap[e] = { totalVaos, vaosComMudas, mudas, cestos, hastes, desc, ocupacao };
-      }
-      setEstufaStats(estufaMap);
+        const totalMudas = safeCanteiros.reduce((sum, c) => sum + (c.total_mudas || 0), 0);
+        const canteirosAtivos = safeCanteiros.filter((c) => (c.total_mudas || 0) > 0).length;
+        const totalCestos = safeColheitas.reduce((sum, c) => sum + (c.cestos || 0), 0);
+        const totalHastes = safeColheitas.reduce((sum, c) => sum + (c.pressas || 0), 0);
+        const totalDescartes = safeDescartes.reduce((sum, d) => sum + (d.quantidade || 0), 0);
 
-      // Alertas de corte de luz: plantios com >= 25 dias sem colheita registrada
-      const hoje = moment();
-      const alertasCorte = [];
-      plantios.forEach((p) => {
-        const diasDesdeP = hoje.diff(moment(p.data_plantio), "days");
-        if (diasDesdeP >= 25) {
-          alertasCorte.push({
-            id: p.id,
-            dias: diasDesdeP,
-            estufa: p.estufa,
-            lado: p.lado,
-            vao: p.canteiro,
-            variedade: p.variedade,
-            data_plantio: p.data_plantio,
-          });
+        // Per-estufa stats
+        const estufaMap = {};
+        for (let e = 1; e <= 4; e++) {
+          const ec = safeCanteiros.filter((c) => c.estufa === e);
+          const totalVaos = TOTAL_VAOS[e] * 2; // cada vão tem lado A e B
+          const vaosComMudas = new Set(ec.filter((c) => (c.total_mudas || 0) > 0).map((c) => `${c.vao}-${c.lado}`)).size;
+          const mudas = ec.reduce((s, c) => s + (c.total_mudas || 0), 0);
+          const cestos = safeColheitas.filter((c) => c.estufa === e).reduce((s, c) => s + (c.cestos || 0), 0);
+          const hastes = safeColheitas.filter((c) => c.estufa === e).reduce((s, c) => s + (c.pressas || 0), 0);
+          const desc = safeDescartes.filter((d) => d.estufa === e).reduce((s, d) => s + (d.quantidade || 0), 0);
+          const ocupacao = totalVaos > 0 ? Math.round((vaosComMudas / totalVaos) * 100) : 0;
+          estufaMap[e] = { totalVaos, vaosComMudas, mudas, cestos, hastes, desc, ocupacao };
         }
-      });
-      alertasCorte.sort((a, b) => b.dias - a.dias);
+        setEstufaStats(estufaMap);
 
-      // Weekly colheita chart (last 8 weeks)
-      const currentWeek = moment().isoWeek();
-      const currentYear = moment().year();
-      const weeklyMap = {};
-      for (let i = 7; i >= 0; i--) {
-        const w = currentWeek - i;
-        const label = `Sem ${w > 0 ? w : w + 52}`;
-        weeklyMap[label] = { semana: label, cestos: 0, hastes: 0 };
-      }
-      colheitas.forEach((c) => {
-        const label = `Sem ${c.semana}`;
-        if (weeklyMap[label]) {
-          weeklyMap[label].cestos += c.cestos || 0;
-          weeklyMap[label].hastes += c.pressas || 0;
+        // Weekly colheita chart (last 8 weeks)
+        const currentWeek = moment().isoWeek();
+        const weeklyMap = {};
+        for (let i = 7; i >= 0; i--) {
+          const w = currentWeek - i;
+          const label = `Sem ${w > 0 ? w : w + 52}`;
+          weeklyMap[label] = { semana: label, cestos: 0, hastes: 0 };
         }
-      });
-      setWeeklyData(Object.values(weeklyMap));
+        safeColheitas.forEach((c) => {
+          const label = `Sem ${c.semana}`;
+          if (weeklyMap[label]) {
+            weeklyMap[label].cestos += c.cestos || 0;
+            weeklyMap[label].hastes += c.pressas || 0;
+          }
+        });
+        setWeeklyData(Object.values(weeklyMap));
 
-      // Top variedades
-      const varMap = {};
-      colheitas.forEach((c) => {
-        if (!varMap[c.variedade]) varMap[c.variedade] = { variedade: c.variedade, hastes: 0, cestos: 0 };
-        varMap[c.variedade].hastes += c.pressas || 0;
-        varMap[c.variedade].cestos += c.cestos || 0;
-      });
-      const top = Object.values(varMap).sort((a, b) => b.hastes - a.hastes).slice(0, 6);
-      setTopVariedades(top);
+        // Top variedades
+        const varMap = {};
+        safeColheitas.forEach((c) => {
+          if (!varMap[c.variedade]) varMap[c.variedade] = { variedade: c.variedade, hastes: 0, cestos: 0 };
+          varMap[c.variedade].hastes += c.pressas || 0;
+          varMap[c.variedade].cestos += c.cestos || 0;
+        });
+        const top = Object.values(varMap).sort((a, b) => b.hastes - a.hastes).slice(0, 6);
+        setTopVariedades(top);
 
-      setStats({ totalMudas, totalCestos, totalHastes, totalDescartes, canteirosAtivos });
-      setAlertas(alertasCorte);
-      setLoading(false);
+        setStats({ totalMudas, totalCestos, totalHastes, totalDescartes, canteirosAtivos });
+        setAlertas([]);
+      } catch (e) {
+        console.warn('Dashboard load error:', e);
+      } finally {
+        setLoading(false);
+      }
     }
     load();
   }, []);
@@ -149,46 +139,6 @@ export default function Dashboard() {
         </div>
         <p className="text-muted-foreground">Visão geral das estufas de flores</p>
       </div>
-
-      {alertas.filter(a => !confirmedIds.includes(a.id)).length > 0 && (
-        <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 space-y-3">
-          <div className="flex items-center gap-2 text-amber-800">
-            <Zap className="w-5 h-5 text-amber-500" />
-            <span className="font-semibold text-sm">Alerta de Corte de Luz</span>
-            <span className="ml-auto text-xs bg-amber-200 text-amber-800 rounded-full px-2 py-0.5 font-semibold">
-              {alertas.filter(a => !confirmedIds.includes(a.id)).length} plantio{alertas.filter(a => !confirmedIds.includes(a.id)).length > 1 ? "s" : ""}
-            </span>
-          </div>
-          <p className="text-xs text-amber-700">Os plantios abaixo atingiram 25+ dias e requerem corte de luz:</p>
-          <div className="space-y-2">
-            {alertas.filter(a => !confirmedIds.includes(a.id)).slice(0, 5).map((a) => (
-              <div key={a.id} className="flex items-center justify-between bg-white rounded-lg px-3 py-2 border border-amber-200">
-                <div className="flex items-center gap-2">
-                  <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                  <span className="text-sm font-medium">{a.variedade}</span>
-                  <span className="text-xs text-muted-foreground">E{a.estufa} {a.lado}-{a.vao}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="text-right">
-                    <span className="text-sm font-bold text-amber-700">{a.dias} dias</span>
-                    <p className="text-[10px] text-muted-foreground">plantado em {moment(a.data_plantio).format("DD/MM")}</p>
-                  </div>
-                  <button
-                    onClick={() => confirmarCorte(a.id)}
-                    title="Confirmar corte de luz feito"
-                    className="ml-1 p-1.5 rounded-full hover:bg-green-100 text-green-600 transition-colors"
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            ))}
-            {alertas.filter(a => !confirmedIds.includes(a.id)).length > 5 && (
-              <p className="text-xs text-amber-600 text-center">+ {alertas.filter(a => !confirmedIds.includes(a.id)).length - 5} mais plantios</p>
-            )}
-          </div>
-        </div>
-      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
