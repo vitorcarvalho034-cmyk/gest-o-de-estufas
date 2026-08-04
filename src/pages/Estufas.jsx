@@ -1,41 +1,55 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { canteirosAPI, colheitasAPI, plantiosAPI } from "@/api/supabaseClient";
 import { Warehouse } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ESTUFA_VAOS, TOTAL_VAOS } from "@/lib/estufasConfig";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import CanteiroDialog from "../components/CanteiroDialog";
+import CanteiroDialog, { isFixo } from "../components/CanteiroDialog";
 
 const LADO_COLORS = { A: "bg-primary/10 border-primary/30", B: "bg-accent/10 border-accent/30" };
 const CANTEIRO_EMPTY = "bg-muted/40 border-border hover:bg-muted/70 text-muted-foreground";
 const CANTEIRO_PARTIAL = "bg-primary/5 border-primary/20 hover:bg-primary/10";
 const CANTEIRO_FULL = "bg-primary/20 border-primary/40 hover:bg-primary/30";
+// Cores para flores fixas (Statice = roxo, Limonium = azul)
+const CANTEIRO_STATICE = "bg-purple-100 border-purple-300 hover:bg-purple-200 text-purple-700";
+const CANTEIRO_LIMONIUM = "bg-blue-100 border-blue-300 hover:bg-blue-200 text-blue-700";
 
 function MiniCanteiro({ canteiro, onClick, numero, colheitas }) {
   const mudas = canteiro?.total_mudas || 0;
   const pct = Math.min((mudas / 2000) * 100, 100);
-  const colorClass = !canteiro ? CANTEIRO_EMPTY : pct >= 80 ? CANTEIRO_FULL : CANTEIRO_PARTIAL;
   const variedades = canteiro?.variedades || [];
+  const fixo = isFixo(canteiro);
 
-  const totalPressas = colheitas?.reduce((s, c) => s + (c.pressas || 0), 0) || 0;
+  // Determinar cor do canteiro
+  let colorClass;
+  if (!canteiro || variedades.length === 0) {
+    colorClass = CANTEIRO_EMPTY;
+  } else if (fixo) {
+    // Statice = Lado A (roxo), Limonium = Lado B (azul)
+    colorClass = canteiro.lado === 'A' ? CANTEIRO_STATICE : CANTEIRO_LIMONIUM;
+  } else {
+    colorClass = pct >= 80 ? CANTEIRO_FULL : CANTEIRO_PARTIAL;
+  }
+
+  const totalHastes = colheitas?.reduce((s, c) => s + (c.hastes || c.pressas || 0), 0) || 0;
   const totalCestos = colheitas?.reduce((s, c) => s + (c.cestos || 0), 0) || 0;
-  const colheitaPct = mudas > 0 ? Math.min((totalPressas / mudas) * 100, 100) : 0;
+  const colheitaPct = !fixo && mudas > 0 ? Math.min((totalHastes / mudas) * 100, 100) : 0;
 
   const btn = (
     <button
       onClick={() => canteiro && onClick(canteiro)}
       className={`relative w-full h-7 sm:h-10 rounded border text-xs font-medium transition-all ${colorClass} overflow-hidden`}
     >
-      {pct > 0 && (
+      {!fixo && pct > 0 && (
         <div className="absolute bottom-0 left-0 right-0 bg-primary/30 transition-all" style={{ height: `${pct}%` }} />
       )}
-      {colheitaPct > 0 && (
+      {!fixo && colheitaPct > 0 && (
         <div className="absolute bottom-0 left-0 right-0 bg-amber-400/50 transition-all" style={{ height: `${colheitaPct}%` }} />
       )}
       <div className="relative z-10 flex flex-col items-center justify-center h-full">
         <span className="text-[10px]">{numero}</span>
-        {colheitaPct > 0 && mudas > 0 && (
+        {!fixo && colheitaPct > 0 && mudas > 0 && (
           <span className="text-[8px] font-semibold text-amber-700">{colheitaPct.toFixed(0)}%</span>
         )}
       </div>
@@ -48,14 +62,16 @@ function MiniCanteiro({ canteiro, onClick, numero, colheitas }) {
     <Tooltip>
       <TooltipTrigger asChild>{btn}</TooltipTrigger>
       <TooltipContent side="top" className="max-w-[200px]">
-        <p className="font-semibold text-xs mb-1">Canteiro {numero} — {mudas} mudas</p>
+        <p className="font-semibold text-xs mb-1">
+          Canteiro {numero} {fixo ? '— Flor de Corte Fixa' : `— ${mudas} mudas`}
+        </p>
         {variedades.map((v, i) => (
-          <p key={i} className="text-xs">{v.nome}: <span className="font-medium">{v.quantidade}</span></p>
+          <p key={i} className="text-xs">{(v.nome || v.variedade)}{!fixo && `: `}{!fixo && <span className="font-medium">{v.quantidade}</span>}</p>
         ))}
-        {totalPressas > 0 && (
+        {totalHastes > 0 && (
           <div className="mt-1.5 pt-1.5 border-t border-border">
-            <p className="text-xs text-amber-600 font-medium">🌸 Colhido: {totalPressas} pressas ({totalCestos} cestos)</p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">{colheitaPct.toFixed(0)}% de {mudas} mudas</p>
+            <p className="text-xs text-amber-600 font-medium">🌸 Colhido: {totalHastes} hastes{totalCestos > 0 ? ` (${totalCestos} cestos)` : ''}</p>
+            {!fixo && <p className="text-[10px] text-muted-foreground mt-0.5">{colheitaPct.toFixed(0)}% de {mudas} mudas</p>}
           </div>
         )}
       </TooltipContent>
@@ -66,18 +82,26 @@ function MiniCanteiro({ canteiro, onClick, numero, colheitas }) {
 export default function Estufas() {
   const [canteiros, setCanteiros] = useState([]);
   const [colheitas, setColheitas] = useState([]);
+  const [plantios, setPlantios] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedCanteiro, setSelectedCanteiro] = useState(null);
   const [dialogOpen, setDialogOpen] = useState(false);
 
   async function loadCanteiros() {
-    const [data, cols] = await Promise.all([
-      base44.entities.Canteiro.list(),
-      base44.entities.Colheita.list(),
-    ]);
-    setCanteiros(data);
-    setColheitas(cols);
-    setLoading(false);
+    try {
+      const [data, cols, plas] = await Promise.all([
+        canteirosAPI.list(),
+        colheitasAPI.list(),
+        plantiosAPI.list(1000),
+      ]);
+      setCanteiros(data);
+      setColheitas(cols);
+      setPlantios(plas);
+    } catch (e) {
+      console.warn('loadCanteiros error:', e);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => { loadCanteiros(); }, []);
@@ -89,8 +113,19 @@ export default function Estufas() {
   }
 
   function getColheitas(estufa, lado, vao, numero) {
+    // Encontrar a data do plantio mais recente deste canteiro (ciclo atual)
+    const plantiosCanteiro = plantios.filter(
+      (p) => p.estufa === estufa && p.lado === lado && p.vao === vao && p.canteiro === numero
+    );
+    let dataInicioCiclo = null;
+    if (plantiosCanteiro.length > 0) {
+      const sorted = [...plantiosCanteiro].sort((a, b) => new Date(b.data_plantio) - new Date(a.data_plantio));
+      dataInicioCiclo = sorted[0].data_plantio;
+    }
+    // Retornar apenas colheitas do ciclo atual
     return colheitas.filter(
-      (c) => c.estufa === estufa && c.lado === lado && c.vao === vao && c.canteiro === numero
+      (c) => c.estufa === estufa && c.lado === lado && c.vao === vao && c.canteiro === numero &&
+        (!dataInicioCiclo || (c.data_colheita && c.data_colheita >= dataInicioCiclo))
     );
   }
 
@@ -118,8 +153,8 @@ export default function Estufas() {
     <div className="p-4 lg:p-8 max-w-full mx-auto space-y-6">
       <div>
         <div className="flex items-center gap-3 mb-2">
-          <Warehouse className="w-8 h-8 text-primary" />
-          <h1 className="text-3xl font-bold tracking-tight">Estufas</h1>
+          <Warehouse className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Estufas</h1>
         </div>
         <p className="text-muted-foreground hidden sm:block">Layout completo — cada vão tem 4 canteiros por lado</p>
       </div>
@@ -180,6 +215,16 @@ export default function Estufas() {
                 <div className="flex items-center gap-1.5">
                   <div className="w-1 h-3 sm:h-4 rounded bg-amber-400/50" /> Colhido
                 </div>
+                {estufa === 2 && (
+                  <>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-3 h-3 sm:w-4 sm:h-4 rounded border bg-purple-100 border-purple-300" /> Statice (Lado A)
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-3 h-3 sm:w-4 sm:h-4 rounded border bg-blue-100 border-blue-300" /> Limonium (Lado B)
+                    </div>
+                  </>
+                )}
                 <span className="text-muted-foreground/60 hidden sm:inline">Clique para editar</span>
               </div>
 

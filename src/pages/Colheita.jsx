@@ -1,18 +1,18 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
-import { Scissors, Plus, TrendingUp, Package, Target, Calendar } from "lucide-react";
+import { colheitasAPI, previsaoColheitaAPI } from "@/api/supabaseClient";
+import { agruparPorCor, PALETA_CORES, getCorVariedade, isVariedadeFixa, isVariedadeGirassol, normalizarVariedade } from "@/lib/coresVariedades";
+import { Scissors, Plus, TrendingUp, Package, Target, Calendar, Pencil, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import ColheitaWizard from "../components/ColheitaWizard";
+import ColheitaLoteDialog from "../components/ColheitaLoteDialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import moment from "moment";
-import { getVaosArray } from "@/lib/estufasConfig";
+
+// Flores fixas (Statice, Limonium, Girassol) ficam fora da meta principal
+const isFloraFixa = (variedade) => isVariedadeFixa(variedade) || isVariedadeGirassol(variedade);
 
 const DESTINOS = {
   "Barracão": 50,
@@ -27,10 +27,6 @@ const DESTINO_COLORS = {
   "Oferta 60": "bg-amber-100 text-amber-800",
   "Oferta 80": "bg-orange-100 text-orange-800",
 };
-
-function getWeekNumber(date) {
-  return moment(date).isoWeek();
-}
 
 function StatCard({ icon: Icon, label, value, sub, color = "text-primary" }) {
   return (
@@ -54,79 +50,113 @@ export default function Colheita() {
   const [previsoes, setPrevisoes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [loteDialogOpen, setLoteDialogOpen] = useState(false);
+  const [editingColheita, setEditingColheita] = useState(null);
+  const [deleteDialog, setDeleteDialog] = useState({ open: false, id: null });
   const [buscaVariedade, setBuscaVariedade] = useState("");
   const [filtroEstufa, setFiltroEstufa] = useState("todas");
-  const [variedadesDisponiveis, setVariedadesDisponiveis] = useState([]);
+  const [filtroCor, setFiltroCor] = useState("todas");
+  const [semanaNav, setSemanaNav] = useState(moment().isoWeek());
+  const [anoNav, setAnoNav] = useState(moment().year());
 
-  const [form, setForm] = useState({
-    estufa: "", lado: "", vao: "", canteiro: "",
-    variedade: "", destino: "", cestos: "",
-    data_colheita: new Date().toISOString().split("T")[0],
+  async function loadColheitas(ano) {
+    try {
+      const [data, prevs] = await Promise.all([
+        colheitasAPI.listByAno(ano || anoNav),
+        previsaoColheitaAPI.list(),
+      ]);
+      setColheitas(data);
+      setPrevisoes(prevs);
+    } catch (e) {
+      console.warn('loadColheitas error:', e);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { loadColheitas(anoNav); }, []);
+
+  // Recarregar quando o ano muda (navegação entre semanas)
+  useEffect(() => {
+    setLoading(true);
+    loadColheitas(anoNav);
+  }, [anoNav]);
+
+  const currentWeek = moment().isoWeek();
+  const currentYear = moment().year();
+
+  function navigateWeek(dir) {
+    let s = semanaNav + dir;
+    let a = anoNav;
+    if (s < 1) { a -= 1; s = moment(`${a}-12-31`).isoWeek(); }
+    else if (s > moment(`${a}-12-28`).isoWeek()) { a += 1; s = 1; }
+    setSemanaNav(s);
+    setAnoNav(a);
+  }
+
+  function getWeekDates(sem, ano) {
+    const start = moment().year(ano).isoWeek(sem).startOf('isoWeek');
+    const end = moment().year(ano).isoWeek(sem).endOf('isoWeek');
+    return { start: start.format('DD/MM'), end: end.format('DD/MM') };
+  }
+
+  // Filtra colheitas da semana navegada
+  const filtradas = colheitas.filter((c) => {
+    if (c.semana !== semanaNav) return false;
+    if (filtroEstufa !== "todas" && c.estufa.toString() !== filtroEstufa) return false;
+    if (buscaVariedade && !c.variedade.toLowerCase().includes(buscaVariedade.toLowerCase())) return false;
+    if (filtroCor !== "todas" && getCorVariedade(c.variedade) !== filtroCor) return false;
+    return true;
   });
 
-  async function loadColheitas() {
-    const data = await base44.entities.Colheita.list("-data_colheita", 100);
-    const prevs = await base44.entities.PrevisaoColheita.list();
-    setColheitas(data);
-    setPrevisoes(prevs);
-    setLoading(false);
-  }
-
-  useEffect(() => { loadColheitas(); }, []);
-
-  // When location changes, fetch canteiro to suggest varieties
-  useEffect(() => {
-    if (form.estufa && form.lado && form.vao && form.canteiro) {
-      base44.entities.Canteiro.filter({
-        estufa: parseInt(form.estufa),
-        lado: form.lado,
-        vao: parseInt(form.vao),
-        numero: parseInt(form.canteiro),
-      }).then((list) => {
-        if (list.length > 0 && list[0].variedades) {
-          setVariedadesDisponiveis(list[0].variedades.map((v) => v.nome));
-        } else {
-          setVariedadesDisponiveis([]);
-        }
-      });
-    } else {
-      setVariedadesDisponiveis([]);
-    }
-  }, [form.estufa, form.lado, form.vao, form.canteiro]);
-
-  function updateForm(field, value) {
-    if (field === "estufa") setForm((f) => ({ ...f, estufa: value, lado: "", vao: "", canteiro: "", variedade: "" }));
-    else if (field === "lado") setForm((f) => ({ ...f, lado: value, vao: "", canteiro: "", variedade: "" }));
-    else if (field === "vao") setForm((f) => ({ ...f, vao: value, canteiro: "", variedade: "" }));
-    else setForm((f) => ({ ...f, [field]: value }));
-  }
-
-  const pressasPorCesto = form.destino ? DESTINOS[form.destino] : 0;
-  const totalPressas = (parseInt(form.cestos) || 0) * pressasPorCesto;
-  const currentWeek = moment().isoWeek();
-
-  // Filter and calculate stats
-  const filtradas = colheitas.filter((c) => {
+  // Stats gerais (todas as semanas, sem filtro de semana)
+  const todasFiltradas = colheitas.filter((c) => {
     if (filtroEstufa !== "todas" && c.estufa.toString() !== filtroEstufa) return false;
     if (buscaVariedade && !c.variedade.toLowerCase().includes(buscaVariedade.toLowerCase())) return false;
     return true;
   });
 
-  const totalCestos = filtradas.reduce((s, c) => s + (c.cestos || 0), 0);
-  const totalPressasTotal = filtradas.reduce((s, c) => s + (c.pressas || 0), 0);
-  const hojeCount = filtradas.filter((c) => moment(c.data_colheita).isSame(moment(), "day")).length;
+  // Separar flores principais (Crisântemo/Anastasia) das flores fixas (Statice/Limonium/Girassol)
+  const filtradasPrincipais = filtradas.filter(c => !isFloraFixa(c.variedade));
+  const filtradasFixas = filtradas.filter(c => isFloraFixa(c.variedade));
 
-  const colhidoSemanaAtual = filtradas.filter(c => c.semana === currentWeek).reduce((s, c) => s + (c.pressas || 0), 0);
-  const previstoSemana = previsoes.reduce((s, p) => s + (p.pressas_previstas || 0), 0);
+  const totalCestos = filtradasPrincipais.reduce((s, c) => s + (c.cestos || 0), 0);
+  const totalPressasTotal = filtradasPrincipais.reduce((s, c) => s + (c.pressas || 0), 0);
+  const totalCestosFixas = filtradasFixas.reduce((s, c) => s + (c.cestos || 0), 0);
+  const totalHastesFixas = filtradasFixas.reduce((s, c) => s + (c.pressas || 0), 0);
+
+  // Totais por tipo de flora fixa
+  // Statice: Sinzii* e Tasmania Rose
+  const NOMES_STATICE = ['sinzii', 'tasmania'];
+  const filtradasStatice = filtradasFixas.filter(c => isVariedadeFixa(c.variedade) && NOMES_STATICE.some(n => (c.variedade || '').toLowerCase().includes(n)));
+  // Limonium: Klara, Piuma, Shooting Star, Oshi, Supreme
+  const filtradasLimonium = filtradasFixas.filter(c => isVariedadeFixa(c.variedade) && !NOMES_STATICE.some(n => (c.variedade || '').toLowerCase().includes(n)));
+  const filtradasGirassol = filtradasFixas.filter(c => isVariedadeGirassol(c.variedade));
+  const statice = { cestos: filtradasStatice.reduce((s,c)=>s+(c.cestos||0),0), hastes: filtradasStatice.reduce((s,c)=>s+(c.pressas||0),0) };
+  const limonium = { cestos: filtradasLimonium.reduce((s,c)=>s+(c.cestos||0),0), hastes: filtradasLimonium.reduce((s,c)=>s+(c.pressas||0),0) };
+  const girassol = { cestos: filtradasGirassol.reduce((s,c)=>s+(c.cestos||0),0), hastes: filtradasGirassol.reduce((s,c)=>s+(c.pressas||0),0) };
+  const hojeCount = todasFiltradas.filter((c) => moment(c.data_colheita).isSame(moment(), "day") && !isFloraFixa(c.variedade)).length;
+
+  // Meta: apenas flores principais (sem Statice/Limonium/Girassol)
+  const colhidoSemanaAtual = filtradasPrincipais.reduce((s, c) => s + (c.pressas || 0), 0);
+  const previstoSemana = previsoes
+    .filter(p => p.semana === semanaNav && p.ano === anoNav && !isFloraFixa(p.variedade))
+    .reduce((s, p) => s + (p.pressas_previstas || 0), 0);
   const pctMeta = previstoSemana > 0 ? Math.round((colhidoSemanaAtual / previstoSemana) * 100) : 0;
 
-  // Weekly trend data (last 8 weeks)
+  // Weekly trend data (last 8 weeks) — barras separadas para flores principais e fixas
   const weeklyTrend = [];
   for (let i = 7; i >= 0; i--) {
     const w = currentWeek - i;
     const wLabel = `S${w > 0 ? w : w + 52}`;
-    const wColheitas = filtradas.filter((c) => c.semana === (w > 0 ? w : w + 52));
-    weeklyTrend.push({ semana: wLabel, cestos: wColheitas.reduce((s, c) => s + (c.cestos || 0), 0), hastes: wColheitas.reduce((s, c) => s + (c.pressas || 0), 0) });
+    const wPrincipais = colheitas.filter((c) => c.semana === (w > 0 ? w : w + 52) && !isFloraFixa(c.variedade));
+    const wFixas = colheitas.filter((c) => c.semana === (w > 0 ? w : w + 52) && isFloraFixa(c.variedade));
+    weeklyTrend.push({
+      semana: wLabel,
+      cestos: wPrincipais.reduce((s, c) => s + (c.cestos || 0), 0),
+      hastes: wPrincipais.reduce((s, c) => s + (c.pressas || 0), 0),
+      hastesFixas: wFixas.reduce((s, c) => s + (c.pressas || 0), 0),
+    });
   }
 
   const groupedByDate = filtradas.reduce((acc, c) => {
@@ -137,6 +167,32 @@ export default function Colheita() {
   }, {});
   const sortedDates = Object.keys(groupedByDate).sort((a, b) => b.localeCompare(a));
 
+  function handleEdit(colheita) {
+    setEditingColheita(colheita);
+    setDialogOpen(true);
+  }
+
+  function handleDelete(id) {
+    setDeleteDialog({ open: true, id });
+  }
+
+  async function confirmDelete() {
+    try {
+      await colheitasAPI.delete(deleteDialog.id);
+      toast.success("Colheita excluída com sucesso!");
+      loadColheitas();
+    } catch (error) {
+      toast.error(`Erro ao excluir: ${error.message}`);
+    } finally {
+      setDeleteDialog({ open: false, id: null });
+    }
+  }
+
+  function handleCloseDialog() {
+    setDialogOpen(false);
+    setEditingColheita(null);
+  }
+
   if (loading) return (
     <div className="flex items-center justify-center h-full">
       <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
@@ -144,30 +200,171 @@ export default function Colheita() {
   );
 
   return (
-    <div className="p-6 lg:p-8 max-w-5xl mx-auto space-y-6">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-primary/10 rounded-xl">
-            <Scissors className="w-7 h-7 text-primary" />
+            <Scissors className="w-6 h-6 sm:w-7 sm:h-7 text-primary" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold">Colheita</h1>
+            <h1 className="text-xl sm:text-2xl font-bold">Colheita</h1>
             <p className="text-sm text-muted-foreground">Registre e acompanhe as colheitas</p>
           </div>
         </div>
-        <Button onClick={() => setDialogOpen(true)} className="gap-2 shadow-sm">
-          <Plus className="w-4 h-4" /> Nova Colheita
-        </Button>
+        <div className="flex gap-2 w-full sm:w-auto">
+          <Button onClick={() => setDialogOpen(true)} className="gap-2 shadow-sm flex-1 sm:flex-none">
+            <Plus className="w-4 h-4" /> Nova Colheita
+          </Button>
+          <Button variant="outline" onClick={() => setLoteDialogOpen(true)} className="gap-2 shadow-sm flex-1 sm:flex-none">
+            <Scissors className="w-4 h-4" /> Em Lote
+          </Button>
+        </div>
+      </div>
+
+      {/* Navegador de semanas */}
+      <div className="bg-card border rounded-xl p-4">
+        <div className="flex items-center justify-between">
+          <button onClick={() => navigateWeek(-1)} className="p-2 rounded-lg hover:bg-muted transition-colors">
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+          <div className="text-center">
+            <p className="text-xl font-bold">Semana {semanaNav}</p>
+            <p className="text-xs text-muted-foreground">{getWeekDates(semanaNav, anoNav).start} — {getWeekDates(semanaNav, anoNav).end} / {anoNav}</p>
+            {semanaNav === currentWeek && anoNav === currentYear && (
+              <span className="text-xs bg-primary/10 text-primary rounded-full px-2 py-0.5 font-semibold">Semana atual</span>
+            )}
+          </div>
+          <button onClick={() => navigateWeek(1)} className="p-2 rounded-lg hover:bg-muted transition-colors" disabled={semanaNav === currentWeek && anoNav === currentYear}>
+            <ChevronRight className={`w-5 h-5 ${semanaNav === currentWeek && anoNav === currentYear ? 'opacity-30' : ''}`} />
+          </button>
+        </div>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard icon={Package} label="Cestos" value={totalCestos.toLocaleString("pt-BR")} />
         <StatCard icon={TrendingUp} label="Hastes" value={totalPressasTotal.toLocaleString("pt-BR")} color="text-green-600" />
-        <StatCard icon={Target} label="Registros" value={filtradas.length} />
+        <StatCard icon={Target} label="Registros" value={filtradasPrincipais.length} />
         <StatCard icon={Calendar} label="Hoje" value={hojeCount} sub="colheitas" />
       </div>
+
+      {/* Card separado para Statice/Limonium/Girassol */}
+      {totalHastesFixas > 0 && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold text-emerald-800">🌿 Flores Fixas — Semana {semanaNav}</p>
+            <p className="text-xs text-emerald-600">Fora da meta principal</p>
+          </div>
+          <div className="divide-y divide-emerald-100">
+            {statice.hastes > 0 && (
+              <div className="flex items-center justify-between py-2">
+                <span className="text-sm font-medium text-emerald-800">Statice</span>
+                <div className="text-right">
+                  <span className="text-sm font-bold text-emerald-700">{statice.hastes.toLocaleString("pt-BR")} hastes</span>
+                  {statice.cestos > 0 && <span className="text-xs text-emerald-600 ml-2">({statice.cestos} cestos)</span>}
+                </div>
+              </div>
+            )}
+            {limonium.hastes > 0 && (
+              <div className="flex items-center justify-between py-2">
+                <span className="text-sm font-medium text-emerald-800">Limonium</span>
+                <div className="text-right">
+                  <span className="text-sm font-bold text-emerald-700">{limonium.hastes.toLocaleString("pt-BR")} hastes</span>
+                  {limonium.cestos > 0 && <span className="text-xs text-emerald-600 ml-2">({limonium.cestos} cestos)</span>}
+                </div>
+              </div>
+            )}
+            {girassol.hastes > 0 && (
+              <div className="flex items-center justify-between py-2">
+                <span className="text-sm font-medium text-emerald-800">Girassol</span>
+                <div className="text-right">
+                  <span className="text-sm font-bold text-emerald-700">{girassol.hastes.toLocaleString("pt-BR")} hastes</span>
+                  {girassol.cestos > 0 && <span className="text-xs text-emerald-600 ml-2">({girassol.cestos} cestos)</span>}
+                </div>
+              </div>
+            )}
+            <div className="flex items-center justify-between pt-2">
+              <span className="text-xs text-emerald-600 font-semibold">Total</span>
+              <span className="text-sm font-bold text-emerald-700">{totalHastesFixas.toLocaleString("pt-BR")} hastes · {totalCestosFixas} cestos</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Resumo por Destino — semana navegada */}
+      {filtradas.length > 0 && (() => {
+        const DESTINO_STYLE = {
+          "Barracão":  { bg: "bg-blue-50",   border: "border-blue-200",   text: "text-blue-800",   badge: "bg-blue-100 text-blue-700",   dot: "bg-blue-500" },
+          "Mercado":   { bg: "bg-green-50",  border: "border-green-200",  text: "text-green-800",  badge: "bg-green-100 text-green-700",  dot: "bg-green-500" },
+          "Oferta 60": { bg: "bg-amber-50",  border: "border-amber-200",  text: "text-amber-800",  badge: "bg-amber-100 text-amber-700",  dot: "bg-amber-500" },
+          "Oferta 80": { bg: "bg-orange-50", border: "border-orange-200", text: "text-orange-800", badge: "bg-orange-100 text-orange-700", dot: "bg-orange-500" },
+        };
+        const ORDEM = ["Barracão", "Mercado", "Oferta 60", "Oferta 80"];
+
+        function buildPorDestino(lista) {
+          const map = {};
+          lista.forEach(c => {
+            const d = c.destino || "Outros";
+            if (!map[d]) map[d] = { hastes: 0, cestos: 0 };
+            map[d].hastes += c.pressas || 0;
+            map[d].cestos += c.cestos || 0;
+          });
+          return map;
+        }
+
+        function DestinoCards({ titulo, lista, cor = "text-foreground", headerClass = "" }) {
+          const porDestino = buildPorDestino(lista);
+          const totalH = Object.values(porDestino).reduce((s, v) => s + v.hastes, 0);
+          const totalC = Object.values(porDestino).reduce((s, v) => s + v.cestos, 0);
+          if (totalH === 0) return null;
+          const destinosPresentes = [
+            ...ORDEM.filter(d => porDestino[d]),
+            ...Object.keys(porDestino).filter(d => !ORDEM.includes(d)),
+          ];
+          return (
+            <div className="bg-card border rounded-xl p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className={`text-sm font-semibold ${cor} ${headerClass}`}>{titulo} — Semana {semanaNav}</p>
+                <span className="text-xs text-muted-foreground">{totalH.toLocaleString("pt-BR")} hastes · {totalC} cestos</span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {destinosPresentes.map(dest => {
+                  const s = DESTINO_STYLE[dest] || { bg: "bg-muted", border: "border-border", text: "text-foreground", badge: "bg-muted text-muted-foreground", dot: "bg-muted-foreground" };
+                  const v = porDestino[dest];
+                  const pct = totalH > 0 ? Math.round((v.hastes / totalH) * 100) : 0;
+                  return (
+                    <div key={dest} className={`rounded-xl border p-3 ${s.bg} ${s.border}`}>
+                      <div className="flex items-center gap-1.5 mb-2">
+                        <span className={`w-2 h-2 rounded-full shrink-0 ${s.dot}`} />
+                        <span className={`text-xs font-semibold ${s.text}`}>{dest}</span>
+                      </div>
+                      <p className={`text-xl font-bold ${s.text}`}>{v.hastes.toLocaleString("pt-BR")}</p>
+                      <p className="text-xs text-muted-foreground">hastes</p>
+                      <div className="flex items-center justify-between mt-1.5">
+                        <span className="text-xs text-muted-foreground">{v.cestos} cestos</span>
+                        <span className={`text-xs font-semibold px-1.5 py-0.5 rounded-full ${s.badge}`}>{pct}%</span>
+                      </div>
+                      <div className="mt-2 h-1.5 bg-white/60 rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full ${s.dot}`} style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        }
+
+        const principais = filtradas.filter(c => !isFloraFixa(c.variedade));
+        const staticeList = filtradas.filter(c => isVariedadeFixa(c.variedade) && ['sinzii','tasmania'].some(n => (c.variedade||'').toLowerCase().includes(n)));
+        const limoniumList = filtradas.filter(c => isVariedadeFixa(c.variedade) && !['sinzii','tasmania'].some(n => (c.variedade||'').toLowerCase().includes(n)));
+        const girassolList = filtradas.filter(c => isVariedadeGirassol(c.variedade));
+
+        return (
+          <DestinoCards titulo="🌸 Flores Principais" lista={principais} cor="text-primary" />
+        );
+      })()}
 
       {/* Weekly trend chart */}
       <div className="bg-card border rounded-xl p-4">
@@ -177,9 +374,10 @@ export default function Colheita() {
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
             <XAxis dataKey="semana" tick={{ fontSize: 10 }} />
             <YAxis tick={{ fontSize: 10 }} />
-            <Tooltip formatter={(val, name) => [val.toLocaleString("pt-BR"), name === "cestos" ? "Cestos" : "Hastes"]} />
+            <Tooltip formatter={(val, name) => [val.toLocaleString("pt-BR"), name === "cestos" ? "Cestos" : name === "hastesFixas" ? "Hastes Fixas" : "Hastes"]} />
             <Bar dataKey="cestos" fill="hsl(var(--primary))" radius={[3, 3, 0, 0]} name="cestos" />
             <Bar dataKey="hastes" fill="hsl(var(--accent))" radius={[3, 3, 0, 0]} name="hastes" />
+            <Bar dataKey="hastesFixas" fill="#10b981" radius={[3, 3, 0, 0]} name="hastesFixas" />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -234,7 +432,42 @@ export default function Colheita() {
         </div>
       )}
 
-      {/* Filter tabs */}
+      {/* Gráfico de Cores Colhidas */}
+      {filtradas.length > 0 && (() => {
+        const itensCores = agruparPorCor(
+          filtradas.map(c => ({ variedade: c.variedade, quantidade: c.pressas || 0 }))
+        );
+        const totalCores = itensCores.reduce((s, c) => s + c.total, 0);
+        return (
+          <div className="bg-card border rounded-xl p-4">
+            <p className="text-sm font-semibold mb-3 text-foreground">🎨 Colhido por Cor — Semana {semanaNav}</p>
+            <div className="space-y-2">
+              {itensCores.map(({ cor, total }) => {
+                const paleta = PALETA_CORES[cor] || PALETA_CORES["Indefinida"];
+                const pct = totalCores > 0 ? Math.round((total / totalCores) * 100) : 0;
+                return (
+                  <div key={cor} className="flex items-center gap-3">
+                    <div className="w-24 text-right">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold" style={{ backgroundColor: paleta.light, color: paleta.bg, border: `1.5px solid ${paleta.bg}` }}>
+                        <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: paleta.bg }} />
+                        {cor}
+                      </span>
+                    </div>
+                    <div className="flex-1 h-5 rounded-full overflow-hidden bg-muted">
+                      <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: paleta.bg }} />
+                    </div>
+                    <div className="w-32 text-right text-xs font-semibold text-muted-foreground">
+                      {total.toLocaleString("pt-BR")} hastes <span className="text-muted-foreground/60">({pct}%)</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Filter tabs — Estufa */}
       <div className="flex gap-2 flex-wrap">
         {["todas", "1", "2", "3", "4"].map((e) => (
           <button
@@ -249,6 +482,38 @@ export default function Colheita() {
             {e === "todas" ? "Todas" : `Estufa ${e}`}
           </button>
         ))}
+      </div>
+
+      {/* Filtro de Cor */}
+      <div className="flex flex-wrap gap-2 items-center">
+        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mr-1">Filtrar por cor:</span>
+        <button
+          onClick={() => setFiltroCor("todas")}
+          className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${
+            filtroCor === "todas"
+              ? "bg-primary text-primary-foreground border-primary"
+              : "bg-background border-border text-muted-foreground hover:border-primary/50"
+          }`}
+        >
+          Todas
+        </button>
+        {Object.keys(PALETA_CORES).filter(c => c !== "Indefinida").map((cor) => {
+          const paleta = PALETA_CORES[cor];
+          const ativo = filtroCor === cor;
+          return (
+            <button
+              key={cor}
+              onClick={() => setFiltroCor(ativo ? "todas" : cor)}
+              className="px-3 py-1 rounded-full text-xs font-semibold border transition-all"
+              style={ativo
+                ? { backgroundColor: paleta.bg, color: "#fff", borderColor: paleta.bg }
+                : { backgroundColor: paleta.light, color: paleta.bg, borderColor: paleta.bg }
+              }
+            >
+              {cor}
+            </button>
+          );
+        })}
       </div>
 
       {/* Timeline by date */}
@@ -274,13 +539,13 @@ export default function Colheita() {
                 </div>
                 <div className="grid gap-2">
                   {registros.map((c) => (
-                    <div key={c.id} className="flex items-center gap-3 p-3 bg-card rounded-xl border hover:border-primary/30 transition-colors">
+                    <div key={c.id} className="flex items-center gap-3 p-3 bg-card rounded-xl border hover:border-primary/30 transition-colors group">
                       <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
                         <Scissors className="w-4 h-4 text-primary" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="font-medium text-sm truncate">{c.variedade}</span>
+                          <span className="font-medium text-sm truncate">{normalizarVariedade(c.variedade)}</span>
                           <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${DESTINO_COLORS[c.destino] || "bg-muted text-muted-foreground"}`}>
                             {c.destino}
                           </span>
@@ -293,6 +558,24 @@ export default function Colheita() {
                         <p className="font-bold text-sm">{c.cestos} cestos</p>
                         <p className="text-xs text-muted-foreground">{c.pressas} hastes</p>
                       </div>
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleEdit(c)}
+                          className="h-8 w-8 p-0"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleDelete(c.id)}
+                          className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -302,7 +585,35 @@ export default function Colheita() {
         </div>
       )}
 
-      <ColheitaWizard open={dialogOpen} onClose={() => setDialogOpen(false)} onSaved={loadColheitas} />
+      <ColheitaLoteDialog
+        open={loteDialogOpen}
+        onClose={() => setLoteDialogOpen(false)}
+        onSaved={loadColheitas}
+      />
+      <ColheitaWizard 
+        open={dialogOpen} 
+        onClose={handleCloseDialog} 
+        onSaved={loadColheitas} 
+        editingColheita={editingColheita}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialog.open} onOpenChange={(open) => !open && setDeleteDialog({ open: false, id: null })}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir esta colheita? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive hover:bg-destructive/90">
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

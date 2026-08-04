@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
-import { CalendarClock, Plus, ChevronLeft, ChevronRight, Trash2, Zap } from "lucide-react";
+import { previsaoColheitaAPI, plantiosAPI, pautaSemanaAPI } from "@/api/supabaseClient";
+import { VARIEDADES } from "@/lib/variedades";
+import { agruparPorCor, PALETA_CORES, getCorVariedade } from "@/lib/coresVariedades";
+import { CalendarClock, Plus, ChevronLeft, ChevronRight, Trash2, Zap, Clock, Leaf } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,7 +34,10 @@ export default function PrevisaoColheita() {
   const [viewMode, setViewMode] = useState("total"); // "total" | "por_estufa"
   const [cestosMercadoInput, setCestosMercadoInput] = useState("");
   const [mercadoConfirmado, setMercadoConfirmado] = useState(false);
-  const [variedadesPlantadas, setVariedadesPlantadas] = useState([]);
+  const [variedadesPlantadas] = useState(VARIEDADES);
+  const [buscaVariedade, setBuscaVariedade] = useState("");
+  const [filtroCor, setFiltroCor] = useState("todas");
+  const [canteirosProximos, setCanteirosProximos] = useState([]);
   const [semana, setSemana] = useState(getCurrentWeek());
   const [ano, setAno] = useState(getCurrentYear());
   const [form, setForm] = useState({
@@ -45,42 +50,85 @@ export default function PrevisaoColheita() {
   function mercadoKey(s, a) { return `mercado_cestos_${a}_${s}`; }
 
   async function loadPrevisoes() {
-    const data = await base44.entities.PrevisaoColheita.filter({ semana, ano });
-    setPrevisoes(data);
-    setLoading(false);
+    try {
+      const data = await previsaoColheitaAPI.list();
+      const filtered = data.filter(p => p.semana === semana && p.ano === ano);
+      setPrevisoes(filtered);
+    } catch (e) {
+      console.warn('loadPrevisoes error:', e);
+    } finally {
+      setLoading(false);
+    }
   }
 
-  async function loadVariedades() {
-    const canteiros = await base44.entities.Canteiro.list();
-    const seen = new Set();
-    const nomes = [];
-    canteiros.forEach((c) => {
-      (c.variedades || []).forEach((v) => {
-        if (!v.nome) return;
-        const key = v.nome.toLowerCase().trim();
-        if (seen.has(key)) return;
-        seen.add(key);
-        nomes.push(v.nome);
-      });
+  // Variedades carregadas da lista centralizada (não do banco)
+
+  async function loadCanteirosProximos() {
+    try {
+    const plantios = await plantiosAPI.list(500);
+    const hoje = moment();
+    const semanaAtual = hoje.isoWeek();
+    const anoAtual = hoje.year();
+    // Agrupar por canteiro (estufa+lado+vao+canteiro)
+    const canteiroMap = {};
+    plantios.forEach((p) => {
+      const dataColheita = moment(p.data_plantio).add(12, "weeks");
+      const semColheita = dataColheita.isoWeek();
+      const anoColheita = dataColheita.year();
+      const diasAte = dataColheita.diff(hoje, "days");
+      if (diasAte < -7 || diasAte > 90) return; // só mostra -7 a +90 dias
+      const key = `E${p.estufa}-${p.lado}-V${p.vao || p.canteiro}-C${p.canteiro}`;
+      if (!canteiroMap[key] || canteiroMap[key].diasAte > diasAte) {
+        canteiroMap[key] = {
+          key,
+          estufa: p.estufa,
+          lado: p.lado,
+          vao: p.vao || p.canteiro,
+          canteiro: p.canteiro,
+          variedade: p.variedade,
+          data_plantio: p.data_plantio,
+          dataColheita: dataColheita.format("DD/MM/YYYY"),
+          semColheita,
+          anoColheita,
+          diasAte,
+          atrasado: diasAte < 0,
+        };
+      }
     });
-    setVariedadesPlantadas(nomes.sort());
+    const lista = Object.values(canteiroMap).sort((a, b) => a.diasAte - b.diasAte);
+    setCanteirosProximos(lista);
+    } catch (e) {
+      console.warn('loadCanteirosProximos error:', e);
+    }
   }
 
   useEffect(() => {
     setLoading(true);
     loadPrevisoes();
-    // Carregar valor salvo do mercado para a semana
-    const saved = localStorage.getItem(mercadoKey(semana, ano));
-    if (saved !== null) {
-      setCestosMercadoInput(saved);
-      setMercadoConfirmado(true);
-    } else {
-      setCestosMercadoInput("");
-      setMercadoConfirmado(false);
-    }
+    // Carregar valor do mercado do Supabase (compartilhado entre todos os usuários)
+    pautaSemanaAPI.getBySemana(semana, ano).then(pauta => {
+      if (pauta && pauta.cestos_mercado != null) {
+        setCestosMercadoInput(pauta.cestos_mercado.toString());
+        setMercadoConfirmado(true);
+      } else {
+        // Fallback: tentar localStorage (compatibilidade com dados antigos)
+        const saved = localStorage.getItem(mercadoKey(semana, ano));
+        if (saved !== null) {
+          setCestosMercadoInput(saved);
+          setMercadoConfirmado(true);
+        } else {
+          setCestosMercadoInput("");
+          setMercadoConfirmado(false);
+        }
+      }
+    }).catch(() => {
+      const saved = localStorage.getItem(mercadoKey(semana, ano));
+      if (saved !== null) { setCestosMercadoInput(saved); setMercadoConfirmado(true); }
+      else { setCestosMercadoInput(""); setMercadoConfirmado(false); }
+    });
   }, [semana, ano]);
 
-  useEffect(() => { loadVariedades(); }, []);
+  useEffect(() => { loadCanteirosProximos(); }, []);
 
   function updateForm(field, value) {
     setForm({ ...form, [field]: value });
@@ -112,23 +160,28 @@ export default function PrevisaoColheita() {
       window.dispatchEvent(new Event('offline-queue-updated'));
       toast.success("📴 Previsão salva offline — será sincronizada quando houver conexão");
     } else {
-      await base44.entities.PrevisaoColheita.create(data);
-      toast.success("Previsão adicionada");
+      await previsaoColheitaAPI.create(data);
+      toast.success("✅ Previsão adicionada — continue lançando!");
     }
-    setDialogOpen(false);
+    // Não fecha o dialog — limpa o formulário para o próximo lançamento
     setForm({ variedade: "", pressas_previstas: "", estufa: null, vao: null });
     loadPrevisoes();
   }
 
+  function handleConcluir() {
+    setDialogOpen(false);
+    setForm({ variedade: "", pressas_previstas: "", estufa: null, vao: null });
+  }
+
   async function handleDelete(id) {
-    await base44.entities.PrevisaoColheita.delete(id);
+    await previsaoColheitaAPI.delete(id);
     toast.success("Previsão removida");
     loadPrevisoes();
   }
 
   async function autoPopulate() {
     // Fetch plantios and calculate harvest week (plantio + 65 days)
-    const plantios = await base44.entities.Plantio.list("-data_plantio", 200);
+    const plantios = await plantiosAPI.list(200);
     const grouped = {};
     plantios.forEach((p) => {
       const harvestDate = moment(p.data_plantio).add(65, "days");
@@ -143,7 +196,7 @@ export default function PrevisaoColheita() {
     const items = Object.values(grouped);
     if (items.length === 0) { toast.error("Nenhum plantio previsto para colheita nesta semana (65 dias após plantio)"); return; }
     for (const item of items) {
-      await base44.entities.PrevisaoColheita.create({
+      await previsaoColheitaAPI.create({
         semana, ano, variedade: item.variedade, pressas_previstas: item.pressas
       });
     }
@@ -154,18 +207,16 @@ export default function PrevisaoColheita() {
   const totalPressas = previsoes.reduce((sum, p) => sum + (p.pressas_previstas || 0), 0);
   const weekDates = getWeekDates(semana, ano);
 
-  // Anast. 80 hastes/cesto
-  const ANAST_80 = ['dark green', 'chispa', 'cipria', 'sunny', 'boda', 'fiebre', 'magnum'];
-  const isAnast80 = (nome) => {
-    const lower = (nome || '').toLowerCase();
-    return lower.startsWith('anast.') && ANAST_80.some(v => lower.includes(v));
-  };
+  // Anastasia: 60h/cesto = Fuego, Magnum, Fiebre | 80h/cesto = todas as outras
+  const ANAST_60 = ['fuego', 'magnum', 'fiebre'];
+  const isAnastasia = (nome) => (nome || '').toLowerCase().includes('anastasia');
   const isAnast60 = (nome) => {
     const lower = (nome || '').toLowerCase();
-    return lower.startsWith('anast.') && !ANAST_80.some(v => lower.includes(v));
+    return isAnastasia(nome) && ANAST_60.some(v => lower.includes(v));
   };
+  const isAnast80 = (nome) => isAnastasia(nome) && !isAnast60(nome);
 
-  const hastesAnast = previsoes.filter(p => p.variedade?.toLowerCase().startsWith('anast.')).reduce((s, p) => s + (p.pressas_previstas || 0), 0);
+  const hastesAnast = previsoes.filter(p => isAnastasia(p.variedade)).reduce((s, p) => s + (p.pressas_previstas || 0), 0);
   const hastesAnast80 = previsoes.filter(p => isAnast80(p.variedade)).reduce((s, p) => s + (p.pressas_previstas || 0), 0);
   const hastesAnast60 = previsoes.filter(p => isAnast60(p.variedade)).reduce((s, p) => s + (p.pressas_previstas || 0), 0);
   const cestosAnast80 = hastesAnast80 > 0 ? Math.floor(hastesAnast80 / 80) : 0;
@@ -175,10 +226,13 @@ export default function PrevisaoColheita() {
   const cestosMercadoNum = parseFloat(cestosMercadoInput) || 0;
   const hastesMercado = Math.round(cestosMercadoNum * 60);
 
-  // Ofertas = fixo em 50% do total (não muda com o mercado)
-  // Barracão = restante após descontar Ofertas e Mercado
-  const hastesOfertas = Math.round(totalPressas * 0.5);
+  // Divisão 50/50: metade do total vai para Oferta, metade para Barracão
+  // Anastasia entra obrigatoriamente no bloco de Oferta
+  // Se Anastasia > 50%, o excedente também fica em Oferta (Barracão = 0)
+  const metade = Math.round(totalPressas * 0.5);
+  const hastesOfertas = Math.max(hastesAnast, metade); // Anastasia + complemento até 50%
   const hastesBarracao = Math.max(0, totalPressas - hastesOfertas - hastesMercado);
+  const hastesOfertaComplemento = hastesOfertas - hastesAnast; // outras flores que completam os 50% de Oferta
   const cestosOfertas = hastesOfertas > 0 ? Math.floor(hastesOfertas / 60) : 0;
   const cestosBarracao = hastesBarracao > 0 ? Math.floor(hastesBarracao / 50) : 0;
 
@@ -237,6 +291,40 @@ export default function PrevisaoColheita() {
         ))}
       </div>
 
+      {/* Filtro de Cor */}
+      {previsoes.length > 0 && (
+        <div className="flex flex-wrap gap-2 items-center">
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mr-1">Filtrar por cor:</span>
+          <button
+            onClick={() => setFiltroCor("todas")}
+            className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${
+              filtroCor === "todas"
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-background border-border text-muted-foreground hover:border-primary/50"
+            }`}
+          >
+            Todas
+          </button>
+          {Object.keys(PALETA_CORES).filter(c => c !== "Indefinida").map((cor) => {
+            const paleta = PALETA_CORES[cor];
+            const ativo = filtroCor === cor;
+            return (
+              <button
+                key={cor}
+                onClick={() => setFiltroCor(ativo ? "todas" : cor)}
+                className="px-3 py-1 rounded-full text-xs font-semibold border transition-all"
+                style={ativo
+                  ? { backgroundColor: paleta.bg, color: "#fff", borderColor: paleta.bg }
+                  : { backgroundColor: paleta.light, color: paleta.bg, borderColor: paleta.bg }
+                }
+              >
+                {cor}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* Total + Distribuição */}
       <div className="space-y-3">
         <div className="bg-primary/5 rounded-xl p-4 flex items-center justify-between border border-primary/10">
@@ -273,7 +361,14 @@ export default function PrevisaoColheita() {
                     <span className="text-sm text-muted-foreground whitespace-nowrap">cestos</span>
                     {!mercadoConfirmado ? (
                       <button
-                        onClick={() => {
+                        onClick={async () => {
+                          // Salvar no Supabase para todos verem
+                          try {
+                            await pautaSemanaAPI.upsert(semana, ano, { cestos_mercado: parseFloat(cestosMercadoInput) || 0 });
+                          } catch (e) {
+                            console.warn('Erro ao salvar mercado:', e);
+                          }
+                          // Manter localStorage como fallback
                           localStorage.setItem(mercadoKey(semana, ano), cestosMercadoInput);
                           setMercadoConfirmado(true);
                         }}
@@ -298,7 +393,10 @@ export default function PrevisaoColheita() {
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="font-semibold text-sm">🌸 Ofertas</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{hastesOfertas.toLocaleString("pt-BR")} hastes (50% do total) ÷ 60</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{hastesOfertas.toLocaleString("pt-BR")} hastes (50% do total — Anastasia + complemento) ÷ 60</p>
+                    {hastesOfertaComplemento > 0 && (
+                      <p className="text-xs text-muted-foreground">→ Anastasia: {hastesAnast.toLocaleString('pt-BR')} + outras flores: {hastesOfertaComplemento.toLocaleString('pt-BR')}</p>
+                    )}
                     {hastesAnast > 0 && (
                       <div className="mt-1 space-y-0.5">
                         {cestosAnast80 > 0 && (
@@ -321,7 +419,7 @@ export default function PrevisaoColheita() {
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="font-semibold text-sm">🏠 Barracão</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{hastesBarracao.toLocaleString("pt-BR")} hastes (restante após Ofertas e Mercado) ÷ 50</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{hastesBarracao.toLocaleString("pt-BR")} hastes (50% do total, exceto Anastasia e Mercado) ÷ 50</p>
                   </div>
                   <div className="text-right">
                     <p className="text-xl font-bold text-primary">{cestosBarracao.toLocaleString("pt-BR")} cestos</p>
@@ -332,6 +430,51 @@ export default function PrevisaoColheita() {
           </div>
         )}
       </div>
+
+      {/* Gráfico de Cores — Previsão */}
+      {previsoes.length > 0 && (() => {
+        const agrupado = {};
+        previsoes.forEach((p) => {
+          const key = (p.variedade || "").trim().toLowerCase();
+          if (!agrupado[key]) agrupado[key] = { variedade: (p.variedade || "").trim(), total: 0 };
+          agrupado[key].total += p.pressas_previstas || 0;
+        });
+        const itensCores = agruparPorCor(Object.values(agrupado).map(l => ({ variedade: l.variedade, quantidade: l.total })));
+        const totalCores = itensCores.reduce((s, c) => s + c.total, 0);
+        return (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <span>🎨</span> Previsão por Cor
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {itensCores.map(({ cor, total }) => {
+                  const paleta = PALETA_CORES[cor] || PALETA_CORES["Indefinida"];
+                  const pct = totalCores > 0 ? Math.round((total / totalCores) * 100) : 0;
+                  return (
+                    <div key={cor} className="flex items-center gap-3">
+                      <div className="w-24 text-right">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold" style={{ backgroundColor: paleta.light, color: paleta.bg, border: `1.5px solid ${paleta.bg}` }}>
+                          <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: paleta.bg }} />
+                          {cor}
+                        </span>
+                      </div>
+                      <div className="flex-1 h-5 rounded-full overflow-hidden bg-muted">
+                        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: paleta.bg }} />
+                      </div>
+                      <div className="w-32 text-right text-xs font-semibold text-muted-foreground">
+                        {total.toLocaleString("pt-BR")} hastes <span className="text-muted-foreground/60">({pct}%)</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       {/* Table */}
       {viewMode === "total" ? (
@@ -348,36 +491,64 @@ export default function PrevisaoColheita() {
             <p className="text-sm text-muted-foreground text-center py-8">
               Nenhuma previsão para esta semana
             </p>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Variedade</TableHead>
-                    <TableHead>Estufa</TableHead>
-                    <TableHead>Vão</TableHead>
-                    <TableHead className="text-right">Hastes Previstas</TableHead>
-                    <TableHead className="w-12" />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {previsoes.map((p) => (
-                    <TableRow key={p.id}>
-                      <TableCell className="font-medium">{p.variedade}</TableCell>
-                      <TableCell className="text-muted-foreground">{p.estufa ? `Estufa ${p.estufa}` : "—"}</TableCell>
-                      <TableCell className="text-muted-foreground">{p.vao ? `Vão ${p.vao}` : "—"}</TableCell>
-                      <TableCell className="text-right font-semibold">{p.pressas_previstas?.toLocaleString("pt-BR")}</TableCell>
-                      <TableCell>
-                        <Button variant="ghost" size="icon" onClick={() => handleDelete(p.id)}>
-                          <Trash2 className="w-4 h-4 text-muted-foreground" />
-                        </Button>
-                      </TableCell>
+          ) : (() => {
+            // Agrupar variedades com mesmo nome somando as hastes
+            const agrupado = {};
+            previsoes.forEach((p) => {
+              const key = (p.variedade || "").trim().toLowerCase();
+              if (!agrupado[key]) {
+                agrupado[key] = { variedade: (p.variedade || "").trim(), total: 0, ids: [] };
+              }
+              agrupado[key].total += p.pressas_previstas || 0;
+              agrupado[key].ids.push(p.id);
+            });
+            const linhas = Object.values(agrupado)
+              .filter((l) => filtroCor === "todas" || getCorVariedade(l.variedade) === filtroCor)
+              .sort((a, b) => b.total - a.total);
+            return (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Variedade</TableHead>
+                      <TableHead className="text-right">Hastes Previstas</TableHead>
+                      <TableHead className="w-12" />
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
+                  </TableHeader>
+                  <TableBody>
+                    {linhas.map((linha) => {
+                      const cor = getCorVariedade(linha.variedade);
+                      const paleta = PALETA_CORES[cor] || PALETA_CORES["Indefinida"];
+                      return (
+                        <TableRow key={linha.variedade}>
+                          <TableCell className="font-medium">
+                            <div className="flex items-center gap-2">
+                              <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: paleta.bg }} />
+                              {linha.variedade}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right font-semibold">{linha.total.toLocaleString("pt-BR")}</TableCell>
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              title="Remover todas as entradas desta variedade"
+                              onClick={async () => {
+                                for (const id of linha.ids) await handleDelete(id);
+                              }}
+                            >
+                              <Trash2 className="w-4 h-4 text-muted-foreground" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            );
+          })()
+          }
         </CardContent>
       </Card>
       ) : (
@@ -392,7 +563,8 @@ export default function PrevisaoColheita() {
           [1, 2, 3, 4].map((estufa) => {
             const itens = previsoes.filter((p) => p.estufa === estufa);
             const semEstufa = estufa === 1 ? previsoes.filter((p) => !p.estufa) : [];
-            const itensMostrar = estufa === 1 ? [...semEstufa, ...itens] : itens;
+            const itensMostrarAll = estufa === 1 ? [...semEstufa, ...itens] : itens;
+            const itensMostrar = itensMostrarAll.filter((p) => filtroCor === "todas" || getCorVariedade(p.variedade) === filtroCor);
             const totalEstufa = itensMostrar.reduce((s, p) => s + (p.pressas_previstas || 0), 0);
             if (itensMostrar.length === 0) return null;
             return (
@@ -436,8 +608,68 @@ export default function PrevisaoColheita() {
       </div>
       )}
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+      {/* Canteiros Próximos da Colheita — agrupados por semana */}
+      {canteirosProximos.length > 0 && (() => {
+        // Agrupar por semana/ano
+        const porSemana = {};
+        canteirosProximos.forEach((c) => {
+          const key = `${c.anoColheita}-${String(c.semColheita).padStart(2,'0')}`;
+          if (!porSemana[key]) porSemana[key] = { semana: c.semColheita, ano: c.anoColheita, itens: [] };
+          porSemana[key].itens.push(c);
+        });
+        const semanas = Object.values(porSemana).sort((a, b) => {
+          if (a.ano !== b.ano) return a.ano - b.ano;
+          return a.semana - b.semana;
+        });
+        return semanas.map((grupo) => (
+          <Card key={`${grupo.ano}-${grupo.semana}`}>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Leaf className="w-4 h-4 text-primary" />
+                Semana {grupo.semana} / {grupo.ano}
+                <span className="ml-auto text-xs bg-primary/10 text-primary rounded-full px-2 py-0.5 font-semibold">
+                  {grupo.itens.length} canteiro{grupo.itens.length > 1 ? "s" : ""}
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {grupo.itens.map((c) => {
+                  const cor = c.atrasado ? "border-red-300 bg-red-50" :
+                    c.diasAte <= 7 ? "border-red-200 bg-red-50" :
+                    c.diasAte <= 14 ? "border-amber-200 bg-amber-50" :
+                    c.diasAte <= 30 ? "border-primary/20 bg-primary/5" :
+                    "border-border bg-muted/20";
+                  const textCor = c.atrasado ? "text-red-700" :
+                    c.diasAte <= 7 ? "text-red-600" :
+                    c.diasAte <= 14 ? "text-amber-600" : "text-primary";
+                  return (
+                    <div key={c.key} className={`rounded-xl border p-3 space-y-2 ${cor}`}>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-muted-foreground">E{c.estufa} {c.lado} · V{c.vao}</span>
+                        <span className={`text-xs font-bold ${textCor}`}>
+                          {c.atrasado ? `${Math.abs(c.diasAte)}d atrasado` : c.diasAte === 0 ? "Hoje!" : `${c.diasAte}d`}
+                        </span>
+                      </div>
+                      <p className="text-sm font-semibold truncate">{c.variedade}</p>
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <Clock className="w-3 h-3" />
+                        <span>{c.dataColheita}</span>
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Plantado em {moment(c.data_plantio).format("DD/MM/YYYY")}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        ));
+      })()}
+
+      <Dialog open={dialogOpen} onOpenChange={(v) => { if (!v) setDialogOpen(false); }}>
+        <DialogContent className="sm:max-w-md" onInteractOutside={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Nova Previsão — Semana {semana}</DialogTitle>
           </DialogHeader>
@@ -450,23 +682,30 @@ export default function PrevisaoColheita() {
                 onChange={(e) => updateForm("variedade", e.target.value)}
               />
               {variedadesPlantadas.length > 0 && (
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1.5">Plantadas atualmente:</p>
-                  <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto">
-                    {variedadesPlantadas.map((v) => (
-                      <button
-                        key={v}
-                        type="button"
-                        onClick={() => updateForm("variedade", v)}
-                        className={`px-2.5 py-1 rounded-full text-xs border transition-all ${
-                          form.variedade === v
-                            ? "bg-primary text-primary-foreground border-primary"
-                            : "bg-background border-border hover:border-primary/50 hover:text-primary"
-                        }`}
-                      >
-                        {v}
-                      </button>
-                    ))}
+                <div className="space-y-1.5">
+                  <Input
+                    placeholder="Buscar variedade..."
+                    value={buscaVariedade}
+                    onChange={(e) => setBuscaVariedade(e.target.value)}
+                    className="h-7 text-xs"
+                  />
+                  <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto">
+                    {variedadesPlantadas
+                      .filter((v) => v.toLowerCase().includes(buscaVariedade.toLowerCase()))
+                      .map((v) => (
+                        <button
+                          key={v}
+                          type="button"
+                          onClick={() => { updateForm("variedade", v); setBuscaVariedade(""); }}
+                          className={`px-2.5 py-1 rounded-full text-xs border transition-all ${
+                            form.variedade === v
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "bg-background border-border hover:border-primary/50 hover:text-primary"
+                          }`}
+                        >
+                          {v}
+                        </button>
+                      ))}
                   </div>
                 </div>
               )}
@@ -506,9 +745,9 @@ export default function PrevisaoColheita() {
               </div>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={handleSubmit}>Adicionar</Button>
+          <DialogFooter className="flex gap-2 sm:justify-between">
+            <Button variant="outline" onClick={handleConcluir}>Concluir</Button>
+            <Button onClick={handleSubmit}>+ Adicionar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

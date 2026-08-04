@@ -14,11 +14,14 @@ import Descarte from './pages/Descarte';
 import PrevisaoColheita from './pages/PrevisaoColheita';
 import Produtividade from './pages/Produtividade';
 import Historico from './pages/Historico';
+import GerenciarCiclos from './pages/GerenciarCiclos';
+import Pautas from './pages/Pautas';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
 
-  // Show loading spinner while checking app public settings or auth
+  // Desabilitado temporariamente para rodar localmente sem Base44 backend
+  /*
   if (isLoadingPublicSettings || isLoadingAuth) {
     return (
       <div className="fixed inset-0 flex items-center justify-center">
@@ -27,16 +30,15 @@ const AuthenticatedApp = () => {
     );
   }
 
-  // Handle authentication errors
   if (authError) {
     if (authError.type === 'user_not_registered') {
       return <UserNotRegisteredError />;
     } else if (authError.type === 'auth_required') {
-      // Redirect to login automatically
       navigateToLogin();
       return null;
     }
   }
+  */
 
   // Render the main app
   return (
@@ -50,6 +52,8 @@ const AuthenticatedApp = () => {
         <Route path="/previsao" element={<PrevisaoColheita />} />
         <Route path="/produtividade" element={<Produtividade />} />
         <Route path="/historico" element={<Historico />} />
+        <Route path="/ciclos" element={<GerenciarCiclos />} />
+        <Route path="/pautas" element={<Pautas />} />
         <Route path="*" element={<PageNotFound />} />
       </Route>
     </Routes>
