@@ -1,0 +1,27 @@
+[build]
+  publish = "dist"
+
+[[headers]]
+  # index.html nunca deve ser cacheado — garante que o mobile sempre busca a versão mais recente
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+    Pragma = "no-cache"
+    Expires = "0"
+
+[[headers]]
+  # manifest.json também sem cache para PWA atualizar corretamente
+  for = "/manifest.json"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+
+[[headers]]
+  # Assets com hash no nome (gerados pelo Vite) podem ser cacheados por 1 ano
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
