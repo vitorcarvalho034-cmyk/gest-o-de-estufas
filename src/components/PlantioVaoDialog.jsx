@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { plantiosAPI, canteirosAPI } from "@/api/supabaseClient";
-import { Plus, Trash2, AlertCircle } from "lucide-react";
+import { Plus, Trash2, AlertCircle, RotateCcw, FileInput } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,6 +15,15 @@ function getWeekNumber(date) {
 }
 
 const EMPTY_VARIEDADE = { nome: "", quantidade: "" };
+
+function emptyCanteiroSet() {
+  return [
+    [{ ...EMPTY_VARIEDADE }],
+    [{ ...EMPTY_VARIEDADE }],
+    [{ ...EMPTY_VARIEDADE }],
+    [{ ...EMPTY_VARIEDADE }],
+  ];
+}
 
 function CanteiroInput({ numero, variedades, onChange }) {
   const total = variedades.reduce((s, v) => s + (parseInt(v.quantidade) || 0), 0);
@@ -101,30 +110,74 @@ export default function PlantioVaoDialog({ open, onClose, onSaved }) {
   const [vao, setVao] = useState(null);
   const [dataPlantio, setDataPlantio] = useState(new Date().toISOString().split("T")[0]);
   const [saving, setSaving] = useState(false);
+  const [loadingUltimo, setLoadingUltimo] = useState(false);
 
   // canteiros[0..3] = canteiro 1..4, each has array of variedades
-  const [canteiros, setCanteiros] = useState([
-    [{ ...EMPTY_VARIEDADE }],
-    [{ ...EMPTY_VARIEDADE }],
-    [{ ...EMPTY_VARIEDADE }],
-    [{ ...EMPTY_VARIEDADE }],
-  ]);
+  const [canteiros, setCanteiros] = useState(emptyCanteiroSet());
 
   function reset() {
     setEstufa(null);
     setLado("");
     setVao(null);
     setDataPlantio(new Date().toISOString().split("T")[0]);
-    setCanteiros([
-      [{ ...EMPTY_VARIEDADE }],
-      [{ ...EMPTY_VARIEDADE }],
-      [{ ...EMPTY_VARIEDADE }],
-      [{ ...EMPTY_VARIEDADE }],
-    ]);
+    setCanteiros(emptyCanteiroSet());
   }
 
   function updateCanteiro(idx, variedades) {
     setCanteiros((prev) => prev.map((c, i) => i === idx ? variedades : c));
+  }
+
+  function limparCroqui() {
+    setCanteiros(emptyCanteiroSet());
+    toast.success("Croqui limpo — pronto para preencher do zero");
+  }
+
+  async function carregarUltimoCroqui() {
+    if (!estufa || !lado || !vao) {
+      toast.error("Selecione estufa, lado e vão primeiro");
+      return;
+    }
+    setLoadingUltimo(true);
+    try {
+      const allPlantios = await plantiosAPI.list();
+      const safePlantios = Array.isArray(allPlantios) ? allPlantios : [];
+
+      // Filtrar plantios deste vão
+      const plantiosVao = safePlantios.filter(
+        (p) => p.estufa === estufa && p.lado === lado && p.vao === vao
+      );
+
+      if (plantiosVao.length === 0) {
+        toast.error("Nenhum plantio anterior encontrado para este vão");
+        setLoadingUltimo(false);
+        return;
+      }
+
+      // Encontrar a semana mais recente
+      const semanaMax = Math.max(...plantiosVao.map((p) => p.semana || 0));
+      const plantiosUltimaSemana = plantiosVao.filter((p) => p.semana === semanaMax);
+
+      // Montar os 4 canteiros com as variedades do último plantio
+      const novosCanteiros = [[], [], [], []];
+      for (const p of plantiosUltimaSemana) {
+        const idx = (p.canteiro || 1) - 1;
+        if (idx >= 0 && idx < 4) {
+          novosCanteiros[idx].push({ nome: p.variedade || "", quantidade: String(p.quantidade || "") });
+        }
+      }
+
+      // Garantir que canteiros vazios tenham pelo menos um campo em branco
+      const canteirosFinal = novosCanteiros.map((c) =>
+        c.length > 0 ? c : [{ ...EMPTY_VARIEDADE }]
+      );
+
+      setCanteiros(canteirosFinal);
+      toast.success(`Croqui carregado da Semana ${semanaMax} — edite as quantidades para o novo plantio`);
+    } catch (e) {
+      console.error("carregarUltimoCroqui error:", e);
+      toast.error("Erro ao carregar último croqui");
+    }
+    setLoadingUltimo(false);
   }
 
   async function handleSubmit() {
@@ -238,6 +291,28 @@ export default function PlantioVaoDialog({ open, onClose, onSaved }) {
               <Label className="text-xs">Data do Plantio</Label>
               <Input type="date" value={dataPlantio} onChange={(e) => setDataPlantio(e.target.value)} />
             </div>
+          </div>
+
+          {/* Botões de template */}
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 text-xs"
+              onClick={limparCroqui}
+            >
+              <RotateCcw className="w-3.5 h-3.5" /> Croqui em Branco
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 text-xs"
+              onClick={carregarUltimoCroqui}
+              disabled={!estufa || !lado || !vao || loadingUltimo}
+            >
+              <FileInput className="w-3.5 h-3.5" />
+              {loadingUltimo ? "Carregando..." : "Carregar Último Croqui"}
+            </Button>
           </div>
 
           {/* 4 canteiros */}
