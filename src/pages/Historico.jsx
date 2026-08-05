@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import { plantiosAPI, colheitasAPI, descartesAPI } from "@/api/supabaseClient";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { History, Sprout, Scissors, Trash2, Calendar, Download, GitCompare, X } from "lucide-react";
+import { canteirosAPI } from "@/api/supabaseClient";
+import { Card, CardContent } from "@/components/ui/card";
+import { History, Sprout, Calendar, Download, GitCompare, X } from "lucide-react";
 import moment from "moment";
 import { Button } from "@/components/ui/button";
 import { jsPDF } from "jspdf";
@@ -20,7 +20,7 @@ export default function Historico() {
   const [loading, setLoading] = useState(true);
   const [filtroEstufa, setFiltroEstufa] = useState("todas");
   const [buscaVariedade, setBuscaVariedade] = useState("");
-  const [comparando, setComparando] = useState([]); // max 2 ids
+  const [comparando, setComparando] = useState([]);
 
   function toggleComparar(id) {
     setComparando((prev) => {
@@ -41,79 +41,29 @@ export default function Historico() {
     filtrados.forEach((h, idx) => {
       if (y > 260) { doc.addPage(); y = 20; }
       doc.setFont(undefined, "bold");
-      doc.text(`${idx + 1}. E${h.estufa} — ${h.lado} — Vão ${h.vao} — C${h.canteiro}`, 14, y);
+      doc.text(`${idx + 1}. E${h.estufa} — ${h.lado} — Vão ${h.vao} — C${h.numero}`, 14, y);
       doc.setFont(undefined, "normal");
       y += 6;
-      const varStr = (h.variedades || []).map((v) => `${v.nome} (${v.quantidade})`).join(", ") || "—";
+      const vars = (h.variedades_ultimo_ciclo || h.variedades || []);
+      const varStr = vars.map((v) => `${v.nome || v.variedade} (${v.quantidade})`).join(", ") || "—";
       doc.text(`Variedades: ${varStr}`, 14, y); y += 5;
-      doc.text(`Plantio: ${h.data_plantio ? moment(h.data_plantio).format("DD/MM/YYYY") : "—"}   Finalização: ${h.data_finalizacao ? moment(h.data_finalizacao).format("DD/MM/YYYY") : "—"}`, 14, y); y += 5;
+      doc.text(`Plantio: ${h.data_plantio_ultimo ? moment(h.data_plantio_ultimo).format("DD/MM/YYYY") : "—"}   Finalização: ${h.data_finalizacao ? moment(h.data_finalizacao).format("DD/MM/YYYY") : "—"}`, 14, y); y += 5;
       doc.text(`Colhido: ${h.total_colhido_cestos || 0} cestos / ${h.total_colhido_pressas || 0} hastes   Descarte: ${h.total_descartado || 0}`, 14, y); y += 8;
       doc.setDrawColor(220, 220, 220);
       doc.line(14, y - 2, 196, y - 2);
     });
-    doc.save(`historico-vãos-${moment().format("YYYY-MM-DD")}.pdf`);
+    doc.save(`historico-vaos-${moment().format("YYYY-MM-DD")}.pdf`);
   }
 
   useEffect(() => {
     async function load() {
       try {
-        // Constrói histórico a partir de plantios agrupados por semana
-        const [plantios, colheitas, descartes] = await Promise.all([
-          plantiosAPI.list(500),
-          colheitasAPI.list(1000),
-          descartesAPI.list(1000),
-        ]);
-        const safePlantios = Array.isArray(plantios) ? plantios : [];
-        const safeColheitas = Array.isArray(colheitas) ? colheitas : [];
-        const safeDescartes = Array.isArray(descartes) ? descartes : [];
-
-        // Agrupa por semana para criar "ciclos"
-        const semanaMap = {};
-        safePlantios.forEach((p) => {
-          const key = p.semana ? `${p.semana}` : 'sem-semana';
-          if (!semanaMap[key]) {
-            semanaMap[key] = {
-              id: key,
-              semana: p.semana,
-              estufa: p.estufa,
-              lado: p.lado,
-              vao: p.vao,
-              canteiro: p.canteiro,
-              variedades: [],
-              data_plantio: p.data_plantio,
-              data_finalizacao: null,
-              total_mudas: 0,
-              total_colhido_cestos: 0,
-              total_colhido_pressas: 0,
-              total_descartado: 0,
-            };
-          }
-          semanaMap[key].total_mudas += p.quantidade || 0;
-          if (p.variedade) {
-            const existing = semanaMap[key].variedades.find(v => v.nome === p.variedade);
-            if (existing) existing.quantidade += p.quantidade || 0;
-            else semanaMap[key].variedades.push({ nome: p.variedade, quantidade: p.quantidade || 0 });
-          }
-        });
-        safeColheitas.forEach((c) => {
-          const key = c.semana ? `${c.semana}` : 'sem-semana';
-          if (semanaMap[key]) {
-            semanaMap[key].total_colhido_cestos += c.cestos || 0;
-            semanaMap[key].total_colhido_pressas += c.pressas || 0;
-            if (c.data_colheita) semanaMap[key].data_finalizacao = c.data_colheita;
-          }
-        });
-        safeDescartes.forEach((d) => {
-          const key = d.semana ? `${d.semana}` : 'sem-semana';
-          if (semanaMap[key]) {
-            semanaMap[key].total_descartado += d.quantidade || 0;
-          }
-        });
-
-        const result = Object.values(semanaMap).sort((a, b) => (b.semana || 0) - (a.semana || 0));
-        setHistoricos(result);
+        // Busca canteiros que já foram finalizados (têm data_finalizacao preenchida)
+        const canteiros = await canteirosAPI.listFinalizados();
+        setHistoricos(Array.isArray(canteiros) ? canteiros : []);
       } catch (e) {
-        console.warn('Historico load error:', e);
+        console.warn("Historico load error:", e);
+        setHistoricos([]);
       } finally {
         setLoading(false);
       }
@@ -123,7 +73,13 @@ export default function Historico() {
 
   const filtrados = historicos
     .filter((h) => filtroEstufa === "todas" || String(h.estufa) === filtroEstufa)
-    .filter((h) => !buscaVariedade || (h.variedades || []).some((v) => v.nome?.toLowerCase().includes(buscaVariedade.toLowerCase())));
+    .filter((h) => {
+      if (!buscaVariedade) return true;
+      const vars = h.variedades_ultimo_ciclo || h.variedades || [];
+      return vars.some((v) =>
+        (v.nome || v.variedade || "").toLowerCase().includes(buscaVariedade.toLowerCase())
+      );
+    });
 
   const ciclosComparados = comparando.map((id) => historicos.find((h) => h.id === id)).filter(Boolean);
 
@@ -167,35 +123,41 @@ export default function Historico() {
             <span className="font-semibold text-sm">Comparativo de Ciclos</span>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            {ciclosComparados.map((h) => (
-              <div key={h.id} className="bg-white rounded-lg p-4 border space-y-2">
-                <p className="font-bold text-sm">E{h.estufa} — {h.lado} — Vão {h.vao} — C{h.canteiro}</p>
-                <p className="text-xs text-muted-foreground">{(h.variedades || []).map((v) => v.nome).join(", ") || "—"}</p>
-                <div className="grid grid-cols-2 gap-2 text-center">
-                  <div className="bg-muted/40 rounded p-2">
-                    <p className="text-lg font-bold text-primary">{h.total_mudas || 0}</p>
-                    <p className="text-[10px] text-muted-foreground">mudas</p>
+            {ciclosComparados.map((h) => {
+              const vars = h.variedades_ultimo_ciclo || h.variedades || [];
+              const duracao = h.data_plantio_ultimo && h.data_finalizacao
+                ? moment(h.data_finalizacao).diff(moment(h.data_plantio_ultimo), "days")
+                : null;
+              return (
+                <div key={h.id} className="bg-white rounded-lg p-4 border space-y-2">
+                  <p className="font-bold text-sm">E{h.estufa} — {h.lado} — Vão {h.vao} — C{h.numero}</p>
+                  <p className="text-xs text-muted-foreground">{vars.map((v) => v.nome || v.variedade).join(", ") || "—"}</p>
+                  <div className="grid grid-cols-2 gap-2 text-center">
+                    <div className="bg-muted/40 rounded p-2">
+                      <p className="text-lg font-bold text-primary">{h.total_mudas || 0}</p>
+                      <p className="text-[10px] text-muted-foreground">mudas</p>
+                    </div>
+                    <div className="bg-muted/40 rounded p-2">
+                      <p className="text-lg font-bold text-chart-2">{h.total_colhido_cestos || 0}</p>
+                      <p className="text-[10px] text-muted-foreground">cestos</p>
+                    </div>
+                    <div className="bg-muted/40 rounded p-2">
+                      <p className="text-lg font-bold text-chart-3">{h.total_colhido_pressas || 0}</p>
+                      <p className="text-[10px] text-muted-foreground">hastes</p>
+                    </div>
+                    <div className="bg-muted/40 rounded p-2">
+                      <p className="text-lg font-bold text-destructive">{h.total_descartado || 0}</p>
+                      <p className="text-[10px] text-muted-foreground">descarte</p>
+                    </div>
                   </div>
-                  <div className="bg-muted/40 rounded p-2">
-                    <p className="text-lg font-bold text-chart-2">{h.total_colhido_cestos || 0}</p>
-                    <p className="text-[10px] text-muted-foreground">cestos</p>
-                  </div>
-                  <div className="bg-muted/40 rounded p-2">
-                    <p className="text-lg font-bold text-chart-3">{h.total_colhido_pressas || 0}</p>
-                    <p className="text-[10px] text-muted-foreground">hastes</p>
-                  </div>
-                  <div className="bg-muted/40 rounded p-2">
-                    <p className="text-lg font-bold text-destructive">{h.total_descartado || 0}</p>
-                    <p className="text-[10px] text-muted-foreground">descarte</p>
-                  </div>
+                  {duracao !== null && (
+                    <p className="text-xs text-center text-primary font-semibold">
+                      Ciclo de {duracao} dias
+                    </p>
+                  )}
                 </div>
-                {h.data_plantio && h.data_finalizacao && (
-                  <p className="text-xs text-center text-primary font-semibold">
-                    Ciclo de {moment(h.data_finalizacao).diff(moment(h.data_plantio), "days")} dias
-                  </p>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
@@ -270,81 +232,87 @@ export default function Historico() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filtrados.map((h) => (
-            <Card key={h.id} className={`hover:shadow-md transition-shadow cursor-pointer border-2 ${ comparando.includes(h.id) ? "border-primary" : "border-border" }`}>
-              <CardContent className="p-5 space-y-4">
-                {/* Header */}
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="font-bold text-base">E{h.estufa} — {h.lado} — Vão {h.vao} — C{h.canteiro}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
-                      <Calendar className="w-3 h-3" />
-                      Finalizado em {h.data_finalizacao ? moment(h.data_finalizacao).format("DD/MM/YYYY") : "—"}
-                    </p>
-                  </div>
-                  <div className="flex flex-col items-end gap-1">
-                    <span className="text-xs bg-primary/10 text-primary font-semibold px-2 py-0.5 rounded-full">
-                      {h.total_mudas || 0} mudas
-                    </span>
-                    <button
-                      onClick={() => toggleComparar(h.id)}
-                      className={`text-[10px] px-2 py-0.5 rounded-full border font-medium transition-all ${
-                        comparando.includes(h.id)
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "border-border text-muted-foreground hover:border-primary/50"
-                      }`}
-                    >
-                      {comparando.includes(h.id) ? "✓ Selecionado" : "Comparar"}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Variedades */}
-                {(h.variedades || []).length > 0 && (
-                  <div className="flex flex-wrap gap-1">
-                    {h.variedades.map((v, i) => (
-                      <span key={i} className="text-xs bg-secondary text-secondary-foreground rounded-full px-2 py-0.5">
-                        {v.nome} ({v.quantidade})
+          {filtrados.map((h) => {
+            const vars = h.variedades_ultimo_ciclo || h.variedades || [];
+            const duracao = h.data_plantio_ultimo && h.data_finalizacao
+              ? moment(h.data_finalizacao).diff(moment(h.data_plantio_ultimo), "days")
+              : null;
+            return (
+              <Card key={h.id} className={`hover:shadow-md transition-shadow cursor-pointer border-2 ${ comparando.includes(h.id) ? "border-primary" : "border-border" }`}>
+                <CardContent className="p-5 space-y-4">
+                  {/* Header */}
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="font-bold text-base">E{h.estufa} — {h.lado} — Vão {h.vao} — C{h.numero}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
+                        <Calendar className="w-3 h-3" />
+                        Finalizado em {h.data_finalizacao ? moment(h.data_finalizacao).format("DD/MM/YYYY") : "—"}
+                      </p>
+                    </div>
+                    <div className="flex flex-col items-end gap-1">
+                      <span className="text-xs bg-primary/10 text-primary font-semibold px-2 py-0.5 rounded-full">
+                        {h.total_mudas || 0} mudas
                       </span>
-                    ))}
+                      <button
+                        onClick={() => toggleComparar(h.id)}
+                        className={`text-[10px] px-2 py-0.5 rounded-full border font-medium transition-all ${
+                          comparando.includes(h.id)
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "border-border text-muted-foreground hover:border-primary/50"
+                        }`}
+                      >
+                        {comparando.includes(h.id) ? "✓ Selecionado" : "Comparar"}
+                      </button>
+                    </div>
                   </div>
-                )}
 
-                {/* Datas do ciclo */}
-                <div className="text-xs space-y-1 bg-muted/30 rounded-lg p-3">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground flex items-center gap-1"><Sprout className="w-3 h-3" /> Plantio</span>
-                    <span className="font-medium">{h.data_plantio ? moment(h.data_plantio).format("DD/MM/YYYY") : "—"}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">✂️ Corte de luz</span>
-                    <span className="font-medium">{h.data_corte_luz ? moment(h.data_corte_luz).format("DD/MM/YYYY") : "—"}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">🌸 Prev. colheita</span>
-                    <span className="font-medium">{h.data_previsao_colheita ? moment(h.data_previsao_colheita).format("DD/MM/YYYY") : "—"}</span>
-                  </div>
-                  {h.data_plantio && h.data_finalizacao && (
-                    <div className="flex justify-between border-t border-border/40 pt-1 mt-1">
-                      <span className="text-muted-foreground">⏱ Duração do ciclo</span>
-                      <span className="font-semibold text-primary">{moment(h.data_finalizacao).diff(moment(h.data_plantio), "days")} dias</span>
+                  {/* Variedades */}
+                  {vars.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {vars.map((v, i) => (
+                        <span key={i} className="text-xs bg-secondary text-secondary-foreground rounded-full px-2 py-0.5">
+                          {v.nome || v.variedade} ({v.quantidade})
+                        </span>
+                      ))}
                     </div>
                   )}
-                </div>
 
-                {/* Métricas de produção */}
-                <div className="grid grid-cols-3 gap-2">
-                  <StatPill label="cestos" value={h.total_colhido_cestos || 0} color="bg-chart-2/10" />
-                  <StatPill label="hastes" value={h.total_colhido_pressas || 0} color="bg-chart-3/10" />
-                  <StatPill label="descarte" value={h.total_descartado || 0} color="bg-destructive/10" />
-                </div>
+                  {/* Datas do ciclo */}
+                  <div className="text-xs space-y-1 bg-muted/30 rounded-lg p-3">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground flex items-center gap-1"><Sprout className="w-3 h-3" /> Plantio</span>
+                      <span className="font-medium">{h.data_plantio_ultimo ? moment(h.data_plantio_ultimo).format("DD/MM/YYYY") : "—"}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">✂️ Corte de luz</span>
+                      <span className="font-medium">{h.data_corte_luz_ultimo ? moment(h.data_corte_luz_ultimo).format("DD/MM/YYYY") : "—"}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">🌸 Prev. colheita</span>
+                      <span className="font-medium">{h.data_previsao_colheita_ultimo ? moment(h.data_previsao_colheita_ultimo).format("DD/MM/YYYY") : "—"}</span>
+                    </div>
+                    {duracao !== null && (
+                      <div className="flex justify-between border-t border-border/40 pt-1 mt-1">
+                        <span className="text-muted-foreground">⏱ Duração do ciclo</span>
+                        <span className="font-semibold text-primary">{duracao} dias</span>
+                      </div>
+                    )}
+                  </div>
 
-                {h.observacao && (
-                  <p className="text-xs text-muted-foreground italic border-l-2 border-border pl-2">{h.observacao}</p>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+                  {/* Métricas de produção */}
+                  <div className="grid grid-cols-3 gap-2">
+                    <StatPill label="cestos" value={h.total_colhido_cestos || 0} color="bg-chart-2/10" />
+                    <StatPill label="hastes" value={h.total_colhido_pressas || 0} color="bg-chart-3/10" />
+                    <StatPill label="descarte" value={h.total_descartado || 0} color="bg-destructive/10" />
+                  </div>
+
+                  {h.observacao_finalizacao && (
+                    <p className="text-xs text-muted-foreground italic border-l-2 border-border pl-2">{h.observacao_finalizacao}</p>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>

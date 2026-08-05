@@ -98,6 +98,15 @@ export const canteirosAPI = {
     localStorage.removeItem('cache_canteiros');
     return true;
   },
+  listFinalizados: async () => {
+    const { data, error } = await supabase
+      .from('canteiros')
+      .select('*')
+      .not('data_finalizacao', 'is', null)
+      .order('data_finalizacao', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  },
 };
 
 export const plantiosAPI = {
