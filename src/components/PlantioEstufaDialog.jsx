@@ -444,7 +444,7 @@ export default function PlantioEstufaDialog({ open, onClose, onSaved }) {
       ) : [];
 
       const totalCestos = colheitasCant.reduce((s, c) => s + (c.cestos || 0), 0);
-      const totalPressas = colheitasCant.reduce((s, c) => s + (c.pressas || 0), 0);
+      const totalHastes = colheitasCant.reduce((s, c) => s + (c.hastes || 0), 0);
       const totalDescartado = descartesCant.reduce((s, d) => s + (d.quantidade || 0), 0);
 
       const dataPlantio = canteiro.data_plantio_ultimo || canteiro.data_plantio || null;
@@ -457,7 +457,7 @@ export default function PlantioEstufaDialog({ open, onClose, onSaved }) {
         data_corte_luz_ultimo: dataPlantio ? moment(dataPlantio).add(25, "days").format("YYYY-MM-DD") : null,
         data_previsao_colheita_ultimo: dataPlantio ? moment(dataPlantio).add(12, "weeks").format("YYYY-MM-DD") : null,
         total_colhido_cestos: totalCestos,
-        total_colhido_pressas: totalPressas,
+        total_colhido_hastes: totalHastes,
         total_descartado: totalDescartado,
         variedades_ultimo_ciclo: canteiro.variedades || [],
         observacao_finalizacao: "Canteiro encerrado manualmente antes de novo plantio",

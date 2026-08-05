@@ -222,10 +222,10 @@ function StepVariedade({ form, onChange, variedades }) {
 // Step 3: Harvest
 function StepColheita({ form, onChange }) {
   const destinoFixo = getDestinoFixo(form.variedade);
-  const pressasPorCesto = destinoFixo ? destinoFixo.hastesPorCesto : (form.destino ? DESTINOS[form.destino] : 0);
+  const hastesPorCesto = destinoFixo ? destinoFixo.hastesPorCesto : (form.destino ? DESTINOS[form.destino] : 0);
   const hastesPorMaco = destinoFixo ? 0 : (form.destino ? (HASTES_POR_MACO[form.destino] || 0) : 0);
   const canUseMacos = !destinoFixo && !!hastesPorMaco;
-  const totalCestos = (parseInt(form.cestos) || 0) * pressasPorCesto;
+  const totalCestos = (parseInt(form.cestos) || 0) * hastesPorCesto;
   const totalMacos = (parseInt(form.macos) || 0) * hastesPorMaco;
   const totalAvulsas = parseInt(form.hastes_avulsas) || 0;
   const total = totalCestos + totalMacos + totalAvulsas;
@@ -266,7 +266,7 @@ function StepColheita({ form, onChange }) {
       {(form.destino || destinoFixo) && (
         <>
           <div>
-            <p className="text-sm font-medium text-muted-foreground mb-2">🧹 Cestos <span className="text-xs">({pressasPorCesto} hastes/cesto)</span></p>
+            <p className="text-sm font-medium text-muted-foreground mb-2">🧹 Cestos <span className="text-xs">({hastesPorCesto} hastes/cesto)</span></p>
             <div className="flex items-center gap-3">
               <button
                 onClick={() => onChange("cestos", String(Math.max(0, (parseInt(form.cestos) || 0) - 1)))}
@@ -338,7 +338,7 @@ function StepColheita({ form, onChange }) {
               <p className="text-5xl font-black text-primary">{total.toLocaleString("pt-BR")}</p>
               <p className="text-sm text-muted-foreground mt-1">hastes</p>
               <div className="text-xs text-muted-foreground mt-2 space-y-0.5">
-                {(parseInt(form.cestos) || 0) > 0 && <p>{form.cestos} cestos × {pressasPorCesto} = {totalCestos}</p>}
+                {(parseInt(form.cestos) || 0) > 0 && <p>{form.cestos} cestos × {hastesPorCesto} = {totalCestos}</p>}
                 {(parseInt(form.macos) || 0) > 0 && canUseMacos && <p>{form.macos} maços × {hastesPorMaco} = {totalMacos}</p>}
                 {(parseInt(form.hastes_avulsas) || 0) > 0 && <p>+ {form.hastes_avulsas} hastes avulsas</p>}
               </div>
@@ -362,10 +362,10 @@ const MOTIVOS_DESCARTE = [
 function StepConfirm({ form, onChange, isEditing }) {
   const [showDescarte, setShowDescarte] = useState(false);
   const destinoFixo = getDestinoFixo(form.variedade);
-  const pressasPorCesto = destinoFixo ? destinoFixo.hastesPorCesto : (form.destino ? DESTINOS[form.destino] : 0);
+  const hastesPorCesto = destinoFixo ? destinoFixo.hastesPorCesto : (form.destino ? DESTINOS[form.destino] : 0);
   const hastesPorMaco = destinoFixo ? 0 : (form.destino ? (HASTES_POR_MACO[form.destino] || 0) : 0);
   const total =
-    (parseInt(form.cestos) || 0) * pressasPorCesto +
+    (parseInt(form.cestos) || 0) * hastesPorCesto +
     (parseInt(form.macos) || 0) * hastesPorMaco +
     (parseInt(form.hastes_avulsas) || 0);
 
@@ -577,7 +577,7 @@ export default function ColheitaWizard({ open, onClose, onSaved, editingColheita
       const hastesPorCestoFinal = destinoFixo ? destinoFixo.hastesPorCesto : (DESTINOS[form.destino] || 0);
       const hastesPorMaco = destinoFixo ? 0 : (HASTES_POR_MACO[form.destino] || 0);
       const hastesAvulsas = parseInt(form.hastes_avulsas) || 0;
-      const pressas =
+      const hastes =
         (parseInt(form.cestos) || 0) * hastesPorCestoFinal +
         (parseInt(form.macos) || 0) * hastesPorMaco +
         hastesAvulsas;
@@ -586,7 +586,7 @@ export default function ColheitaWizard({ open, onClose, onSaved, editingColheita
         estufa: parseInt(form.estufa), lado: form.lado,
         vao: parseInt(form.vao), canteiro: parseInt(form.canteiro),
         variedade: form.variedade, destino: destinoFinal,
-        cestos, hastes_avulsas: hastesAvulsas, pressas,
+        cestos, hastes_avulsas: hastesAvulsas, hastes,
         data_colheita: form.data_colheita,
         semana: getWeekNumber(form.data_colheita),
       };
@@ -625,7 +625,7 @@ export default function ColheitaWizard({ open, onClose, onSaved, editingColheita
           try {
             await colheitasAPI.create(colheitaData);
             if (descarteData) await descartesAPI.create(descarteData);
-            toast.success(`✂️ ${qtyLabel} registrados — ${pressas} hastes${descarteMsg}`);
+            toast.success(`✂️ ${qtyLabel} registrados — ${hastes} hastes${descarteMsg}`);
           } catch (netErr) {
             // Falha de rede mesmo estando online: enfileira e tenta sync
             enqueue('Colheita', colheitaData);

@@ -77,14 +77,14 @@ function ProdutividadeSemanal({ colheitas, descartes, plantios }) {
     colheitasSemana.forEach(c => {
       const k = normVar(c.variedade);
       if (!map[k]) map[k] = { name: displayVar(c.variedade), hastes: 0, cestos: 0 };
-      map[k].hastes += c.pressas || 0;
+      map[k].hastes += c.hastes || 0;
       map[k].cestos += c.cestos || 0;
     });
     return Object.values(map).sort((a, b) => b.hastes - a.hastes);
   }, [colheitasSemana]);
 
   // Totais da semana
-  const totalHastesSemana = colheitasSemana.reduce((s, c) => s + (c.pressas || 0), 0);
+  const totalHastesSemana = colheitasSemana.reduce((s, c) => s + (c.hastes || 0), 0);
   const totalCestosSemana = colheitasSemana.reduce((s, c) => s + (c.cestos || 0), 0);
   const totalDescartesSemana = descartes.filter(d => {
     if (!d.data_descarte) return false;
@@ -101,7 +101,7 @@ function ProdutividadeSemanal({ colheitas, descartes, plantios }) {
       const m = moment(c.data_colheita);
       const key = `${m.isoWeekYear()}-${String(m.isoWeek()).padStart(2, '0')}`;
       if (!map[key]) map[key] = { semana: `S${m.isoWeek()}`, key, hastes: 0, cestos: 0 };
-      map[key].hastes += c.pressas || 0;
+      map[key].hastes += c.hastes || 0;
       map[key].cestos += c.cestos || 0;
     });
     return Object.values(map).sort((a, b) => a.key.localeCompare(b.key));
@@ -320,7 +320,7 @@ export default function Produtividade() {
     const k = normVar(c.variedade);
     if (!byVariedade[k]) byVariedade[k] = { name: displayVar(c.variedade), cestos: 0, hastes: 0, mudas_plantadas: 0, mudas_descartadas: 0, canteiros: new Set() };
     byVariedade[k].cestos += c.cestos || 0;
-    byVariedade[k].hastes += c.pressas || 0;
+    byVariedade[k].hastes += c.hastes || 0;
     // Registrar canteiro único para cálculo de m²
     const canteiroKey = `${c.estufa}-${c.lado}-${c.vao}-${c.canteiro}`;
     byVariedade[k].canteiros.add(canteiroKey);
@@ -373,13 +373,13 @@ export default function Produtividade() {
   const byEstufa = {};
   colheitas.forEach((c) => {
     const key = `Estufa ${c.estufa}`;
-    if (!byEstufa[key]) byEstufa[key] = { cestos: 0, pressas: 0, descartes: 0 };
+    if (!byEstufa[key]) byEstufa[key] = { cestos: 0, hastes: 0, descartes: 0 };
     byEstufa[key].cestos += c.cestos || 0;
-    byEstufa[key].pressas += c.pressas || 0;
+    byEstufa[key].hastes += c.hastes || 0;
   });
   descartes.forEach((d) => {
     const key = `Estufa ${d.estufa}`;
-    if (!byEstufa[key]) byEstufa[key] = { cestos: 0, pressas: 0, descartes: 0 };
+    if (!byEstufa[key]) byEstufa[key] = { cestos: 0, hastes: 0, descartes: 0 };
     byEstufa[key].descartes += d.quantidade || 0;
   });
   const estufaData = Object.entries(byEstufa)
@@ -392,15 +392,15 @@ export default function Produtividade() {
     if (!c.data_colheita) return;
     const d = new Date(c.data_colheita);
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-    if (!byMonth[key]) byMonth[key] = { mes: MONTH_NAMES[d.getMonth()], ano: d.getFullYear(), key, cestos: 0, pressas: 0 };
+    if (!byMonth[key]) byMonth[key] = { mes: MONTH_NAMES[d.getMonth()], ano: d.getFullYear(), key, cestos: 0, hastes: 0 };
     byMonth[key].cestos += c.cestos || 0;
-    byMonth[key].pressas += c.pressas || 0;
+    byMonth[key].hastes += c.hastes || 0;
   });
   const monthData = Object.values(byMonth).sort((a, b) => a.key.localeCompare(b.key));
   const monthLabeled = monthData.map((m) => ({ ...m, label: `${m.mes}/${String(m.ano).slice(2)}` }));
 
   const totalCestos = filtered.reduce((s, c) => s + (c.cestos || 0), 0);
-  const totalPressas = filtered.reduce((s, c) => s + (c.pressas || 0), 0);
+  const totalHastes = filtered.reduce((s, c) => s + (c.hastes || 0), 0);
   const totalDescartes = filteredDescartes.reduce((s, d) => s + (d.quantidade || 0), 0);
   const totalPlantadas = filteredPlantios.reduce((s, p) => s + (p.quantidade || 0), 0);
 
@@ -441,7 +441,7 @@ export default function Produtividade() {
           <CardContent className="p-4 text-center">
             <Scissors className="w-5 h-5 text-primary mx-auto mb-1" />
             <p className="text-xs text-muted-foreground">Hastes Colhidas</p>
-            <p className="text-2xl font-bold text-primary">{totalPressas.toLocaleString("pt-BR")}</p>
+            <p className="text-2xl font-bold text-primary">{totalHastes.toLocaleString("pt-BR")}</p>
             <p className="text-xs text-muted-foreground">{totalCestos.toLocaleString("pt-BR")} cestos</p>
           </CardContent>
         </Card>
@@ -663,7 +663,7 @@ export default function Produtividade() {
                   </div>
                   <p className="text-2xl font-bold text-primary">{e.cestos}</p>
                   <p className="text-xs text-muted-foreground">cestos</p>
-                  <p className="text-xs text-muted-foreground mt-1">{e.pressas.toLocaleString("pt-BR")} hastes</p>
+                  <p className="text-xs text-muted-foreground mt-1">{e.hastes.toLocaleString("pt-BR")} hastes</p>
                   {e.descartes > 0 && <p className="text-xs text-destructive mt-1">{e.descartes} descartados</p>}
                 </CardContent>
               </Card>
@@ -712,7 +712,7 @@ export default function Produtividade() {
                     <Tooltip {...tooltipStyle} />
                     <Legend />
                     <Line type="monotone" dataKey="cestos" name="Cestos" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 4 }} />
-                    <Line type="monotone" dataKey="pressas" name="Hastes" stroke="hsl(var(--accent))" strokeWidth={2} dot={{ r: 4 }} />
+                    <Line type="monotone" dataKey="hastes" name="Hastes" stroke="hsl(var(--accent))" strokeWidth={2} dot={{ r: 4 }} />
                   </LineChart>
                 </ResponsiveContainer>
               )}

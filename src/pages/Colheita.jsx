@@ -121,9 +121,9 @@ export default function Colheita() {
   const filtradasFixas = filtradas.filter(c => isFloraFixa(c.variedade));
 
   const totalCestos = filtradasPrincipais.reduce((s, c) => s + (c.cestos || 0), 0);
-  const totalPressasTotal = filtradasPrincipais.reduce((s, c) => s + (c.pressas || 0), 0);
+  const totalHastesTotal = filtradasPrincipais.reduce((s, c) => s + (c.hastes || 0), 0);
   const totalCestosFixas = filtradasFixas.reduce((s, c) => s + (c.cestos || 0), 0);
-  const totalHastesFixas = filtradasFixas.reduce((s, c) => s + (c.pressas || 0), 0);
+  const totalHastesFixas = filtradasFixas.reduce((s, c) => s + (c.hastes || 0), 0);
 
   // Totais por tipo de flora fixa
   // Statice: Sinzii* e Tasmania Rose
@@ -132,16 +132,16 @@ export default function Colheita() {
   // Limonium: Klara, Piuma, Shooting Star, Oshi, Supreme
   const filtradasLimonium = filtradasFixas.filter(c => isVariedadeFixa(c.variedade) && !NOMES_STATICE.some(n => (c.variedade || '').toLowerCase().includes(n)));
   const filtradasGirassol = filtradasFixas.filter(c => isVariedadeGirassol(c.variedade));
-  const statice = { cestos: filtradasStatice.reduce((s,c)=>s+(c.cestos||0),0), hastes: filtradasStatice.reduce((s,c)=>s+(c.pressas||0),0) };
-  const limonium = { cestos: filtradasLimonium.reduce((s,c)=>s+(c.cestos||0),0), hastes: filtradasLimonium.reduce((s,c)=>s+(c.pressas||0),0) };
-  const girassol = { cestos: filtradasGirassol.reduce((s,c)=>s+(c.cestos||0),0), hastes: filtradasGirassol.reduce((s,c)=>s+(c.pressas||0),0) };
+  const statice = { cestos: filtradasStatice.reduce((s,c)=>s+(c.cestos||0),0), hastes: filtradasStatice.reduce((s,c)=>s+(c.hastes||0),0) };
+  const limonium = { cestos: filtradasLimonium.reduce((s,c)=>s+(c.cestos||0),0), hastes: filtradasLimonium.reduce((s,c)=>s+(c.hastes||0),0) };
+  const girassol = { cestos: filtradasGirassol.reduce((s,c)=>s+(c.cestos||0),0), hastes: filtradasGirassol.reduce((s,c)=>s+(c.hastes||0),0) };
   const hojeCount = todasFiltradas.filter((c) => moment(c.data_colheita).isSame(moment(), "day") && !isFloraFixa(c.variedade)).length;
 
   // Meta: apenas flores principais (sem Statice/Limonium/Girassol)
-  const colhidoSemanaAtual = filtradasPrincipais.reduce((s, c) => s + (c.pressas || 0), 0);
+  const colhidoSemanaAtual = filtradasPrincipais.reduce((s, c) => s + (c.hastes || 0), 0);
   const previstoSemana = previsoes
     .filter(p => p.semana === semanaNav && p.ano === anoNav && !isFloraFixa(p.variedade))
-    .reduce((s, p) => s + (p.pressas_previstas || 0), 0);
+    .reduce((s, p) => s + (p.hastes_previstas || 0), 0);
   const pctMeta = previstoSemana > 0 ? Math.round((colhidoSemanaAtual / previstoSemana) * 100) : 0;
 
   // Weekly trend data (last 8 weeks) — barras separadas para flores principais e fixas
@@ -154,8 +154,8 @@ export default function Colheita() {
     weeklyTrend.push({
       semana: wLabel,
       cestos: wPrincipais.reduce((s, c) => s + (c.cestos || 0), 0),
-      hastes: wPrincipais.reduce((s, c) => s + (c.pressas || 0), 0),
-      hastesFixas: wFixas.reduce((s, c) => s + (c.pressas || 0), 0),
+      hastes: wPrincipais.reduce((s, c) => s + (c.hastes || 0), 0),
+      hastesFixas: wFixas.reduce((s, c) => s + (c.hastes || 0), 0),
     });
   }
 
@@ -244,7 +244,7 @@ export default function Colheita() {
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard icon={Package} label="Cestos" value={totalCestos.toLocaleString("pt-BR")} />
-        <StatCard icon={TrendingUp} label="Hastes" value={totalPressasTotal.toLocaleString("pt-BR")} color="text-green-600" />
+        <StatCard icon={TrendingUp} label="Hastes" value={totalHastesTotal.toLocaleString("pt-BR")} color="text-green-600" />
         <StatCard icon={Target} label="Registros" value={filtradasPrincipais.length} />
         <StatCard icon={Calendar} label="Hoje" value={hojeCount} sub="colheitas" />
       </div>
@@ -307,7 +307,7 @@ export default function Colheita() {
           lista.forEach(c => {
             const d = c.destino || "Outros";
             if (!map[d]) map[d] = { hastes: 0, cestos: 0 };
-            map[d].hastes += c.pressas || 0;
+            map[d].hastes += c.hastes || 0;
             map[d].cestos += c.cestos || 0;
           });
           return map;
@@ -435,7 +435,7 @@ export default function Colheita() {
       {/* Gráfico de Cores Colhidas */}
       {filtradas.length > 0 && (() => {
         const itensCores = agruparPorCor(
-          filtradas.map(c => ({ variedade: c.variedade, quantidade: c.pressas || 0 }))
+          filtradas.map(c => ({ variedade: c.variedade, quantidade: c.hastes || 0 }))
         );
         const totalCores = itensCores.reduce((s, c) => s + c.total, 0);
         return (
@@ -527,7 +527,7 @@ export default function Colheita() {
           {sortedDates.map((date) => {
             const registros = groupedByDate[date];
             const cestosDia = registros.reduce((s, c) => s + (c.cestos || 0), 0);
-            const pressasDia = registros.reduce((s, c) => s + (c.pressas || 0), 0);
+            const hastesDia = registros.reduce((s, c) => s + (c.hastes || 0), 0);
             return (
               <div key={date}>
                 <div className="flex items-center gap-3 mb-3">
@@ -535,7 +535,7 @@ export default function Colheita() {
                     {moment(date).format("DD [de] MMMM")}
                   </div>
                   <div className="h-px flex-1 bg-border" />
-                  <span className="text-xs text-muted-foreground">{cestosDia} cestos · {pressasDia} hastes</span>
+                  <span className="text-xs text-muted-foreground">{cestosDia} cestos · {hastesDia} hastes</span>
                 </div>
                 <div className="grid gap-2">
                   {registros.map((c) => (
@@ -556,7 +556,7 @@ export default function Colheita() {
                       </div>
                       <div className="text-right flex-shrink-0">
                         <p className="font-bold text-sm">{c.cestos} cestos</p>
-                        <p className="text-xs text-muted-foreground">{c.pressas} hastes</p>
+                        <p className="text-xs text-muted-foreground">{c.hastes} hastes</p>
                       </div>
                       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <Button

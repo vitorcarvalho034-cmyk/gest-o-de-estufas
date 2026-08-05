@@ -98,7 +98,7 @@ export default function CanteiroDialog({ canteiro, open, onClose, onSaved }) {
     );
 
     setColheitaTotal({
-      hastes: filteredColheitas.reduce((s, c) => s + (c.pressas || 0), 0),
+      hastes: filteredColheitas.reduce((s, c) => s + (c.hastes || 0), 0),
       cestos: filteredColheitas.reduce((s, c) => s + (c.cestos || 0), 0),
     });
     setDescarteTotal(filteredDescartes.reduce((s, d) => s + (d.quantidade || 0), 0));
@@ -121,7 +121,7 @@ export default function CanteiroDialog({ canteiro, open, onClose, onSaved }) {
         data_corte_luz_ultimo: plantioData ? moment(plantioData).add(25, "days").toISOString().split("T")[0] : null,
         data_previsao_colheita_ultimo: plantioData ? moment(plantioData).add(12, "weeks").toISOString().split("T")[0] : null,
         total_colhido_cestos: colheitaTotal.cestos,
-        total_colhido_pressas: colheitaTotal.hastes,
+        total_colhido_hastes: colheitaTotal.hastes,
         total_descartado: descarteTotal,
         variedades_ultimo_ciclo: canteiro.variedades || [],
         observacao_finalizacao: obsFinalizacao || null,
@@ -232,8 +232,8 @@ export default function CanteiroDialog({ canteiro, open, onClose, onSaved }) {
                   {(canteiro.variedades_ultimo_ciclo || []).map((v, i) => (
                     <InfoRow key={i} label={v.nome || v.variedade} value={`${v.quantidade} mudas`} />
                   ))}
-                  {canteiro.total_colhido_pressas > 0 && (
-                    <InfoRow label="🌸 Colhido" value={`${canteiro.total_colhido_pressas} hastes / ${canteiro.total_colhido_cestos} cestos`} highlight />
+                  {canteiro.total_colhido_hastes > 0 && (
+                    <InfoRow label="🌸 Colhido" value={`${canteiro.total_colhido_hastes} hastes / ${canteiro.total_colhido_cestos} cestos`} highlight />
                   )}
                   {canteiro.total_descartado > 0 && (
                     <InfoRow label="🗑 Descartado" value={`${canteiro.total_descartado} mudas`} />

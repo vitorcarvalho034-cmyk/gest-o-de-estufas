@@ -48,7 +48,7 @@ export default function Historico() {
       const varStr = vars.map((v) => `${v.nome || v.variedade} (${v.quantidade})`).join(", ") || "—";
       doc.text(`Variedades: ${varStr}`, 14, y); y += 5;
       doc.text(`Plantio: ${h.data_plantio_ultimo ? moment(h.data_plantio_ultimo).format("DD/MM/YYYY") : "—"}   Finalização: ${h.data_finalizacao ? moment(h.data_finalizacao).format("DD/MM/YYYY") : "—"}`, 14, y); y += 5;
-      doc.text(`Colhido: ${h.total_colhido_cestos || 0} cestos / ${h.total_colhido_pressas || 0} hastes   Descarte: ${h.total_descartado || 0}`, 14, y); y += 8;
+      doc.text(`Colhido: ${h.total_colhido_cestos || 0} cestos / ${h.total_colhido_hastes || 0} hastes   Descarte: ${h.total_descartado || 0}`, 14, y); y += 8;
       doc.setDrawColor(220, 220, 220);
       doc.line(14, y - 2, 196, y - 2);
     });
@@ -142,7 +142,7 @@ export default function Historico() {
                       <p className="text-[10px] text-muted-foreground">cestos</p>
                     </div>
                     <div className="bg-muted/40 rounded p-2">
-                      <p className="text-lg font-bold text-chart-3">{h.total_colhido_pressas || 0}</p>
+                      <p className="text-lg font-bold text-chart-3">{h.total_colhido_hastes || 0}</p>
                       <p className="text-[10px] text-muted-foreground">hastes</p>
                     </div>
                     <div className="bg-muted/40 rounded p-2">
@@ -210,7 +210,7 @@ export default function Historico() {
           </Card>
           <Card>
             <CardContent className="p-4 text-center">
-              <p className="text-2xl font-bold text-chart-3">{filtrados.reduce((s, h) => s + (h.total_colhido_pressas || 0), 0).toLocaleString("pt-BR")}</p>
+              <p className="text-2xl font-bold text-chart-3">{filtrados.reduce((s, h) => s + (h.total_colhido_hastes || 0), 0).toLocaleString("pt-BR")}</p>
               <p className="text-xs text-muted-foreground mt-1">hastes colhidas</p>
             </CardContent>
           </Card>
@@ -302,7 +302,7 @@ export default function Historico() {
                   {/* Métricas de produção */}
                   <div className="grid grid-cols-3 gap-2">
                     <StatPill label="cestos" value={h.total_colhido_cestos || 0} color="bg-chart-2/10" />
-                    <StatPill label="hastes" value={h.total_colhido_pressas || 0} color="bg-chart-3/10" />
+                    <StatPill label="hastes" value={h.total_colhido_hastes || 0} color="bg-chart-3/10" />
                     <StatPill label="descarte" value={h.total_descartado || 0} color="bg-destructive/10" />
                   </div>
 

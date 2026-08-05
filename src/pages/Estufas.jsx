@@ -32,7 +32,7 @@ function MiniCanteiro({ canteiro, onClick, numero, colheitas }) {
     colorClass = pct >= 80 ? CANTEIRO_FULL : CANTEIRO_PARTIAL;
   }
 
-  const totalHastes = colheitas?.reduce((s, c) => s + (c.hastes || c.pressas || 0), 0) || 0;
+  const totalHastes = colheitas?.reduce((s, c) => s + (c.hastes || c.hastes || 0), 0) || 0;
   const totalCestos = colheitas?.reduce((s, c) => s + (c.cestos || 0), 0) || 0;
   const colheitaPct = !fixo && mudas > 0 ? Math.min((totalHastes / mudas) * 100, 100) : 0;
 

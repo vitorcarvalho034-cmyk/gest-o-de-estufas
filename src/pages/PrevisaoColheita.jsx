@@ -42,7 +42,7 @@ export default function PrevisaoColheita() {
   const [ano, setAno] = useState(getCurrentYear());
   const [form, setForm] = useState({
     variedade: "",
-    pressas_previstas: "",
+    hastes_previstas: "",
     estufa: null,
     vao: null,
   });
@@ -144,14 +144,14 @@ export default function PrevisaoColheita() {
   }
 
   async function handleSubmit() {
-    if (!form.variedade || !form.pressas_previstas) {
-      toast.error("Preencha variedade e pressas previstas");
+    if (!form.variedade || !form.hastes_previstas) {
+      toast.error("Preencha variedade e hastes previstas");
       return;
     }
     const data = {
       semana, ano,
       variedade: form.variedade,
-      pressas_previstas: parseInt(form.pressas_previstas),
+      hastes_previstas: parseInt(form.hastes_previstas),
       estufa: form.estufa || undefined,
       vao: form.vao || undefined,
     };
@@ -164,13 +164,13 @@ export default function PrevisaoColheita() {
       toast.success("✅ Previsão adicionada — continue lançando!");
     }
     // Não fecha o dialog — limpa o formulário para o próximo lançamento
-    setForm({ variedade: "", pressas_previstas: "", estufa: null, vao: null });
+    setForm({ variedade: "", hastes_previstas: "", estufa: null, vao: null });
     loadPrevisoes();
   }
 
   function handleConcluir() {
     setDialogOpen(false);
-    setForm({ variedade: "", pressas_previstas: "", estufa: null, vao: null });
+    setForm({ variedade: "", hastes_previstas: "", estufa: null, vao: null });
   }
 
   async function handleDelete(id) {
@@ -189,22 +189,22 @@ export default function PrevisaoColheita() {
       const harvestYear = harvestDate.year();
       if (harvestWeek !== semana || harvestYear !== ano) return;
       const key = p.variedade;
-      if (!grouped[key]) grouped[key] = { variedade: key, pressas: 0 };
-      // Estimate: ~0.5 pressas per muda
-      grouped[key].pressas += Math.round((p.quantidade || 0) * 0.5);
+      if (!grouped[key]) grouped[key] = { variedade: key, hastes: 0 };
+      // Estimate: ~0.5 hastes per muda
+      grouped[key].hastes += Math.round((p.quantidade || 0) * 0.5);
     });
     const items = Object.values(grouped);
     if (items.length === 0) { toast.error("Nenhum plantio previsto para colheita nesta semana (65 dias após plantio)"); return; }
     for (const item of items) {
       await previsaoColheitaAPI.create({
-        semana, ano, variedade: item.variedade, pressas_previstas: item.pressas
+        semana, ano, variedade: item.variedade, hastes_previstas: item.hastes
       });
     }
     toast.success(`${items.length} previsão(ões) gerada(s) automaticamente`);
     loadPrevisoes();
   }
 
-  const totalPressas = previsoes.reduce((sum, p) => sum + (p.pressas_previstas || 0), 0);
+  const totalHastes = previsoes.reduce((sum, p) => sum + (p.hastes_previstas || 0), 0);
   const weekDates = getWeekDates(semana, ano);
 
   // Anastasia: 60h/cesto = Fuego, Magnum, Fiebre | 80h/cesto = todas as outras
@@ -216,9 +216,9 @@ export default function PrevisaoColheita() {
   };
   const isAnast80 = (nome) => isAnastasia(nome) && !isAnast60(nome);
 
-  const hastesAnast = previsoes.filter(p => isAnastasia(p.variedade)).reduce((s, p) => s + (p.pressas_previstas || 0), 0);
-  const hastesAnast80 = previsoes.filter(p => isAnast80(p.variedade)).reduce((s, p) => s + (p.pressas_previstas || 0), 0);
-  const hastesAnast60 = previsoes.filter(p => isAnast60(p.variedade)).reduce((s, p) => s + (p.pressas_previstas || 0), 0);
+  const hastesAnast = previsoes.filter(p => isAnastasia(p.variedade)).reduce((s, p) => s + (p.hastes_previstas || 0), 0);
+  const hastesAnast80 = previsoes.filter(p => isAnast80(p.variedade)).reduce((s, p) => s + (p.hastes_previstas || 0), 0);
+  const hastesAnast60 = previsoes.filter(p => isAnast60(p.variedade)).reduce((s, p) => s + (p.hastes_previstas || 0), 0);
   const cestosAnast80 = hastesAnast80 > 0 ? Math.floor(hastesAnast80 / 80) : 0;
   const cestosAnast60 = hastesAnast60 > 0 ? Math.floor(hastesAnast60 / 60) : 0;
 
@@ -229,9 +229,9 @@ export default function PrevisaoColheita() {
   // Divisão 50/50: metade do total vai para Oferta, metade para Barracão
   // Anastasia entra obrigatoriamente no bloco de Oferta
   // Se Anastasia > 50%, o excedente também fica em Oferta (Barracão = 0)
-  const metade = Math.round(totalPressas * 0.5);
+  const metade = Math.round(totalHastes * 0.5);
   const hastesOfertas = Math.max(hastesAnast, metade); // Anastasia + complemento até 50%
-  const hastesBarracao = Math.max(0, totalPressas - hastesOfertas - hastesMercado);
+  const hastesBarracao = Math.max(0, totalHastes - hastesOfertas - hastesMercado);
   const hastesOfertaComplemento = hastesOfertas - hastesAnast; // outras flores que completam os 50% de Oferta
   const cestosOfertas = hastesOfertas > 0 ? Math.floor(hastesOfertas / 60) : 0;
   const cestosBarracao = hastesBarracao > 0 ? Math.floor(hastesBarracao / 50) : 0;
@@ -329,10 +329,10 @@ export default function PrevisaoColheita() {
       <div className="space-y-3">
         <div className="bg-primary/5 rounded-xl p-4 flex items-center justify-between border border-primary/10">
           <span className="text-sm font-medium text-muted-foreground">Total Previsto</span>
-          <span className="text-2xl font-bold text-primary">{totalPressas.toLocaleString("pt-BR")} hastes</span>
+          <span className="text-2xl font-bold text-primary">{totalHastes.toLocaleString("pt-BR")} hastes</span>
         </div>
 
-        {totalPressas > 0 && (
+        {totalHastes > 0 && (
           <div className="rounded-xl border border-border overflow-hidden">
             <div className="bg-muted/40 px-4 py-2 border-b border-border">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Distribuição</p>
@@ -437,7 +437,7 @@ export default function PrevisaoColheita() {
         previsoes.forEach((p) => {
           const key = (p.variedade || "").trim().toLowerCase();
           if (!agrupado[key]) agrupado[key] = { variedade: (p.variedade || "").trim(), total: 0 };
-          agrupado[key].total += p.pressas_previstas || 0;
+          agrupado[key].total += p.hastes_previstas || 0;
         });
         const itensCores = agruparPorCor(Object.values(agrupado).map(l => ({ variedade: l.variedade, quantidade: l.total })));
         const totalCores = itensCores.reduce((s, c) => s + c.total, 0);
@@ -499,7 +499,7 @@ export default function PrevisaoColheita() {
               if (!agrupado[key]) {
                 agrupado[key] = { variedade: (p.variedade || "").trim(), total: 0, ids: [] };
               }
-              agrupado[key].total += p.pressas_previstas || 0;
+              agrupado[key].total += p.hastes_previstas || 0;
               agrupado[key].ids.push(p.id);
             });
             const linhas = Object.values(agrupado)
@@ -565,7 +565,7 @@ export default function PrevisaoColheita() {
             const semEstufa = estufa === 1 ? previsoes.filter((p) => !p.estufa) : [];
             const itensMostrarAll = estufa === 1 ? [...semEstufa, ...itens] : itens;
             const itensMostrar = itensMostrarAll.filter((p) => filtroCor === "todas" || getCorVariedade(p.variedade) === filtroCor);
-            const totalEstufa = itensMostrar.reduce((s, p) => s + (p.pressas_previstas || 0), 0);
+            const totalEstufa = itensMostrar.reduce((s, p) => s + (p.hastes_previstas || 0), 0);
             if (itensMostrar.length === 0) return null;
             return (
               <Card key={estufa}>
@@ -590,7 +590,7 @@ export default function PrevisaoColheita() {
                         <TableRow key={p.id}>
                           <TableCell className="font-medium">{p.variedade}</TableCell>
                           <TableCell className="text-muted-foreground">{p.vao ? `Vão ${p.vao}` : "—"}</TableCell>
-                          <TableCell className="text-right font-semibold">{p.pressas_previstas?.toLocaleString("pt-BR")}</TableCell>
+                          <TableCell className="text-right font-semibold">{p.hastes_previstas?.toLocaleString("pt-BR")}</TableCell>
                           <TableCell>
                             <Button variant="ghost" size="icon" onClick={() => handleDelete(p.id)}>
                               <Trash2 className="w-4 h-4 text-muted-foreground" />
@@ -715,8 +715,8 @@ export default function PrevisaoColheita() {
               <Input
                 type="number"
                 placeholder="Quantidade de hastes"
-                value={form.pressas_previstas}
-                onChange={(e) => updateForm("pressas_previstas", e.target.value)}
+                value={form.hastes_previstas}
+                onChange={(e) => updateForm("hastes_previstas", e.target.value)}
                 min={1}
               />
             </div>

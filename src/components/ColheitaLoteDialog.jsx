@@ -134,12 +134,12 @@ export default function ColheitaLoteDialog({ open, onClose, onSaved }) {
 
   // Estufa 2: 40 hastes/cesto (Statice/Limonium); demais: conforme destino selecionado
   const destinosDisponiveis = isEstufaFixa(estufa) ? DESTINOS_ESTUFA2 : DESTINOS;
-  const pressasPorCesto = isEstufaFixa(estufa) ? 40 : (destino ? (DESTINOS[destino] || 0) : 0);
+  const hastesPorCesto = isEstufaFixa(estufa) ? 40 : (destino ? (DESTINOS[destino] || 0) : 0);
 
   // Contar quantos têm valor preenchido
   const preenchidos = Object.values(entradas).filter(e => parseInt(e.cestos) > 0).length;
   const totalCestos = Object.values(entradas).reduce((s, e) => s + (parseInt(e.cestos) || 0), 0);
-  const totalHastes = totalCestos * pressasPorCesto;
+  const totalHastes = totalCestos * hastesPorCesto;
 
   async function handleSalvar() {
     if (!destino) { toast.error("Selecione o destino!"); return; }
@@ -160,7 +160,7 @@ export default function ColheitaLoteDialog({ open, onClose, onSaved }) {
         variedade: entradas[c.id].variedade || "—",
         destino,
         cestos: parseInt(entradas[c.id].cestos),
-        pressas: parseInt(entradas[c.id].cestos) * pressasPorCesto,
+        hastes: parseInt(entradas[c.id].cestos) * hastesPorCesto,
         data_colheita: data,
         semana,
       }));
@@ -261,7 +261,7 @@ export default function ColheitaLoteDialog({ open, onClose, onSaved }) {
               </div>
             ) : (
               <div className="flex gap-1 flex-wrap">
-                {Object.entries(destinosDisponiveis).map(([nome, pressas]) => (
+                {Object.entries(destinosDisponiveis).map(([nome, hastes]) => (
                   <button
                     key={nome}
                     onClick={() => setDestino(nome)}
@@ -393,7 +393,7 @@ export default function ColheitaLoteDialog({ open, onClose, onSaved }) {
                           </div>
                           {parseInt(entrada.cestos) > 0 && destino && (
                             <span className="text-xs text-muted-foreground w-16 text-right">
-                              {(parseInt(entrada.cestos) * pressasPorCesto).toLocaleString("pt-BR")} h
+                              {(parseInt(entrada.cestos) * hastesPorCesto).toLocaleString("pt-BR")} h
                             </span>
                           )}
                         </div>
