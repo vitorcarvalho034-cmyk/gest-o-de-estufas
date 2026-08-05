@@ -10,14 +10,10 @@ const _colorMap = {};
 let _colorIdx = 0;
 
 function varColor(name) {
-  if (!name) return '#374151';
+  if (!name) return '#111827';
   const low = name.toLowerCase();
   if (low.includes('girassol')) return '#dc2626';
-  if (!_colorMap[name]) {
-    _colorMap[name] = PALETTE[_colorIdx % PALETTE.length];
-    _colorIdx++;
-  }
-  return _colorMap[name];
+  return '#111827';
 }
 
 // ─── Monta mapa: estufa → vao → { ladoA, ladoB, data } ──────────────────────
