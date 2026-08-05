@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { plantiosAPI, canteirosAPI } from "@/api/supabaseClient";
-import { Sprout, Plus, LayoutGrid, FileText } from "lucide-react";
+import { Sprout, Plus, LayoutGrid, FileText, ClipboardList } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,6 +11,7 @@ import LocationSelect from "../components/LocationSelect";
 import PlantioVaoDialog from "../components/PlantioVaoDialog";
 import NotaFiscalDialog from "../components/NotaFiscalDialog";
 import PlantioCSVDialog from "../components/PlantioCSVDialog";
+import PlantioEstufaDialog from "../components/PlantioEstufaDialog";
 import { toast } from "sonner";
 import moment from "moment";
 
@@ -25,6 +26,7 @@ export default function Plantio() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [vaoDialogOpen, setVaoDialogOpen] = useState(false);
   const [notaDialogOpen, setNotaDialogOpen] = useState(false);
+  const [estufaDialogOpen, setEstufaDialogOpen] = useState(false);
   const [buscaVariedade, setBuscaVariedade] = useState("");
   const [form, setForm] = useState({
     estufa: null,
@@ -134,12 +136,15 @@ export default function Plantio() {
           </div>
           <p className="text-muted-foreground">Registre novos plantios nos canteiros</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Button variant="outline" onClick={() => setNotaDialogOpen(true)} className="gap-2">
             <FileText className="w-4 h-4" /> Nota Fiscal
           </Button>
           <Button variant="outline" onClick={() => setVaoDialogOpen(true)} className="gap-2">
             <LayoutGrid className="w-4 h-4" /> Plantio por Vão
+          </Button>
+          <Button variant="outline" onClick={() => setEstufaDialogOpen(true)} className="gap-2">
+            <ClipboardList className="w-4 h-4" /> Plantio por Estufa
           </Button>
           <Button onClick={() => setDialogOpen(true)} className="gap-2">
             <Plus className="w-4 h-4" /> Unitário
@@ -278,6 +283,11 @@ export default function Plantio() {
       <NotaFiscalDialog
         open={notaDialogOpen}
         onClose={() => setNotaDialogOpen(false)}
+        onSaved={loadPlantios}
+      />
+      <PlantioEstufaDialog
+        open={estufaDialogOpen}
+        onClose={() => setEstufaDialogOpen(false)}
         onSaved={loadPlantios}
       />
     </div>
