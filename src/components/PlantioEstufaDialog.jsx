@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { plantiosAPI, canteirosAPI } from "@/api/supabaseClient";
-import { ClipboardList, Info, Plus, Trash2, AlertCircle, AlertTriangle, CheckCircle2, RotateCcw } from "lucide-react";
+import { ClipboardList, Info, Plus, Trash2, AlertCircle, AlertTriangle, CheckCircle2, RotateCcw, X } from "lucide-react";
 import { printCroquiFromPlantios } from "@/components/CroquiPrint";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,7 +38,7 @@ function emptyVao(data) {
 }
 
 // Componente de canteiro individual
-function CanteiroBlock({ canteiro, variedades, onChange, ocupado }) {
+function CanteiroBlock({ canteiro, variedades, onChange, ocupado, bloqueado }) {
   const total = variedades.reduce((s, v) => s + (parseInt(v.quantidade) || 0), 0);
   const over = total > 2000;
 
@@ -58,13 +58,18 @@ function CanteiroBlock({ canteiro, variedades, onChange, ocupado }) {
   }
 
   return (
-    <div className={`rounded-lg border p-2.5 space-y-1.5 ${over ? "border-destructive/50 bg-destructive/5" : "border-border bg-muted/20"}`}>
+    <div className={`rounded-lg border p-2.5 space-y-1.5 ${bloqueado ? "border-red-400 bg-red-50" : over ? "border-destructive/50 bg-destructive/5" : "border-border bg-muted/20"}`}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           <span className="text-xs font-bold text-muted-foreground uppercase">C{canteiro}</span>
-          {ocupado && (
+          {ocupado && !bloqueado && (
             <span className="text-[10px] bg-orange-100 text-orange-700 border border-orange-200 rounded px-1 py-0.5 font-medium">
               Ocupado
+            </span>
+          )}
+          {bloqueado && (
+            <span className="text-[10px] bg-red-100 text-red-700 border border-red-200 rounded px-1 py-0.5 font-medium flex items-center gap-0.5">
+              <AlertCircle className="w-2.5 h-2.5" /> Ciclo ativo
             </span>
           )}
         </div>
@@ -75,7 +80,7 @@ function CanteiroBlock({ canteiro, variedades, onChange, ocupado }) {
 
       <div className="h-1 bg-muted rounded-full overflow-hidden">
         <div
-          className={`h-full rounded-full transition-all ${over ? "bg-destructive" : total > 1600 ? "bg-amber-400" : "bg-primary"}`}
+          className={`h-full rounded-full transition-all ${bloqueado ? "bg-red-400" : over ? "bg-destructive" : total > 1600 ? "bg-amber-400" : "bg-primary"}`}
           style={{ width: `${Math.min((total / 2000) * 100, 100)}%` }}
         />
       </div>
@@ -146,7 +151,7 @@ function VaoBlock({ vaoData, index, vaosArray, canteirosOcupados, estufa, onUpda
   }
 
   return (
-    <div className="border border-border rounded-xl p-3 space-y-3 bg-card">
+    <div className={`border rounded-xl p-3 space-y-3 bg-card ${temCicloAtivo ? "border-red-300" : "border-border"}`}>
       {/* Header do vão */}
       <div className="flex items-center gap-3 flex-wrap">
         <div className="flex items-center gap-2">
@@ -169,8 +174,8 @@ function VaoBlock({ vaoData, index, vaosArray, canteirosOcupados, estufa, onUpda
           className="h-7 text-xs w-36"
         />
         {temCicloAtivo && (
-          <span className="flex items-center gap-1 text-[11px] bg-orange-50 border border-orange-200 text-orange-700 rounded px-2 py-0.5">
-            <AlertTriangle className="w-3 h-3" /> Ciclo ativo — será encerrado
+          <span className="flex items-center gap-1 text-[11px] bg-red-50 border border-red-200 text-red-700 rounded px-2 py-0.5 font-medium">
+            <AlertTriangle className="w-3 h-3" /> Ciclo ativo — precisa fechar antes
           </span>
         )}
         <button
@@ -193,6 +198,7 @@ function VaoBlock({ vaoData, index, vaosArray, canteirosOcupados, estufa, onUpda
               variedades={vars}
               onChange={(v) => updateLadoCanteiro("B", idx, v)}
               ocupado={isCanteiroOcupado("B", idx + 1)}
+              bloqueado={isCanteiroOcupado("B", idx + 1)}
             />
           ))}
         </div>
@@ -216,6 +222,7 @@ function VaoBlock({ vaoData, index, vaosArray, canteirosOcupados, estufa, onUpda
               variedades={vars}
               onChange={(v) => updateLadoCanteiro("A", idx, v)}
               ocupado={isCanteiroOcupado("A", idx + 1)}
+              bloqueado={isCanteiroOcupado("A", idx + 1)}
             />
           ))}
         </div>
@@ -224,14 +231,86 @@ function VaoBlock({ vaoData, index, vaosArray, canteirosOcupados, estufa, onUpda
   );
 }
 
+// Dialog de conflito de ciclo ativo
+function ConflitoCicloDialog({ open, conflitos, onFecharCanteiro, onFecharVao, onCancelar }) {
+  const vaosUnicos = [...new Set(conflitos.map(c => c.vao))];
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onCancelar(); }}>
+      <DialogContent className="sm:max-w-lg" onInteractOutside={(e) => e.preventDefault()}>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-red-700">
+            <AlertTriangle className="w-5 h-5" />
+            Ciclos Ativos Detectados
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          <p className="text-sm text-muted-foreground">
+            Os canteiros abaixo têm ciclos ativos. Para registrar o novo plantio, você precisa fechar esses ciclos primeiro.
+          </p>
+
+          <div className="space-y-3 max-h-64 overflow-y-auto">
+            {conflitos.map((c, idx) => (
+              <div key={idx} className="flex items-center justify-between p-3 bg-red-50 border border-red-200 rounded-lg">
+                <div>
+                  <p className="text-sm font-semibold text-red-800">
+                    E{c.estufa} — {c.lado} — Vão {c.vao} — C{c.numero}
+                  </p>
+                  <p className="text-xs text-red-600 mt-0.5">
+                    {(c.variedades || []).map(v => `${v.nome || v.variedade} (${v.quantidade})`).join(", ") || "Sem variedades"}
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => onFecharCanteiro(c)}
+                  className="text-red-700 border-red-300 hover:bg-red-100 text-xs ml-2 shrink-0"
+                >
+                  Fechar Canteiro
+                </Button>
+              </div>
+            ))}
+          </div>
+
+          {vaosUnicos.length > 0 && (
+            <div className="border-t border-border pt-3 space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase">Fechar vão inteiro:</p>
+              <div className="flex flex-wrap gap-2">
+                {vaosUnicos.map(vao => (
+                  <Button
+                    key={vao}
+                    size="sm"
+                    variant="outline"
+                    onClick={() => onFecharVao(vao)}
+                    className="text-orange-700 border-orange-300 hover:bg-orange-50 text-xs"
+                  >
+                    Fechar Vão {vao} inteiro
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={onCancelar} className="gap-1.5">
+              <X className="w-4 h-4" /> Cancelar
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function PlantioEstufaDialog({ open, onClose, onSaved }) {
   const [step, setStep] = useState("select"); // "select" | "edit"
   const [estufa, setEstufa] = useState(null);
-  const [vaos, setVaos] = useState([]); // array de vaoData
+  const [vaos, setVaos] = useState([]);
   const [canteirosOcupados, setCanteirosOcupados] = useState([]);
   const [ultimaDataPlantio, setUltimaDataPlantio] = useState(null);
   const [saving, setSaving] = useState(false);
   const [loadingCroqui, setLoadingCroqui] = useState(false);
+  const [conflitosDialog, setConflitosDialog] = useState({ open: false, conflitos: [] });
 
   function reset() {
     setStep("select");
@@ -240,6 +319,7 @@ export default function PlantioEstufaDialog({ open, onClose, onSaved }) {
     setCanteirosOcupados([]);
     setUltimaDataPlantio(null);
     setSaving(false);
+    setConflitosDialog({ open: false, conflitos: [] });
   }
 
   async function handleCarregarCroqui() {
@@ -262,7 +342,6 @@ export default function PlantioEstufaDialog({ open, onClose, onSaved }) {
       const plantiosEstufa = safePlantios.filter(p => p.estufa === estufa);
 
       if (plantiosEstufa.length === 0) {
-        // Sem histórico — começa com 1 vão em branco
         setVaos([emptyVao()]);
         setUltimaDataPlantio(null);
         setStep("edit");
@@ -287,7 +366,6 @@ export default function PlantioEstufaDialog({ open, onClose, onSaved }) {
         porVao[p.vao][ladoKey][cantIdx].push({ variedade: p.variedade || "", quantidade: String(p.quantidade || "") });
       }
 
-      // Montar vãos
       const novosVaos = Object.entries(porVao).map(([vaoNum, lados]) => {
         const montarLado = (ladoData) => ({
           canteiros: [0, 1, 2, 3].map(i =>
@@ -304,7 +382,7 @@ export default function PlantioEstufaDialog({ open, onClose, onSaved }) {
 
       setVaos(novosVaos.length > 0 ? novosVaos : [emptyVao()]);
       setStep("edit");
-      toast.success(`Template da Semana ${semanaMax}/${moment(dataRef).year()} carregado — edite o que mudou e confirme`);
+      toast.success(`Template da Semana ${semanaMax}/${moment(dataRef).year()} carregado`);
     } catch (e) {
       console.error("carregarCroqui error:", e);
       toast.error("Erro ao carregar croqui");
@@ -331,8 +409,85 @@ export default function PlantioEstufaDialog({ open, onClose, onSaved }) {
     setVaos(prev => prev.map((v, i) => i === idx ? vaoData : v));
   }
 
+  // Detecta conflitos: canteiros ocupados que serão sobrescritos
+  function detectarConflitos() {
+    const conflitos = [];
+    for (const vao of vaos) {
+      if (!vao.vaoNum) continue;
+      for (const [ladoLetra] of [["A"], ["B"]]) {
+        for (let cantNum = 1; cantNum <= 4; cantNum++) {
+          const cantOcup = canteirosOcupados.find(
+            c => c.vao === vao.vaoNum && c.lado === ladoLetra && c.numero === cantNum
+          );
+          if (cantOcup) {
+            conflitos.push(cantOcup);
+          }
+        }
+      }
+    }
+    return conflitos;
+  }
+
+  // Fechar um canteiro específico (finalizar ciclo)
+  async function fecharCanteiro(canteiro) {
+    try {
+      const colheitas = await import("@/api/supabaseClient").then(m => m.colheitasAPI.list());
+      const descartes = await import("@/api/supabaseClient").then(m => m.descartesAPI.list());
+
+      const colheitasCant = Array.isArray(colheitas) ? colheitas.filter(c =>
+        c.estufa === canteiro.estufa && c.lado === canteiro.lado &&
+        c.vao === canteiro.vao && c.canteiro === canteiro.numero
+      ) : [];
+      const descartesCant = Array.isArray(descartes) ? descartes.filter(d =>
+        d.estufa === canteiro.estufa && d.lado === canteiro.lado &&
+        d.vao === canteiro.vao && d.canteiro === canteiro.numero
+      ) : [];
+
+      const totalCestos = colheitasCant.reduce((s, c) => s + (c.cestos || 0), 0);
+      const totalPressas = colheitasCant.reduce((s, c) => s + (c.pressas || 0), 0);
+      const totalDescartado = descartesCant.reduce((s, d) => s + (d.quantidade || 0), 0);
+
+      const dataPlantio = canteiro.data_plantio_ultimo || canteiro.data_plantio || null;
+
+      await canteirosAPI.update(canteiro.id, {
+        variedades: [],
+        total_mudas: 0,
+        data_finalizacao: moment().format("YYYY-MM-DD"),
+        data_plantio_ultimo: dataPlantio,
+        data_corte_luz_ultimo: dataPlantio ? moment(dataPlantio).add(25, "days").format("YYYY-MM-DD") : null,
+        data_previsao_colheita_ultimo: dataPlantio ? moment(dataPlantio).add(12, "weeks").format("YYYY-MM-DD") : null,
+        total_colhido_cestos: totalCestos,
+        total_colhido_pressas: totalPressas,
+        total_descartado: totalDescartado,
+        variedades_ultimo_ciclo: canteiro.variedades || [],
+        observacao_finalizacao: "Canteiro encerrado manualmente antes de novo plantio",
+      });
+
+      // Remove dos conflitos
+      setCanteirosOcupados(prev => prev.filter(c => c.id !== canteiro.id));
+      setConflitosDialog(prev => ({
+        ...prev,
+        conflitos: prev.conflitos.filter(c => c.id !== canteiro.id),
+        open: prev.conflitos.filter(c => c.id !== canteiro.id).length > 0,
+      }));
+
+      toast.success(`Canteiro C${canteiro.numero} do Vão ${canteiro.vao} fechado`);
+    } catch (e) {
+      toast.error("Erro ao fechar canteiro: " + e.message);
+    }
+  }
+
+  // Fechar todos os canteiros de um vão
+  async function fecharVao(vaoNum) {
+    const canteirosDoVao = canteirosOcupados.filter(c => c.vao === vaoNum);
+    for (const c of canteirosDoVao) {
+      await fecharCanteiro(c);
+    }
+    toast.success(`Vão ${vaoNum} fechado completamente`);
+  }
+
   async function handleConfirmar() {
-    // Validar
+    // Validar campos
     for (const vao of vaos) {
       if (!vao.vaoNum) {
         toast.error("Selecione o número do vão em todos os blocos");
@@ -361,6 +516,18 @@ export default function PlantioEstufaDialog({ open, onClose, onSaved }) {
       return;
     }
 
+    // *** BLOQUEIO: verificar conflitos de ciclo ativo ***
+    const conflitos = detectarConflitos();
+    if (conflitos.length > 0) {
+      setConflitosDialog({ open: true, conflitos });
+      return; // BLOQUEIA — não salva nada
+    }
+
+    // Sem conflitos — salvar
+    await salvarPlantio();
+  }
+
+  async function salvarPlantio() {
     setSaving(true);
     try {
       const allCanteiros = await canteirosAPI.list();
@@ -393,7 +560,7 @@ export default function PlantioEstufaDialog({ open, onClose, onSaved }) {
             // Atualizar canteiro
             const varMap = {};
             variedadesValidas.forEach(v => {
-              varMap[v.variedade.trim()] = parseInt(v.quantidade);
+              varMap[v.variedade.trim()] = (varMap[v.variedade.trim()] || 0) + parseInt(v.quantidade);
             });
             const novasVariedades = Object.entries(varMap).map(([nome, quantidade]) => ({ nome, quantidade }));
             const totalMudas = novasVariedades.reduce((s, v) => s + v.quantidade, 0);
@@ -406,6 +573,8 @@ export default function PlantioEstufaDialog({ open, onClose, onSaved }) {
               await canteirosAPI.update(cantExistente.id, {
                 variedades: novasVariedades,
                 total_mudas: totalMudas,
+                data_plantio_ultimo: vao.data,
+                data_finalizacao: null, // novo ciclo — limpa finalização anterior
               });
             } else {
               await canteirosAPI.create({
@@ -415,6 +584,7 @@ export default function PlantioEstufaDialog({ open, onClose, onSaved }) {
                 numero: cantIdx + 1,
                 variedades: novasVariedades,
                 total_mudas: totalMudas,
+                data_plantio_ultimo: vao.data,
               });
             }
           }
@@ -423,7 +593,7 @@ export default function PlantioEstufaDialog({ open, onClose, onSaved }) {
 
       toast.success("Plantio registrado com sucesso!");
 
-      // Montar lista de plantios para impressão do croqui
+      // Imprimir croqui
       const plantiosParaImprimir = [];
       for (const vao of vaos) {
         for (const [ladoKey, ladoLetra] of [["ladoA", "A"], ["ladoB", "B"]]) {
@@ -461,140 +631,149 @@ export default function PlantioEstufaDialog({ open, onClose, onSaved }) {
   const vaosComCicloAtivo = vaos.filter(v => v.vaoNum && canteirosOcupados.some(c => c.vao === v.vaoNum)).length;
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o) { reset(); onClose(); } }}>
-      <DialogContent className="sm:max-w-3xl max-h-[92vh] overflow-y-auto" onInteractOutside={(e) => e.preventDefault()}>
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <ClipboardList className="w-5 h-5 text-primary" />
-            Plantio por Estufa — Baseado no Último Croqui
-          </DialogTitle>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={(o) => { if (!o) { reset(); onClose(); } }}>
+        <DialogContent className="sm:max-w-3xl max-h-[92vh] overflow-y-auto" onInteractOutside={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ClipboardList className="w-5 h-5 text-primary" />
+              Plantio por Estufa
+            </DialogTitle>
+          </DialogHeader>
 
-        {/* STEP: Seleção de estufa */}
-        {step === "select" && (
-          <div className="space-y-6 py-4">
-            {/* Como funciona */}
-            <div className="flex items-start gap-3 p-4 bg-primary/5 border border-primary/20 rounded-xl text-sm">
-              <Info className="w-5 h-5 shrink-0 mt-0.5 text-primary" />
-              <div>
-                <p className="font-semibold text-primary">Como funciona</p>
-                <p className="text-muted-foreground mt-1 text-xs">
-                  Selecione a estufa → o sistema carrega o último croqui como template, com todos os vãos, lados e variedades já preenchidos. Edite apenas o que mudou (vão, quantidades) e confirme. O croqui é gerado automaticamente.
-                </p>
+          {/* STEP: Seleção de estufa */}
+          {step === "select" && (
+            <div className="space-y-6 py-4">
+              <div className="flex items-start gap-3 p-4 bg-primary/5 border border-primary/20 rounded-xl text-sm">
+                <Info className="w-5 h-5 shrink-0 mt-0.5 text-primary" />
+                <div>
+                  <p className="font-semibold text-primary">Como funciona</p>
+                  <p className="text-muted-foreground mt-1 text-xs">
+                    Selecione a estufa → carregue o último croqui como template ou comece do zero. Canteiros com ciclo ativo precisam ser fechados antes de registrar novo plantio.
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold">Selecione a Estufa</Label>
+                <div className="grid grid-cols-4 gap-3">
+                  {[1, 2, 3, 4].map((n) => (
+                    <button
+                      key={n}
+                      onClick={() => setEstufa(n)}
+                      className={`rounded-xl border-2 py-5 text-center font-bold text-xl transition-all ${
+                        estufa === n
+                          ? "border-primary bg-primary/10 text-primary shadow-sm"
+                          : "border-border hover:border-primary/50 text-muted-foreground"
+                      }`}
+                    >
+                      EST {n}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex gap-3 justify-end pt-2">
+                <Button variant="outline" onClick={() => { reset(); onClose(); }}>Cancelar</Button>
+                <Button
+                  variant="outline"
+                  onClick={() => { if (estufa) handleCroquiEmBranco(); else toast.error("Selecione uma estufa"); }}
+                  disabled={!estufa}
+                  className="gap-2"
+                >
+                  <RotateCcw className="w-4 h-4" /> Croqui em Branco
+                </Button>
+                <Button
+                  onClick={() => { if (estufa) handleCarregarCroqui(); else toast.error("Selecione uma estufa"); }}
+                  disabled={!estufa || loadingCroqui}
+                  className="gap-2"
+                >
+                  <ClipboardList className="w-4 h-4" />
+                  {loadingCroqui ? "Carregando..." : "Carregar Último Croqui"}
+                </Button>
               </div>
             </div>
+          )}
 
-            {/* Seleção de estufa */}
-            <div className="space-y-2">
-              <Label className="text-sm font-semibold">Selecione a Estufa</Label>
-              <div className="grid grid-cols-4 gap-3">
-                {[1, 2, 3, 4].map((n) => (
-                  <button
-                    key={n}
-                    onClick={() => setEstufa(n)}
-                    className={`rounded-xl border-2 py-5 text-center font-bold text-xl transition-all ${
-                      estufa === n
-                        ? "border-primary bg-primary/10 text-primary shadow-sm"
-                        : "border-border hover:border-primary/50 text-muted-foreground"
-                    }`}
-                  >
-                    EST {n}
-                  </button>
+          {/* STEP: Edição do croqui */}
+          {step === "edit" && (
+            <div className="space-y-4 py-2">
+              {ultimaDataPlantio && (
+                <div className="flex items-center gap-2 p-2.5 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-800">
+                  <ClipboardList className="w-3.5 h-3.5 shrink-0" />
+                  <span>
+                    Template da Semana {moment(ultimaDataPlantio).isoWeek()}/{moment(ultimaDataPlantio).year()} carregado — edite o que mudou e confirme
+                  </span>
+                </div>
+              )}
+
+              {/* Aviso ciclos ativos — agora é BLOQUEIO */}
+              {vaosComCicloAtivo > 0 && (
+                <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-300 rounded-lg text-xs text-red-800">
+                  <AlertTriangle className="w-4 h-4 shrink-0 text-red-600 mt-0.5" />
+                  <div>
+                    <p className="font-semibold">
+                      {vaosComCicloAtivo} vão(s) com ciclo ativo — plantio bloqueado
+                    </p>
+                    <p className="mt-0.5 text-red-600">
+                      Ao clicar em "Confirmar Plantio", você será solicitado a fechar os ciclos ativos antes de prosseguir.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold">
+                  Estufa {estufa} — {vaos.length} vão(s)
+                </span>
+                <Button variant="outline" size="sm" onClick={addVao} className="gap-1.5 text-xs">
+                  <Plus className="w-3.5 h-3.5" /> Adicionar Vão
+                </Button>
+              </div>
+
+              <div className="space-y-4">
+                {vaos.map((vao, idx) => (
+                  <VaoBlock
+                    key={idx}
+                    vaoData={vao}
+                    index={idx}
+                    vaosArray={vaosArray}
+                    canteirosOcupados={canteirosOcupados}
+                    estufa={estufa}
+                    onUpdate={(v) => updateVao(idx, v)}
+                    onRemove={() => removeVao(idx)}
+                  />
                 ))}
               </div>
-            </div>
 
-            {/* Botões de ação */}
-            <div className="flex gap-3 justify-end pt-2">
-              <Button variant="outline" onClick={() => { reset(); onClose(); }}>Cancelar</Button>
-              <Button
-                variant="outline"
-                onClick={() => { if (estufa) handleCroquiEmBranco(); else toast.error("Selecione uma estufa"); }}
-                disabled={!estufa}
-                className="gap-2"
-              >
-                <RotateCcw className="w-4 h-4" /> Croqui em Branco
-              </Button>
-              <Button
-                onClick={() => { if (estufa) handleCarregarCroqui(); else toast.error("Selecione uma estufa"); }}
-                disabled={!estufa || loadingCroqui}
-                className="gap-2"
-              >
-                <ClipboardList className="w-4 h-4" />
-                {loadingCroqui ? "Carregando..." : "Carregar Último Croqui"}
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* STEP: Edição do croqui */}
-        {step === "edit" && (
-          <div className="space-y-4 py-2">
-            {/* Banner template carregado */}
-            {ultimaDataPlantio && (
-              <div className="flex items-center gap-2 p-2.5 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-800">
-                <ClipboardList className="w-3.5 h-3.5 shrink-0" />
-                <span>
-                  Template da Semana {moment(ultimaDataPlantio).isoWeek()}/{moment(ultimaDataPlantio).year()} carregado — edite o que mudou e confirme
-                </span>
+              <div className="flex gap-3 justify-between pt-2 border-t border-border">
+                <Button variant="outline" onClick={() => setStep("select")}>Voltar</Button>
+                <Button onClick={handleConfirmar} disabled={saving} className="gap-2">
+                  {saving ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Salvando...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-4 h-4" /> Confirmar Plantio
+                    </>
+                  )}
+                </Button>
               </div>
-            )}
-
-            {/* Aviso ciclos ativos */}
-            {vaosComCicloAtivo > 0 && (
-              <div className="flex items-center gap-2 p-2.5 bg-orange-50 border border-orange-200 rounded-lg text-xs text-orange-800">
-                <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-orange-600" />
-                <span>
-                  <strong>{vaosComCicloAtivo} vão(s)</strong> com ciclo ativo — serão encerrados automaticamente ao confirmar o plantio.
-                </span>
-              </div>
-            )}
-
-            {/* Cabeçalho com estufa e contagem */}
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold">
-                Estufa {estufa} — {vaos.length} vão(s)
-              </span>
-              <Button variant="outline" size="sm" onClick={addVao} className="gap-1.5 text-xs">
-                <Plus className="w-3.5 h-3.5" /> Adicionar Vão
-              </Button>
             </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
-            {/* Lista de vãos */}
-            <div className="space-y-4">
-              {vaos.map((vao, idx) => (
-                <VaoBlock
-                  key={idx}
-                  vaoData={vao}
-                  index={idx}
-                  vaosArray={vaosArray}
-                  canteirosOcupados={canteirosOcupados}
-                  estufa={estufa}
-                  onUpdate={(v) => updateVao(idx, v)}
-                  onRemove={() => removeVao(idx)}
-                />
-              ))}
-            </div>
-
-            {/* Rodapé */}
-            <div className="flex gap-3 justify-between pt-2 border-t border-border">
-              <Button variant="outline" onClick={() => setStep("select")}>Voltar</Button>
-              <Button onClick={handleConfirmar} disabled={saving} className="gap-2">
-                {saving ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Salvando...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 className="w-4 h-4" /> Confirmar Plantio
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
-        )}
-      </DialogContent>
-    </Dialog>
+      {/* Dialog de conflito */}
+      <ConflitoCicloDialog
+        open={conflitosDialog.open}
+        conflitos={conflitosDialog.conflitos}
+        onFecharCanteiro={fecharCanteiro}
+        onFecharVao={fecharVao}
+        onCancelar={() => setConflitosDialog({ open: false, conflitos: [] })}
+      />
+    </>
   );
 }
