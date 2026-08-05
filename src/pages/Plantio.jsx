@@ -43,7 +43,7 @@ export default function Plantio() {
   async function loadPlantios() {
     try {
       const [data, cants] = await Promise.all([
-        plantiosAPI.list(50),
+        plantiosAPI.list(2000),
         canteirosAPI.list(),
       ]);
       setPlantios(Array.isArray(data) ? data : []);
