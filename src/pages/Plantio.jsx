@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { plantiosAPI, canteirosAPI } from "@/api/supabaseClient";
-import { Sprout, Plus, LayoutGrid, FileText, ClipboardList } from "lucide-react";
+import { Sprout, Plus, LayoutGrid, FileText, ClipboardList, Printer, ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +14,7 @@ import PlantioCSVDialog from "../components/PlantioCSVDialog";
 import PlantioEstufaDialog from "../components/PlantioEstufaDialog";
 import { toast } from "sonner";
 import moment from "moment";
+import { printCroquiFromPlantios } from "../components/CroquiPrint";
 
 function getWeekNumber(date) {
   return moment(date).isoWeek();
@@ -28,6 +29,7 @@ export default function Plantio() {
   const [notaDialogOpen, setNotaDialogOpen] = useState(false);
   const [estufaDialogOpen, setEstufaDialogOpen] = useState(false);
   const [buscaVariedade, setBuscaVariedade] = useState("");
+  const [semanaAberta, setSemanaAberta] = useState(null);
   const [form, setForm] = useState({
     estufa: null,
     lado: "",
@@ -187,43 +189,94 @@ export default function Plantio() {
         )}
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Plantios Recentes</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {(() => {
-            const filtered = plantios.filter((p) => !buscaVariedade || p.variedade?.toLowerCase().includes(buscaVariedade.toLowerCase()));
-            return filtered.length === 0 ? (
+      <div className="space-y-3">
+        <h2 className="text-lg font-semibold">Histórico de Plantios por Semana</h2>
+        {(() => {
+          const filtered = plantios.filter((p) => !buscaVariedade || p.variedade?.toLowerCase().includes(buscaVariedade.toLowerCase()));
+          if (filtered.length === 0) return (
             <p className="text-sm text-muted-foreground text-center py-8">{buscaVariedade ? `Nenhum resultado para "${buscaVariedade}"` : "Nenhum plantio registrado"}</p>
-          ) : (
-            <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Data</TableHead>
-                  <TableHead>Semana</TableHead>
-                  <TableHead>Local</TableHead>
-                  <TableHead>Variedade</TableHead>
-                  <TableHead className="text-right">Mudas</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.map((p) => (
-                    <TableRow key={p.id}>
-                      <TableCell>{moment(p.data_plantio).format("DD/MM/YYYY")}</TableCell>
-                      <TableCell>Sem. {p.semana}</TableCell>
-                      <TableCell>E{p.estufa} {p.lado} V{p.vao}-C{p.canteiro}</TableCell>
-                      <TableCell>{p.variedade}</TableCell>
-                      <TableCell className="text-right font-medium">{p.quantidade}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )})()}
-        </CardContent>
-      </Card>
+          );
+
+          // Agrupar por semana/ano
+          const porSemana = {};
+          for (const p of filtered) {
+            const key = `${p.semana || 0}-${moment(p.data_plantio).year()}`;
+            if (!porSemana[key]) porSemana[key] = { semana: p.semana, ano: moment(p.data_plantio).year(), data: p.data_plantio, plantios: [] };
+            porSemana[key].plantios.push(p);
+          }
+          const semanas = Object.entries(porSemana).sort((a, b) => {
+            if (b[1].ano !== a[1].ano) return b[1].ano - a[1].ano;
+            return b[1].semana - a[1].semana;
+          });
+
+          return semanas.map(([key, grupo]) => {
+            const isAberta = semanaAberta === key;
+            const totalMudas = grupo.plantios.reduce((s, p) => s + (p.quantidade || 0), 0);
+            const variedades = [...new Set(grupo.plantios.map(p => p.variedade).filter(Boolean))];
+            const isAtual = grupo.semana === moment().isoWeek() && grupo.ano === moment().year();
+
+            return (
+              <Card key={key} className="overflow-hidden">
+                <div
+                  className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/30 transition-colors"
+                  onClick={() => setSemanaAberta(isAberta ? null : key)}
+                >
+                  <div className="flex items-center gap-3">
+                    {isAberta ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold">Semana {grupo.semana} / {grupo.ano}</span>
+                        {isAtual && <span className="text-[11px] bg-primary/10 text-primary border border-primary/20 rounded px-2 py-0.5 font-medium">Semana atual</span>}
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-0.5">
+                        {grupo.plantios.length} registros · {variedades.length} variedades · {totalMudas.toLocaleString("pt-BR")} mudas
+                      </div>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 text-xs"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      printCroquiFromPlantios(grupo.plantios, grupo.data, true);
+                    }}
+                  >
+                    <Printer className="w-3.5 h-3.5" /> Croqui
+                  </Button>
+                </div>
+
+                {isAberta && (
+                  <CardContent className="pt-0 pb-4">
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Data</TableHead>
+                            <TableHead>Local</TableHead>
+                            <TableHead>Variedade</TableHead>
+                            <TableHead className="text-right">Mudas</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {grupo.plantios.map((p) => (
+                            <TableRow key={p.id}>
+                              <TableCell>{moment(p.data_plantio).format("DD/MM/YYYY")}</TableCell>
+                              <TableCell>E{p.estufa} {p.lado} V{p.vao}-C{p.canteiro}</TableCell>
+                              <TableCell>{p.variedade}</TableCell>
+                              <TableCell className="text-right font-medium">{p.quantidade}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </CardContent>
+                )}
+              </Card>
+            );
+          });
+        })()}
+      </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-lg">

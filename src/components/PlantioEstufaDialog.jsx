@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { plantiosAPI, canteirosAPI } from "@/api/supabaseClient";
 import { ClipboardList, Info, Plus, Trash2, AlertCircle, AlertTriangle, CheckCircle2, RotateCcw } from "lucide-react";
+import { printCroquiFromPlantios } from "@/components/CroquiPrint";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -421,6 +422,31 @@ export default function PlantioEstufaDialog({ open, onClose, onSaved }) {
       }
 
       toast.success("Plantio registrado com sucesso!");
+
+      // Montar lista de plantios para impressão do croqui
+      const plantiosParaImprimir = [];
+      for (const vao of vaos) {
+        for (const [ladoKey, ladoLetra] of [["ladoA", "A"], ["ladoB", "B"]]) {
+          for (let cantIdx = 0; cantIdx < 4; cantIdx++) {
+            const variedadesValidas = vao[ladoKey].canteiros[cantIdx].filter(
+              v => v.variedade.trim() && parseInt(v.quantidade) > 0
+            );
+            for (const v of variedadesValidas) {
+              plantiosParaImprimir.push({
+                estufa,
+                vao: vao.vaoNum,
+                lado: ladoLetra,
+                canteiro: cantIdx + 1,
+                variedade: v.variedade.trim(),
+                quantidade: parseInt(v.quantidade),
+                data_plantio: vao.data,
+              });
+            }
+          }
+        }
+      }
+      printCroquiFromPlantios(plantiosParaImprimir, vaos[0]?.data, true);
+
       reset();
       onClose();
       onSaved();
