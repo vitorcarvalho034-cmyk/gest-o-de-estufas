@@ -121,9 +121,9 @@ export default function Colheita() {
   const filtradasFixas = filtradas.filter(c => isFloraFixa(c.variedade));
 
   const totalCestos = filtradasPrincipais.reduce((s, c) => s + (c.cestos || 0), 0);
-  const totalHastesTotal = filtradasPrincipais.reduce((s, c) => s + (c.hastes || 0), 0);
+  const totalHastesTotal = filtradasPrincipais.reduce((s, c) => s + ((c.hastes ?? c.pressas) || 0), 0);
   const totalCestosFixas = filtradasFixas.reduce((s, c) => s + (c.cestos || 0), 0);
-  const totalHastesFixas = filtradasFixas.reduce((s, c) => s + (c.hastes || 0), 0);
+  const totalHastesFixas = filtradasFixas.reduce((s, c) => s + ((c.hastes ?? c.pressas) || 0), 0);
 
   // Totais por tipo de flora fixa
   // Statice: Sinzii* e Tasmania Rose
@@ -132,13 +132,13 @@ export default function Colheita() {
   // Limonium: Klara, Piuma, Shooting Star, Oshi, Supreme
   const filtradasLimonium = filtradasFixas.filter(c => isVariedadeFixa(c.variedade) && !NOMES_STATICE.some(n => (c.variedade || '').toLowerCase().includes(n)));
   const filtradasGirassol = filtradasFixas.filter(c => isVariedadeGirassol(c.variedade));
-  const statice = { cestos: filtradasStatice.reduce((s,c)=>s+(c.cestos||0),0), hastes: filtradasStatice.reduce((s,c)=>s+(c.hastes||0),0) };
-  const limonium = { cestos: filtradasLimonium.reduce((s,c)=>s+(c.cestos||0),0), hastes: filtradasLimonium.reduce((s,c)=>s+(c.hastes||0),0) };
-  const girassol = { cestos: filtradasGirassol.reduce((s,c)=>s+(c.cestos||0),0), hastes: filtradasGirassol.reduce((s,c)=>s+(c.hastes||0),0) };
+  const statice = { cestos: filtradasStatice.reduce((s,c)=>s+(c.cestos||0),0), hastes: filtradasStatice.reduce((s,c)=>s+((c.hastes ?? c.pressas) || 0),0) };
+  const limonium = { cestos: filtradasLimonium.reduce((s,c)=>s+(c.cestos||0),0), hastes: filtradasLimonium.reduce((s,c)=>s+((c.hastes ?? c.pressas) || 0),0) };
+  const girassol = { cestos: filtradasGirassol.reduce((s,c)=>s+(c.cestos||0),0), hastes: filtradasGirassol.reduce((s,c)=>s+((c.hastes ?? c.pressas) || 0),0) };
   const hojeCount = todasFiltradas.filter((c) => moment(c.data_colheita).isSame(moment(), "day") && !isFloraFixa(c.variedade)).length;
 
   // Meta: apenas flores principais (sem Statice/Limonium/Girassol)
-  const colhidoSemanaAtual = filtradasPrincipais.reduce((s, c) => s + (c.hastes || 0), 0);
+  const colhidoSemanaAtual = filtradasPrincipais.reduce((s, c) => s + ((c.hastes ?? c.pressas) || 0), 0);
   const previstoSemana = previsoes
     .filter(p => p.semana === semanaNav && p.ano === anoNav && !isFloraFixa(p.variedade))
     .reduce((s, p) => s + ((p.hastes_previstas ?? p.pressas_previstas) || 0), 0);
@@ -154,8 +154,8 @@ export default function Colheita() {
     weeklyTrend.push({
       semana: wLabel,
       cestos: wPrincipais.reduce((s, c) => s + (c.cestos || 0), 0),
-      hastes: wPrincipais.reduce((s, c) => s + (c.hastes || 0), 0),
-      hastesFixas: wFixas.reduce((s, c) => s + (c.hastes || 0), 0),
+      hastes: wPrincipais.reduce((s, c) => s + ((c.hastes ?? c.pressas) || 0), 0),
+      hastesFixas: wFixas.reduce((s, c) => s + ((c.hastes ?? c.pressas) || 0), 0),
     });
   }
 
@@ -250,14 +250,14 @@ export default function Colheita() {
       </div>
 
       {/* Card separado para Statice/Limonium/Girassol */}
-      {totalHastesFixas > 0 && (
+      {(totalHastesFixas > 0 || totalCestosFixas > 0) && (
         <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 space-y-3">
           <div className="flex items-center justify-between">
             <p className="text-sm font-semibold text-emerald-800">🌿 Flores Fixas — Semana {semanaNav}</p>
             <p className="text-xs text-emerald-600">Fora da meta principal</p>
           </div>
           <div className="divide-y divide-emerald-100">
-            {statice.hastes > 0 && (
+            {(statice.hastes > 0 || statice.cestos > 0) && (
               <div className="flex items-center justify-between py-2">
                 <span className="text-sm font-medium text-emerald-800">Statice</span>
                 <div className="text-right">
@@ -266,7 +266,7 @@ export default function Colheita() {
                 </div>
               </div>
             )}
-            {limonium.hastes > 0 && (
+            {(limonium.hastes > 0 || limonium.cestos > 0) && (
               <div className="flex items-center justify-between py-2">
                 <span className="text-sm font-medium text-emerald-800">Limonium</span>
                 <div className="text-right">
@@ -275,7 +275,7 @@ export default function Colheita() {
                 </div>
               </div>
             )}
-            {girassol.hastes > 0 && (
+            {(girassol.hastes > 0 || girassol.cestos > 0) && (
               <div className="flex items-center justify-between py-2">
                 <span className="text-sm font-medium text-emerald-800">Girassol</span>
                 <div className="text-right">
@@ -307,7 +307,7 @@ export default function Colheita() {
           lista.forEach(c => {
             const d = c.destino || "Outros";
             if (!map[d]) map[d] = { hastes: 0, cestos: 0 };
-            map[d].hastes += c.hastes || 0;
+            map[d].hastes += (c.hastes ?? c.pressas) || 0;
             map[d].cestos += c.cestos || 0;
           });
           return map;
@@ -317,7 +317,9 @@ export default function Colheita() {
           const porDestino = buildPorDestino(lista);
           const totalH = Object.values(porDestino).reduce((s, v) => s + v.hastes, 0);
           const totalC = Object.values(porDestino).reduce((s, v) => s + v.cestos, 0);
-          if (totalH === 0) return null;
+          if (totalH === 0 && totalC === 0) return null;
+          // Se hastes zerado mas tem cestos, usar cestos como referência
+          const refTotal = totalH > 0 ? totalH : totalC;
           const destinosPresentes = [
             ...ORDEM.filter(d => porDestino[d]),
             ...Object.keys(porDestino).filter(d => !ORDEM.includes(d)),
@@ -332,15 +334,15 @@ export default function Colheita() {
                 {destinosPresentes.map(dest => {
                   const s = DESTINO_STYLE[dest] || { bg: "bg-muted", border: "border-border", text: "text-foreground", badge: "bg-muted text-muted-foreground", dot: "bg-muted-foreground" };
                   const v = porDestino[dest];
-                  const pct = totalH > 0 ? Math.round((v.hastes / totalH) * 100) : 0;
+                  const pct = refTotal > 0 ? Math.round(((v.hastes || v.cestos) / refTotal) * 100) : 0;
                   return (
                     <div key={dest} className={`rounded-xl border p-3 ${s.bg} ${s.border}`}>
                       <div className="flex items-center gap-1.5 mb-2">
                         <span className={`w-2 h-2 rounded-full shrink-0 ${s.dot}`} />
                         <span className={`text-xs font-semibold ${s.text}`}>{dest}</span>
                       </div>
-                      <p className={`text-xl font-bold ${s.text}`}>{v.hastes.toLocaleString("pt-BR")}</p>
-                      <p className="text-xs text-muted-foreground">hastes</p>
+                      <p className={`text-xl font-bold ${s.text}`}>{(v.hastes || v.cestos || 0).toLocaleString("pt-BR")}</p>
+                      <p className="text-xs text-muted-foreground">{v.hastes > 0 ? "hastes" : "cestos"}</p>
                       <div className="flex items-center justify-between mt-1.5">
                         <span className="text-xs text-muted-foreground">{v.cestos} cestos</span>
                         <span className={`text-xs font-semibold px-1.5 py-0.5 rounded-full ${s.badge}`}>{pct}%</span>
@@ -435,7 +437,7 @@ export default function Colheita() {
       {/* Gráfico de Cores Colhidas */}
       {filtradas.length > 0 && (() => {
         const itensCores = agruparPorCor(
-          filtradas.map(c => ({ variedade: c.variedade, quantidade: c.hastes || 0 }))
+          filtradas.map(c => ({ variedade: c.variedade, quantidade: (c.hastes ?? c.pressas) || 0 }))
         );
         const totalCores = itensCores.reduce((s, c) => s + c.total, 0);
         return (
@@ -527,7 +529,7 @@ export default function Colheita() {
           {sortedDates.map((date) => {
             const registros = groupedByDate[date];
             const cestosDia = registros.reduce((s, c) => s + (c.cestos || 0), 0);
-            const hastesDia = registros.reduce((s, c) => s + (c.hastes || 0), 0);
+            const hastesDia = registros.reduce((s, c) => s + ((c.hastes ?? c.pressas) || 0), 0);
 
             // Agrupar por destino normalizado
             const ORDEM_DESTINOS = ["Barracão", "Mercado", "Oferta 60", "Oferta 80"];
@@ -570,7 +572,7 @@ export default function Colheita() {
                     const regs = porDestino[destino];
                     const s = DESTINO_SECTION_STYLE[destino] || DEFAULT_STYLE;
                     const totalC = regs.reduce((sum, c) => sum + (c.cestos || 0), 0);
-                    const totalH = regs.reduce((sum, c) => sum + (c.hastes || 0), 0);
+                    const totalH = regs.reduce((sum, c) => sum + ((c.hastes ?? c.pressas) || 0), 0);
                     return (
                       <div key={destino} className={`rounded-xl border overflow-hidden`}>
                         {/* Header do destino */}
@@ -601,7 +603,7 @@ export default function Colheita() {
                                 </p>
                               </div>
                               <div className="text-right flex-shrink-0">
-                                <p className="font-bold text-sm">{(c.hastes || 0).toLocaleString("pt-BR")} hastes</p>
+                                <p className="font-bold text-sm">{((c.hastes ?? c.pressas) || 0).toLocaleString("pt-BR")} hastes</p>
                                 <p className="text-xs text-muted-foreground">{c.cestos || 0} cestos</p>
                               </div>
                               <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">

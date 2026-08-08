@@ -444,7 +444,7 @@ export default function PlantioEstufaDialog({ open, onClose, onSaved }) {
       ) : [];
 
       const totalCestos = colheitasCant.reduce((s, c) => s + (c.cestos || 0), 0);
-      const totalHastes = colheitasCant.reduce((s, c) => s + (c.hastes || 0), 0);
+      const totalHastes = colheitasCant.reduce((s, c) => s + ((c.hastes ?? c.pressas) || 0), 0);
       const totalDescartado = descartesCant.reduce((s, d) => s + (d.quantidade || 0), 0);
 
       const dataPlantio = canteiro.data_plantio_ultimo || canteiro.data_plantio || null;

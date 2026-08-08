@@ -84,7 +84,7 @@ function ProdutividadeSemanal({ colheitas, descartes, plantios }) {
   }, [colheitasSemana]);
 
   // Totais da semana
-  const totalHastesSemana = colheitasSemana.reduce((s, c) => s + (c.hastes || 0), 0);
+  const totalHastesSemana = colheitasSemana.reduce((s, c) => s + ((c.hastes ?? c.pressas) || 0), 0);
   const totalCestosSemana = colheitasSemana.reduce((s, c) => s + (c.cestos || 0), 0);
   const totalDescartesSemana = descartes.filter(d => {
     if (!d.data_descarte) return false;
@@ -400,7 +400,7 @@ export default function Produtividade() {
   const monthLabeled = monthData.map((m) => ({ ...m, label: `${m.mes}/${String(m.ano).slice(2)}` }));
 
   const totalCestos = filtered.reduce((s, c) => s + (c.cestos || 0), 0);
-  const totalHastes = filtered.reduce((s, c) => s + (c.hastes || 0), 0);
+  const totalHastes = filtered.reduce((s, c) => s + ((c.hastes ?? c.pressas) || 0), 0);
   const totalDescartes = filteredDescartes.reduce((s, d) => s + (d.quantidade || 0), 0);
   const totalPlantadas = filteredPlantios.reduce((s, p) => s + (p.quantidade || 0), 0);
 

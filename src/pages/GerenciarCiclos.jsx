@@ -35,7 +35,7 @@ export default function GerenciarCiclos() {
         const descartesSemana = descartes.filter(d => d.semana === semana);
 
         const totalPlantios = plantiosSemana.reduce((s, p) => s + (p.quantidade || 0), 0);
-        const totalColheitas = colheitasSemana.reduce((s, c) => s + (c.cestos || 0) + (c.hastes || 0), 0);
+        const totalColheitas = colheitasSemana.reduce((s, c) => s + (c.cestos || 0) + ((c.hastes ?? c.pressas) || 0), 0);
         const totalDescartes = descartesSemana.reduce((s, d) => s + (d.quantidade || 0), 0);
 
         // Primeira data de plantio da semana

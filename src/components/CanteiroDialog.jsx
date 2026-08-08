@@ -98,7 +98,7 @@ export default function CanteiroDialog({ canteiro, open, onClose, onSaved }) {
     );
 
     setColheitaTotal({
-      hastes: filteredColheitas.reduce((s, c) => s + (c.hastes || 0), 0),
+      hastes: filteredColheitas.reduce((s, c) => s + ((c.hastes ?? c.pressas) || 0), 0),
       cestos: filteredColheitas.reduce((s, c) => s + (c.cestos || 0), 0),
     });
     setDescarteTotal(filteredDescartes.reduce((s, d) => s + (d.quantidade || 0), 0));

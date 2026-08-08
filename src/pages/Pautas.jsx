@@ -200,7 +200,7 @@ export default function Pautas() {
 
       // ── Colheita real da semana ──
       const colSem = colheitas.filter(c => c.semana === sem && !isFloraFixa(c.variedade));
-      setRealHastes(colSem.reduce((s, c) => s + (c.hastes || 0), 0));
+      setRealHastes(colSem.reduce((s, c) => s + ((c.hastes ?? c.pressas) || 0), 0));
       // Barracão: total colhido real (cestos)
       const colBarracao = colSem.filter(c => (c.destino || '').toLowerCase().includes('barrac'));
       setRealBarracao(colBarracao.reduce((s, c) => s + (c.cestos || 0), 0));

@@ -74,14 +74,14 @@ export default function Dashboard() {
         const ocupacaoMedia = totalVaosGeral > 0 ? Math.round((vaosComMudasGeral / totalVaosGeral) * 100) : 0;
 
         const cestosTotal = safeColheitas.reduce((s, c) => s + (c.cestos || 0), 0);
-        const hastesTotal = safeColheitas.reduce((s, c) => s + (c.hastes || 0), 0);
+        const hastesTotal = safeColheitas.reduce((s, c) => s + ((c.hastes ?? c.pressas) || 0), 0);
         const totalDescartes = safeDescartes.reduce((s, d) => s + (d.quantidade || 0), 0);
         const taxaDescarte = totalMudas > 0 ? Math.round((totalDescartes / (totalMudas + totalDescartes)) * 100) : 0;
 
         // Semana atual e anterior
         const cestosSemana = safeColheitas.filter((c) => c.semana === currentWeek).reduce((s, c) => s + (c.cestos || 0), 0);
-        const hastesSemana = safeColheitas.filter((c) => c.semana === currentWeek).reduce((s, c) => s + (c.hastes || 0), 0);
-        const hastesSemanaPrev = safeColheitas.filter((c) => c.semana === currentWeek - 1).reduce((s, c) => s + (c.hastes || 0), 0);
+        const hastesSemana = safeColheitas.filter((c) => c.semana === currentWeek).reduce((s, c) => s + ((c.hastes ?? c.pressas) || 0), 0);
+        const hastesSemanaPrev = safeColheitas.filter((c) => c.semana === currentWeek - 1).reduce((s, c) => s + ((c.hastes ?? c.pressas) || 0), 0);
 
         // Média semanal (últimas 12 semanas)
         const semanasMap = {};
@@ -98,12 +98,12 @@ export default function Dashboard() {
         const melhorSemana = semanaValues.length > 0
           ? Math.max(...safeColheitas.reduce((acc, c) => {
               const key = c.semana;
-              acc[key] = (acc[key] || 0) + (c.hastes || 0);
+              acc[key] = (acc[key] || 0) + ((c.hastes ?? c.pressas) || 0);
               return acc;
             }, Object.create(null)) && Object.values(
               safeColheitas.reduce((acc, c) => {
                 const key = c.semana;
-                acc[key] = (acc[key] || 0) + (c.hastes || 0);
+                acc[key] = (acc[key] || 0) + ((c.hastes ?? c.pressas) || 0);
                 return acc;
               }, {})
             ))
@@ -113,7 +113,7 @@ export default function Dashboard() {
         const currentMonthNum = moment().month() + 1;
         const colhidoMesHastes = safeColheitas
           .filter((c) => c.data_colheita && moment(c.data_colheita).month() + 1 === currentMonthNum)
-          .reduce((s, c) => s + (c.hastes || 0), 0);
+          .reduce((s, c) => s + ((c.hastes ?? c.pressas) || 0), 0);
         const cestosMes = safeColheitas
           .filter((c) => c.data_colheita && moment(c.data_colheita).month() + 1 === currentMonthNum)
           .reduce((s, c) => s + (c.cestos || 0), 0);
@@ -126,7 +126,7 @@ export default function Dashboard() {
           const vaosComMudas = new Set(ec.filter((c) => (c.total_mudas || 0) > 0).map((c) => `${c.vao}-${c.lado}`)).size;
           const mudas = ec.reduce((s, c) => s + (c.total_mudas || 0), 0);
           const cestos = safeColheitas.filter((c) => c.estufa === e).reduce((s, c) => s + (c.cestos || 0), 0);
-          const hastes = safeColheitas.filter((c) => c.estufa === e).reduce((s, c) => s + (c.hastes || 0), 0);
+          const hastes = safeColheitas.filter((c) => c.estufa === e).reduce((s, c) => s + ((c.hastes ?? c.pressas) || 0), 0);
           const desc = safeDescartes.filter((d) => d.estufa === e).reduce((s, d) => s + (d.quantidade || 0), 0);
           const ocupacao = totalVaos > 0 ? Math.round((vaosComMudas / totalVaos) * 100) : 0;
           estufaMap[e] = { totalVaos, vaosComMudas, mudas, cestos, hastes, desc, ocupacao };
@@ -143,7 +143,7 @@ export default function Dashboard() {
         safeColheitas.forEach((c) => {
           if (weeklyMap[c.semana]) {
             weeklyMap[c.semana].cestos += c.cestos || 0;
-            weeklyMap[c.semana].hastes += c.hastes || 0;
+            weeklyMap[c.semana].hastes += (c.hastes ?? c.pressas) || 0;
           }
         });
         setWeeklyData(Object.values(weeklyMap));
@@ -152,7 +152,7 @@ export default function Dashboard() {
         const varMap = {};
         safeColheitas.forEach((c) => {
           if (!varMap[c.variedade]) varMap[c.variedade] = { variedade: c.variedade, hastes: 0, cestos: 0 };
-          varMap[c.variedade].hastes += c.hastes || 0;
+          varMap[c.variedade].hastes += (c.hastes ?? c.pressas) || 0;
           varMap[c.variedade].cestos += c.cestos || 0;
         });
         setTopVariedades(Object.values(varMap).sort((a, b) => b.hastes - a.hastes).slice(0, 6));
@@ -160,7 +160,7 @@ export default function Dashboard() {
         // Melhor semana (hastes)
         const semanaHastesMap = {};
         safeColheitas.forEach((c) => {
-          semanaHastesMap[c.semana] = (semanaHastesMap[c.semana] || 0) + (c.hastes || 0);
+          semanaHastesMap[c.semana] = (semanaHastesMap[c.semana] || 0) + ((c.hastes ?? c.pressas) || 0);
         });
         const melhorSemanaHastes = Object.values(semanaHastesMap).length > 0
           ? Math.max(...Object.values(semanaHastesMap)) : 0;
