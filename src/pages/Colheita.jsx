@@ -516,68 +516,108 @@ export default function Colheita() {
         })}
       </div>
 
-      {/* Timeline by date */}
+      {/* Timeline by date — agrupado por destino */}
       {sortedDates.length === 0 ? (
         <div className="text-center py-20 text-muted-foreground">
           <Scissors className="w-10 h-10 mx-auto mb-3 opacity-30" />
           <p>Nenhuma colheita registrada</p>
         </div>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-8">
           {sortedDates.map((date) => {
             const registros = groupedByDate[date];
             const cestosDia = registros.reduce((s, c) => s + (c.cestos || 0), 0);
             const hastesDia = registros.reduce((s, c) => s + (c.hastes || 0), 0);
+
+            // Agrupar por destino normalizado
+            const ORDEM_DESTINOS = ["Barracão", "Mercado", "Oferta 60", "Oferta 80"];
+            const DESTINO_SECTION_STYLE = {
+              "Barracão":  { header: "bg-blue-50 border-blue-200",   title: "text-blue-800",   badge: "bg-blue-100 text-blue-700",   dot: "bg-blue-500",   card: "border-blue-100 hover:border-blue-300" },
+              "Mercado":   { header: "bg-green-50 border-green-200",  title: "text-green-800",  badge: "bg-green-100 text-green-700",  dot: "bg-green-500",  card: "border-green-100 hover:border-green-300" },
+              "Oferta 60": { header: "bg-amber-50 border-amber-200",  title: "text-amber-800",  badge: "bg-amber-100 text-amber-700",  dot: "bg-amber-500",  card: "border-amber-100 hover:border-amber-300" },
+              "Oferta 80": { header: "bg-orange-50 border-orange-200",title: "text-orange-800", badge: "bg-orange-100 text-orange-700", dot: "bg-orange-500", card: "border-orange-100 hover:border-orange-300" },
+            };
+            const DEFAULT_STYLE = { header: "bg-muted border-border", title: "text-foreground", badge: "bg-muted text-muted-foreground", dot: "bg-muted-foreground", card: "border-border hover:border-primary/30" };
+
+            // Montar grupos
+            const porDestino = {};
+            registros.forEach(c => {
+              const d = c.destino || "Outros";
+              if (!porDestino[d]) porDestino[d] = [];
+              porDestino[d].push(c);
+            });
+            const destinosPresentes = [
+              ...ORDEM_DESTINOS.filter(d => porDestino[d]),
+              ...Object.keys(porDestino).filter(d => !ORDEM_DESTINOS.includes(d)),
+            ];
+
             return (
               <div key={date}>
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="text-sm font-semibold text-foreground">
+                {/* Cabeçalho do dia */}
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="text-base font-bold text-foreground">
                     {moment(date).format("DD [de] MMMM")}
                   </div>
                   <div className="h-px flex-1 bg-border" />
-                  <span className="text-xs text-muted-foreground">{cestosDia} cestos · {hastesDia} hastes</span>
+                  <span className="text-xs font-semibold text-muted-foreground bg-muted px-2.5 py-1 rounded-full">
+                    {cestosDia} cestos · {hastesDia.toLocaleString("pt-BR")} hastes
+                  </span>
                 </div>
-                <div className="grid gap-2">
-                  {registros.map((c) => (
-                    <div key={c.id} className="flex items-center gap-3 p-3 bg-card rounded-xl border hover:border-primary/30 transition-colors group">
-                      <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                        <Scissors className="w-4 h-4 text-primary" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-sm truncate">{normalizarVariedade(c.variedade)}</span>
-                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${DESTINO_COLORS[c.destino] || "bg-muted text-muted-foreground"}`}>
-                            {c.destino}
-                          </span>
+
+                {/* Seções por destino */}
+                <div className="space-y-4">
+                  {destinosPresentes.map(destino => {
+                    const regs = porDestino[destino];
+                    const s = DESTINO_SECTION_STYLE[destino] || DEFAULT_STYLE;
+                    const totalC = regs.reduce((sum, c) => sum + (c.cestos || 0), 0);
+                    const totalH = regs.reduce((sum, c) => sum + (c.hastes || 0), 0);
+                    return (
+                      <div key={destino} className={`rounded-xl border overflow-hidden`}>
+                        {/* Header do destino */}
+                        <div className={`flex items-center justify-between px-4 py-2.5 border-b ${s.header}`}>
+                          <div className="flex items-center gap-2">
+                            <span className={`w-2.5 h-2.5 rounded-full ${s.dot}`} />
+                            <span className={`text-sm font-bold ${s.title}`}>{destino}</span>
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${s.badge}`}>
+                              {regs.length} registro{regs.length !== 1 ? "s" : ""}
+                            </span>
+                          </div>
+                          <div className="text-right">
+                            <span className={`text-sm font-bold ${s.title}`}>{totalH.toLocaleString("pt-BR")} hastes</span>
+                            <span className="text-xs text-muted-foreground ml-2">· {totalC} cestos</span>
+                          </div>
                         </div>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          E{c.estufa} {c.lado} · V{c.vao}-C{c.canteiro} · Sem. {c.semana}
-                        </p>
+
+                        {/* Registros do destino */}
+                        <div className="divide-y divide-border bg-card">
+                          {regs.map((c) => (
+                            <div key={c.id} className={`flex items-center gap-3 px-4 py-3 transition-colors group hover:bg-muted/30`}>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-semibold text-sm">{normalizarVariedade(c.variedade)}</span>
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                  E{c.estufa} {c.lado} · V{c.vao}-C{c.canteiro} · Sem. {c.semana}
+                                </p>
+                              </div>
+                              <div className="text-right flex-shrink-0">
+                                <p className="font-bold text-sm">{(c.hastes || 0).toLocaleString("pt-BR")} hastes</p>
+                                <p className="text-xs text-muted-foreground">{c.cestos || 0} cestos</p>
+                              </div>
+                              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Button size="sm" variant="ghost" onClick={() => handleEdit(c)} className="h-8 w-8 p-0">
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </Button>
+                                <Button size="sm" variant="ghost" onClick={() => handleDelete(c.id)} className="h-8 w-8 p-0 text-destructive hover:text-destructive">
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                      <div className="text-right flex-shrink-0">
-                        <p className="font-bold text-sm">{c.cestos} cestos</p>
-                        <p className="text-xs text-muted-foreground">{c.hastes} hastes</p>
-                      </div>
-                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleEdit(c)}
-                          className="h-8 w-8 p-0"
-                        >
-                          <Pencil className="w-3.5 h-3.5" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleDelete(c.id)}
-                          className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             );
