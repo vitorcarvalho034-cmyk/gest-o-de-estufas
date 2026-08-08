@@ -204,7 +204,7 @@ export default function PrevisaoColheita() {
     loadPrevisoes();
   }
 
-  const totalHastes = previsoes.reduce((sum, p) => sum + (p.hastes_previstas || 0), 0);
+  const totalHastes = previsoes.reduce((sum, p) => sum + ((p.hastes_previstas ?? p.pressas_previstas) || 0), 0);
   const weekDates = getWeekDates(semana, ano);
 
   // Anastasia: 60h/cesto = Fuego, Magnum, Fiebre | 80h/cesto = todas as outras
@@ -216,9 +216,9 @@ export default function PrevisaoColheita() {
   };
   const isAnast80 = (nome) => isAnastasia(nome) && !isAnast60(nome);
 
-  const hastesAnast = previsoes.filter(p => isAnastasia(p.variedade)).reduce((s, p) => s + (p.hastes_previstas || 0), 0);
-  const hastesAnast80 = previsoes.filter(p => isAnast80(p.variedade)).reduce((s, p) => s + (p.hastes_previstas || 0), 0);
-  const hastesAnast60 = previsoes.filter(p => isAnast60(p.variedade)).reduce((s, p) => s + (p.hastes_previstas || 0), 0);
+  const hastesAnast = previsoes.filter(p => isAnastasia(p.variedade)).reduce((s, p) => s + ((p.hastes_previstas ?? p.pressas_previstas) || 0), 0);
+  const hastesAnast80 = previsoes.filter(p => isAnast80(p.variedade)).reduce((s, p) => s + ((p.hastes_previstas ?? p.pressas_previstas) || 0), 0);
+  const hastesAnast60 = previsoes.filter(p => isAnast60(p.variedade)).reduce((s, p) => s + ((p.hastes_previstas ?? p.pressas_previstas) || 0), 0);
   const cestosAnast80 = hastesAnast80 > 0 ? Math.floor(hastesAnast80 / 80) : 0;
   const cestosAnast60 = hastesAnast60 > 0 ? Math.floor(hastesAnast60 / 60) : 0;
 
@@ -437,7 +437,7 @@ export default function PrevisaoColheita() {
         previsoes.forEach((p) => {
           const key = (p.variedade || "").trim().toLowerCase();
           if (!agrupado[key]) agrupado[key] = { variedade: (p.variedade || "").trim(), total: 0 };
-          agrupado[key].total += p.hastes_previstas || 0;
+          agrupado[key].total += (p.hastes_previstas ?? p.pressas_previstas) || 0;
         });
         const itensCores = agruparPorCor(Object.values(agrupado).map(l => ({ variedade: l.variedade, quantidade: l.total })));
         const totalCores = itensCores.reduce((s, c) => s + c.total, 0);
@@ -499,7 +499,7 @@ export default function PrevisaoColheita() {
               if (!agrupado[key]) {
                 agrupado[key] = { variedade: (p.variedade || "").trim(), total: 0, ids: [] };
               }
-              agrupado[key].total += p.hastes_previstas || 0;
+              agrupado[key].total += (p.hastes_previstas ?? p.pressas_previstas) || 0;
               agrupado[key].ids.push(p.id);
             });
             const linhas = Object.values(agrupado)
@@ -565,7 +565,7 @@ export default function PrevisaoColheita() {
             const semEstufa = estufa === 1 ? previsoes.filter((p) => !p.estufa) : [];
             const itensMostrarAll = estufa === 1 ? [...semEstufa, ...itens] : itens;
             const itensMostrar = itensMostrarAll.filter((p) => filtroCor === "todas" || getCorVariedade(p.variedade) === filtroCor);
-            const totalEstufa = itensMostrar.reduce((s, p) => s + (p.hastes_previstas || 0), 0);
+            const totalEstufa = itensMostrar.reduce((s, p) => s + ((p.hastes_previstas ?? p.pressas_previstas) || 0), 0);
             if (itensMostrar.length === 0) return null;
             return (
               <Card key={estufa}>
@@ -590,7 +590,7 @@ export default function PrevisaoColheita() {
                         <TableRow key={p.id}>
                           <TableCell className="font-medium">{p.variedade}</TableCell>
                           <TableCell className="text-muted-foreground">{p.vao ? `Vão ${p.vao}` : "—"}</TableCell>
-                          <TableCell className="text-right font-semibold">{p.hastes_previstas?.toLocaleString("pt-BR")}</TableCell>
+                          <TableCell className="text-right font-semibold">{((p.hastes_previstas ?? p.pressas_previstas) || 0).toLocaleString("pt-BR")}</TableCell>
                           <TableCell>
                             <Button variant="ghost" size="icon" onClick={() => handleDelete(p.id)}>
                               <Trash2 className="w-4 h-4 text-muted-foreground" />

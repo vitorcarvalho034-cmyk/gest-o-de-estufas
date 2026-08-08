@@ -180,12 +180,12 @@ export default function Pautas() {
 
       // ── Calcular previsão da semana ──
       const prevSem = previsoes.filter(p => p.semana === sem && p.ano === a && !isFloraFixa(p.variedade));
-      const totalPrev = prevSem.reduce((s, p) => s + (p.hastes_previstas || 0), 0);
+      const totalPrev = prevSem.reduce((s, p) => s + ((p.hastes_previstas ?? p.pressas_previstas) || 0), 0);
       setPrevHastes(totalPrev);
 
       // Anastasia 60h/80h por cesto
-      const hAnast80 = prevSem.filter(p => isAnast80(p.variedade)).reduce((s, p) => s + (p.hastes_previstas||0), 0);
-      const hAnast60 = prevSem.filter(p => isAnast60(p.variedade)).reduce((s, p) => s + (p.hastes_previstas||0), 0);
+      const hAnast80 = prevSem.filter(p => isAnast80(p.variedade)).reduce((s, p) => s + ((p.hastes_previstas ?? p.pressas_previstas) || 0), 0);
+      const hAnast60 = prevSem.filter(p => isAnast60(p.variedade)).reduce((s, p) => s + ((p.hastes_previstas ?? p.pressas_previstas) || 0), 0);
       const hAnast   = hAnast80 + hAnast60;
       // Mercado: puxar cestos_mercado do banco; fallback para localStorage se ainda não foi salvo
       const cestosMercadoDB = pauta?.cestos_mercado

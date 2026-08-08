@@ -141,7 +141,7 @@ export default function Colheita() {
   const colhidoSemanaAtual = filtradasPrincipais.reduce((s, c) => s + (c.hastes || 0), 0);
   const previstoSemana = previsoes
     .filter(p => p.semana === semanaNav && p.ano === anoNav && !isFloraFixa(p.variedade))
-    .reduce((s, p) => s + (p.hastes_previstas || 0), 0);
+    .reduce((s, p) => s + ((p.hastes_previstas ?? p.pressas_previstas) || 0), 0);
   const pctMeta = previstoSemana > 0 ? Math.round((colhidoSemanaAtual / previstoSemana) * 100) : 0;
 
   // Weekly trend data (last 8 weeks) — barras separadas para flores principais e fixas
