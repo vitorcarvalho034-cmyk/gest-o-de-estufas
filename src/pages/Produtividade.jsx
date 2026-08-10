@@ -77,7 +77,7 @@ function ProdutividadeSemanal({ colheitas, descartes, plantios }) {
     colheitasSemana.forEach(c => {
       const k = normVar(c.variedade);
       if (!map[k]) map[k] = { name: displayVar(c.variedade), hastes: 0, cestos: 0 };
-      map[k].hastes += c.hastes || 0;
+      map[k].hastes += (c.hastes ?? c.pressas) || 0;
       map[k].cestos += c.cestos || 0;
     });
     return Object.values(map).sort((a, b) => b.hastes - a.hastes);
@@ -101,7 +101,7 @@ function ProdutividadeSemanal({ colheitas, descartes, plantios }) {
       const m = moment(c.data_colheita);
       const key = `${m.isoWeekYear()}-${String(m.isoWeek()).padStart(2, '0')}`;
       if (!map[key]) map[key] = { semana: `S${m.isoWeek()}`, key, hastes: 0, cestos: 0 };
-      map[key].hastes += c.hastes || 0;
+      map[key].hastes += (c.hastes ?? c.pressas) || 0;
       map[key].cestos += c.cestos || 0;
     });
     return Object.values(map).sort((a, b) => a.key.localeCompare(b.key));
@@ -320,7 +320,7 @@ export default function Produtividade() {
     const k = normVar(c.variedade);
     if (!byVariedade[k]) byVariedade[k] = { name: displayVar(c.variedade), cestos: 0, hastes: 0, mudas_plantadas: 0, mudas_descartadas: 0, canteiros: new Set() };
     byVariedade[k].cestos += c.cestos || 0;
-    byVariedade[k].hastes += c.hastes || 0;
+    byVariedade[k].hastes += (c.hastes ?? c.pressas) || 0;
     // Registrar canteiro único para cálculo de m²
     const canteiroKey = `${c.estufa}-${c.lado}-${c.vao}-${c.canteiro}`;
     byVariedade[k].canteiros.add(canteiroKey);
@@ -375,7 +375,7 @@ export default function Produtividade() {
     const key = `Estufa ${c.estufa}`;
     if (!byEstufa[key]) byEstufa[key] = { cestos: 0, hastes: 0, descartes: 0 };
     byEstufa[key].cestos += c.cestos || 0;
-    byEstufa[key].hastes += c.hastes || 0;
+    byEstufa[key].hastes += (c.hastes ?? c.pressas) || 0;
   });
   descartes.forEach((d) => {
     const key = `Estufa ${d.estufa}`;
@@ -394,7 +394,7 @@ export default function Produtividade() {
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
     if (!byMonth[key]) byMonth[key] = { mes: MONTH_NAMES[d.getMonth()], ano: d.getFullYear(), key, cestos: 0, hastes: 0 };
     byMonth[key].cestos += c.cestos || 0;
-    byMonth[key].hastes += c.hastes || 0;
+    byMonth[key].hastes += (c.hastes ?? c.pressas) || 0;
   });
   const monthData = Object.values(byMonth).sort((a, b) => a.key.localeCompare(b.key));
   const monthLabeled = monthData.map((m) => ({ ...m, label: `${m.mes}/${String(m.ano).slice(2)}` }));
