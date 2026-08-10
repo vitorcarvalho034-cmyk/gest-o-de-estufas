@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { pautaSemanaAPI, previsaoColheitaAPI, colheitasAPI } from "@/api/supabaseClient";
-import { ClipboardList, ChevronLeft, ChevronRight, Save, Edit2, CheckCircle2, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { ClipboardList, ChevronLeft, ChevronRight, Save, Edit2, CheckCircle2, TrendingUp, TrendingDown, Minus, Plus, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import moment from "moment";
 import "moment/locale/pt-br";
@@ -168,6 +169,11 @@ export default function Pautas() {
   const [prevBuques,  setPrevBuques]  = useState("");
   const [envBuques,   setEnvBuques]   = useState("");
   const [obs,         setObs]         = useState("");
+  // Ofertas extras (outras variedades além dos crisântemos)
+  const [ofertasExtras,    setOfertasExtras]    = useState([]); // [{variedade, caixas}]
+  const [modalOfertaOpen,  setModalOfertaOpen]  = useState(false);
+  const [novaOfertaVar,    setNovaOfertaVar]    = useState("");
+  const [novaOfertaCxs,    setNovaOfertaCxs]    = useState("");
 
   async function load(sem, a) {
     setLoading(true);
@@ -212,10 +218,12 @@ export default function Pautas() {
         setPrevBuques(pauta.prev_buques?.toString()  || "");
         setEnvBuques(pauta.env_buques?.toString()    || "");
         setObs(pauta.observacoes || "");
+        setOfertasExtras(Array.isArray(pauta.ofertas_extras) ? pauta.ofertas_extras : []);
         setSaved(true);
       } else {
         setEnvOferta(""); setEnvMercado("");
         setPrevBuques(""); setEnvBuques(""); setObs("");
+        setOfertasExtras([]);
         setSaved(false);
       }
     } catch (e) {
@@ -236,11 +244,12 @@ export default function Pautas() {
   async function handleSalvar() {
     try {
       await pautaSemanaAPI.upsert(semana, ano, {
-        env_oferta:   parseInt(envOferta)   || 0,
-        env_mercado:  parseInt(envMercado)  || 0,
-        prev_buques:  parseInt(prevBuques)  || 0,
-        env_buques:   parseInt(envBuques)   || 0,
-        observacoes: obs,
+        env_oferta:     parseInt(envOferta)   || 0,
+        env_mercado:    parseInt(envMercado)  || 0,
+        prev_buques:    parseInt(prevBuques)  || 0,
+        env_buques:     parseInt(envBuques)   || 0,
+        observacoes:    obs,
+        ofertas_extras: ofertasExtras,
       });
       setSaved(true);
       toast.success("✅ Pauta salva com sucesso!");
@@ -249,9 +258,26 @@ export default function Pautas() {
     }
   }
 
+  function adicionarOfertaExtra() {
+    if (!novaOfertaVar.trim() || !novaOfertaCxs) {
+      toast.error("Preencha a variedade e a quantidade");
+      return;
+    }
+    const nova = { variedade: novaOfertaVar.trim(), caixas: parseInt(novaOfertaCxs) || 0 };
+    setOfertasExtras(prev => [...prev, nova]);
+    setNovaOfertaVar("");
+    setNovaOfertaCxs("");
+    toast.success(`${nova.variedade}: ${nova.caixas} cx adicionado`);
+  }
+
+  function removerOfertaExtra(idx) {
+    setOfertasExtras(prev => prev.filter((_, i) => i !== idx));
+  }
+
   const weekDates = getWeekDates(semana, ano);
+  const totalExtras   = ofertasExtras.reduce((s, o) => s + (o.caixas || 0), 0);
   const totalPrevCoop = cestosOfertaAuto + cestosMercadoAuto + (parseInt(prevBuques)||0);
-  const totalEnvCoop  = (parseInt(envOferta)||0) + (parseInt(envMercado)||0) + (parseInt(envBuques)||0);
+  const totalEnvCoop  = (parseInt(envOferta)||0) + (parseInt(envMercado)||0) + (parseInt(envBuques)||0) + totalExtras;
   const totalPct = totalPrevCoop > 0 ? Math.round((totalEnvCoop / totalPrevCoop) * 100) : null;
 
   if (loading) return (
@@ -314,6 +340,47 @@ export default function Pautas() {
           onEnvChange={(v) => setEnvOferta(v)}
           saved={saved}
         />
+
+        {/* Ofertas Extras */}
+        <div className="py-4 border-b">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <span className="text-base">🌻</span>
+              <span className="font-semibold text-sm">Ofertas Extras</span>
+              <span className="text-[10px] bg-amber-50 text-amber-600 border border-amber-200 px-1.5 py-0.5 rounded-full">outras variedades</span>
+            </div>
+            {!saved && (
+              <Button size="sm" variant="outline" onClick={() => setModalOfertaOpen(true)} className="gap-1.5 text-xs h-7">
+                <Plus className="w-3 h-3" /> Incluir Oferta
+              </Button>
+            )}
+          </div>
+
+          {ofertasExtras.length === 0 ? (
+            <p className="text-xs text-muted-foreground italic">Nenhuma oferta extra registrada</p>
+          ) : (
+            <div className="space-y-1.5">
+              {ofertasExtras.map((o, idx) => (
+                <div key={idx} className="flex items-center justify-between px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg">
+                  <span className="text-sm font-medium text-amber-900">{o.variedade}</span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-bold text-amber-700">{o.caixas} cx</span>
+                    {!saved && (
+                      <button onClick={() => removerOfertaExtra(idx)} className="text-amber-400 hover:text-red-500 transition-colors">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+              <div className="flex justify-end pt-1">
+                <span className="text-xs font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
+                  Total extras: {totalExtras} cx
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
         {/* Barracão — sem envio Cooperflora, apenas Previsto x Total Colhido */}
         <div className="py-4 border-b">
           <div className="flex items-center gap-2 mb-3">
@@ -416,6 +483,75 @@ export default function Pautas() {
           {saved ? "Salvo" : "Salvar Pauta"}
         </Button>
       </div>
+
+      {/* Modal — Incluir Oferta Extra */}
+      <Dialog open={modalOfertaOpen} onOpenChange={setModalOfertaOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <span className="text-lg">🌻</span> Incluir Oferta Extra
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-xs text-muted-foreground">
+              Registre envios de outras variedades (Girassol, Statice, Limonium etc.) além dos crisântemos.
+            </p>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground uppercase mb-1 block">Variedade</label>
+                <Input
+                  placeholder="Ex: Girassol, Statice, Limonium..."
+                  value={novaOfertaVar}
+                  onChange={e => setNovaOfertaVar(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && adicionarOfertaExtra()}
+                  className="h-9"
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground uppercase mb-1 block">Caixas enviadas (cx)</label>
+                <Input
+                  type="number" min="1"
+                  placeholder="0"
+                  value={novaOfertaCxs}
+                  onChange={e => setNovaOfertaCxs(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && adicionarOfertaExtra()}
+                  className="h-9 text-right font-mono"
+                />
+              </div>
+            </div>
+
+            {/* Lista das já adicionadas */}
+            {ofertasExtras.length > 0 && (
+              <div className="border rounded-lg overflow-hidden">
+                <div className="bg-muted/40 px-3 py-1.5 text-xs font-semibold text-muted-foreground uppercase">Já adicionadas</div>
+                <div className="divide-y">
+                  {ofertasExtras.map((o, idx) => (
+                    <div key={idx} className="flex items-center justify-between px-3 py-2">
+                      <span className="text-sm">{o.variedade}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-amber-700">{o.caixas} cx</span>
+                        <button onClick={() => removerOfertaExtra(idx)} className="text-muted-foreground hover:text-destructive transition-colors">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex gap-2 justify-end pt-1">
+              <Button variant="outline" onClick={() => setModalOfertaOpen(false)} className="gap-1.5">
+                <X className="w-4 h-4" /> Fechar
+              </Button>
+              <Button onClick={adicionarOfertaExtra} className="gap-1.5">
+                <Plus className="w-4 h-4" /> Adicionar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
     </div>
   );
