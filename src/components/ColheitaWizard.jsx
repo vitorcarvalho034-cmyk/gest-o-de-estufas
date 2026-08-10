@@ -636,7 +636,21 @@ export default function ColheitaWizard({ open, onClose, onSaved, editingColheita
         }
       }
 
-      handleClose();
+      if (isEditing) {
+        handleClose();
+      } else {
+        // Mantém estufa e lado — limpa apenas vao, canteiro, variedade e quantidades
+        setStep(0);
+        setForm(f => ({
+          ...f,
+          vao: "", canteiro: "",
+          variedade: "", destino: "",
+          cestos: "", macos: "", hastes_avulsas: "",
+          descarte_motivo: "", descarte_quantidade: "", descarte_observacao: "",
+          data_colheita: new Date().toISOString().split("T")[0],
+        }));
+        setVariedades([]);
+      }
       onSaved();
     } catch (error) {
       toast.error(`Erro ao salvar: ${error.message}`);
