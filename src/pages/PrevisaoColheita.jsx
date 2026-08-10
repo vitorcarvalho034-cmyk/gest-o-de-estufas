@@ -151,7 +151,7 @@ export default function PrevisaoColheita() {
     const data = {
       semana, ano,
       variedade: form.variedade,
-      hastes_previstas: parseInt(form.hastes_previstas),
+      pressas_previstas: parseInt(form.hastes_previstas),
       estufa: form.estufa || undefined,
       vao: form.vao || undefined,
     };
@@ -197,7 +197,7 @@ export default function PrevisaoColheita() {
     if (items.length === 0) { toast.error("Nenhum plantio previsto para colheita nesta semana (65 dias após plantio)"); return; }
     for (const item of items) {
       await previsaoColheitaAPI.create({
-        semana, ano, variedade: item.variedade, hastes_previstas: item.hastes
+        semana, ano, variedade: item.variedade, pressas_previstas: item.hastes
       });
     }
     toast.success(`${items.length} previsão(ões) gerada(s) automaticamente`);
