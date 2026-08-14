@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { colheitasAPI, colhidoRecebidoAPI } from "@/api/supabaseClient";
-import { isVariedadeFixa, isVariedadeGirassol } from "@/lib/coresVariedades";
+import { isVariedadeFixa, isVariedadeGirassol, normalizarVariedade } from "@/lib/coresVariedades";
+import { getHastesColheita, getHastesPorCesto } from "@/lib/colheitaHastes";
 import { Button } from "@/components/ui/button";
 import {
   ArrowDownToLine,
@@ -108,6 +109,7 @@ function StatusDiferenca({ diferenca }) {
 export default function ColhidoRecebido() {
   const [dataSelecionada, setDataSelecionada] = useState(moment().format("YYYY-MM-DD"));
   const [colhido, setColhido] = useState({ oferta: 0, mercado: 0, barracao: 0 });
+  const [cestosPorHastes, setCestosPorHastes] = useState({ oferta: 0, mercado: 0, barracao: 0 });
   const [recebido, setRecebido] = useState({ oferta: "", mercado: "", barracao: "" });
   const [observacao, setObservacao] = useState("");
   const [loading, setLoading] = useState(true);
@@ -127,14 +129,49 @@ export default function ColhidoRecebido() {
       const ano = moment(data).year();
       const registros = await colheitasAPI.listByAno(ano);
       const doDia = registros.filter(c => c.data_colheita === data && isCrisantemo(c.variedade));
-      const totais = doDia.reduce((acc, colheita) => {
+      const totais = { oferta: 0, mercado: 0, barracao: 0 };
+      const cestosCompletosPorHastes = { oferta: 0, mercado: 0, barracao: 0 };
+      const hastesAvulsasPorVariedade = {};
+
+      doDia.forEach(colheita => {
         const destino = String(colheita.destino || "").toLowerCase();
-        if (destino.includes("oferta")) acc.oferta += Number(colheita.cestos) || 0;
-        else if (destino.includes("mercado")) acc.mercado += Number(colheita.cestos) || 0;
-        else if (destino.includes("barrac")) acc.barracao += Number(colheita.cestos) || 0;
-        return acc;
-      }, { oferta: 0, mercado: 0, barracao: 0 });
+        const chaveDestino = destino.includes("oferta") ? "oferta"
+          : destino.includes("mercado") ? "mercado"
+          : destino.includes("barrac") ? "barracao"
+          : null;
+        if (!chaveDestino) return;
+
+        // Cestos já lançados entram diretamente na conferência.
+        totais[chaveDestino] += Number(colheita.cestos) || 0;
+
+        // Hastes sem cesto (avulsas ou maços) ficam acumuladas por variedade + destino.
+        // Só geram um novo cesto quando completam o padrão daquele destino.
+        const hastesDeCestos = (Number(colheita.cestos) || 0) * getHastesPorCesto(colheita);
+        const hastesSemCesto = Math.max(0, getHastesColheita(colheita) - hastesDeCestos);
+        if (hastesSemCesto <= 0) return;
+
+        const variedade = normalizarVariedade(colheita.variedade || "Sem variedade");
+        const chave = `${chaveDestino}::${variedade}`;
+        if (!hastesAvulsasPorVariedade[chave]) {
+          hastesAvulsasPorVariedade[chave] = {
+            destino: chaveDestino,
+            hastes: 0,
+            hastesPorCesto: getHastesPorCesto(colheita),
+          };
+        }
+        hastesAvulsasPorVariedade[chave].hastes += hastesSemCesto;
+      });
+
+      Object.values(hastesAvulsasPorVariedade).forEach(item => {
+        if (item.hastesPorCesto > 0) {
+          const cestosFormados = Math.floor(item.hastes / item.hastesPorCesto);
+          totais[item.destino] += cestosFormados;
+          cestosCompletosPorHastes[item.destino] += cestosFormados;
+        }
+      });
+
       setColhido(totais);
+      setCestosPorHastes(cestosCompletosPorHastes);
 
       try {
         const conferencia = await colhidoRecebidoAPI.getByData(data);
@@ -171,9 +208,10 @@ export default function ColhidoRecebido() {
       ...destino,
       totalColhido,
       totalRecebido,
+      cestosPorHastes: cestosPorHastes[destino.key] || 0,
       diferenca: totalRecebido - totalColhido,
     };
-  }), [colhido, recebido]);
+  }), [colhido, cestosPorHastes, recebido]);
 
   const totalColhido = linhas.reduce((soma, item) => soma + item.totalColhido, 0);
   const totalRecebido = linhas.reduce((soma, item) => soma + item.totalRecebido, 0);
@@ -268,7 +306,7 @@ export default function ColhidoRecebido() {
             <div key={item.key} className="p-4 sm:p-5">
               <div className="grid grid-cols-[1fr_100px_112px] sm:grid-cols-[1fr_130px_150px] gap-2 items-center">
                 <div><p className={`font-semibold ${item.cor.titulo}`}>{item.emoji} {item.label}</p><div className="mt-1"><StatusDiferenca diferenca={item.diferenca} /></div></div>
-                <div className="text-center"><p className={`text-2xl font-bold ${item.cor.colhido}`}>{item.totalColhido}</p><p className="text-xs text-muted-foreground">cestos</p></div>
+                <div className="text-center"><p className={`text-2xl font-bold ${item.cor.colhido}`}>{item.totalColhido}</p><p className="text-xs text-muted-foreground">cestos</p>{item.cestosPorHastes > 0 && <p className="text-[10px] text-primary font-medium mt-1">+{item.cestosPorHastes} por hastes avulsas</p>}</div>
                 <div><input type="number" min="0" inputMode="numeric" disabled={salvo} value={recebido[item.key]} onChange={e => setRecebido(atual => ({ ...atual, [item.key]: e.target.value }))} placeholder="0" className={`w-full h-12 rounded-lg border bg-background text-center text-xl font-bold outline-none transition-colors disabled:bg-muted disabled:text-muted-foreground ${item.cor.input}`} /><p className="text-xs text-center text-muted-foreground mt-1">cestos</p></div>
               </div>
             </div>
