@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { normalizarColheitaParaSalvar, normalizarColheitaParaLeitura } from "@/lib/colheitaHastes";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
@@ -185,30 +186,33 @@ export const plantiosAPI = {
 
 export const colheitasAPI = {
   list: async (limit = 500) => {
-    return withCacheFallback(`cache_colheitas_${limit}`, async () => {
-      const { data, error } = await supabase
+    const data = await withCacheFallback(`cache_colheitas_${limit}`, async () => {
+      const { data: result, error } = await supabase
         .from('colheitas')
         .select('*')
         .order('data_colheita', { ascending: false })
         .limit(limit);
       if (error) throw error;
-      return data || [];
+      return result || [];
     });
+    return (Array.isArray(data) ? data : []).map(normalizarColheitaParaLeitura);
   },
   get: async (id) => {
     const { data, error } = await supabase.from('colheitas').select('*').eq('id', id).single();
     if (error) throw error;
-    return data;
+    return normalizarColheitaParaLeitura(data);
   },
   create: async (data) => {
-    const { data: result, error } = await supabase.from('colheitas').insert([data]).select().single();
+    const payload = normalizarColheitaParaSalvar(data);
+    const { data: result, error } = await supabase.from('colheitas').insert([payload]).select().single();
     if (error) throw error;
     // Limpar todos os caches de colheitas
     Object.keys(localStorage).filter(k => k.startsWith('cache_colheitas')).forEach(k => localStorage.removeItem(k));
     return result;
   },
   update: async (id, data) => {
-    const { data: result, error } = await supabase.from('colheitas').update(data).eq('id', id).select().single();
+    const payload = normalizarColheitaParaSalvar(data);
+    const { data: result, error } = await supabase.from('colheitas').update(payload).eq('id', id).select().single();
     if (error) throw error;
     Object.keys(localStorage).filter(k => k.startsWith('cache_colheitas')).forEach(k => localStorage.removeItem(k));
     return result;
@@ -222,18 +226,19 @@ export const colheitasAPI = {
   // Busca todas as colheitas de um ano (sem limite fixo de registros)
   listByAno: async (ano) => {
     const cacheKey = `cache_colheitas_ano_${ano}`;
-    return withCacheFallback(cacheKey, async () => {
+    const data = await withCacheFallback(cacheKey, async () => {
       const inicio = `${ano}-01-01`;
       const fim    = `${ano}-12-31`;
-      const { data, error } = await supabase
+      const { data: result, error } = await supabase
         .from('colheitas')
         .select('*')
         .gte('data_colheita', inicio)
         .lte('data_colheita', fim)
         .order('data_colheita', { ascending: false });
       if (error) throw error;
-      return data || [];
+      return result || [];
     });
+    return (Array.isArray(data) ? data : []).map(normalizarColheitaParaLeitura);
   },
 };
 

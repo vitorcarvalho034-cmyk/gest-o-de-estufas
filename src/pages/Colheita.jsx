@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { colheitasAPI, previsaoColheitaAPI } from "@/api/supabaseClient";
 import { agruparPorCor, PALETA_CORES, getCorVariedade, isVariedadeFixa, isVariedadeGirassol, normalizarVariedade } from "@/lib/coresVariedades";
+import { getHastesColheita } from "@/lib/colheitaHastes";
 import { Scissors, Plus, TrendingUp, Package, Target, Calendar, Pencil, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import ColheitaWizard from "../components/ColheitaWizard";
@@ -121,9 +122,9 @@ export default function Colheita() {
   const filtradasFixas = filtradas.filter(c => isFloraFixa(c.variedade));
 
   const totalCestos = filtradasPrincipais.reduce((s, c) => s + (c.cestos || 0), 0);
-  const totalHastesTotal = filtradasPrincipais.reduce((s, c) => s + ((c.hastes ?? c.pressas) || 0), 0);
+  const totalHastesTotal = filtradasPrincipais.reduce((s, c) => s + getHastesColheita(c), 0);
   const totalCestosFixas = filtradasFixas.reduce((s, c) => s + (c.cestos || 0), 0);
-  const totalHastesFixas = filtradasFixas.reduce((s, c) => s + ((c.hastes ?? c.pressas) || 0), 0);
+  const totalHastesFixas = filtradasFixas.reduce((s, c) => s + getHastesColheita(c), 0);
 
   // Totais por tipo de flora fixa
   // Statice: Sinzii* e Tasmania Rose
@@ -132,13 +133,13 @@ export default function Colheita() {
   // Limonium: Klara, Piuma, Shooting Star, Oshi, Supreme
   const filtradasLimonium = filtradasFixas.filter(c => isVariedadeFixa(c.variedade) && !NOMES_STATICE.some(n => (c.variedade || '').toLowerCase().includes(n)));
   const filtradasGirassol = filtradasFixas.filter(c => isVariedadeGirassol(c.variedade));
-  const statice = { cestos: filtradasStatice.reduce((s,c)=>s+(c.cestos||0),0), hastes: filtradasStatice.reduce((s,c)=>s+((c.hastes ?? c.pressas) || 0),0) };
-  const limonium = { cestos: filtradasLimonium.reduce((s,c)=>s+(c.cestos||0),0), hastes: filtradasLimonium.reduce((s,c)=>s+((c.hastes ?? c.pressas) || 0),0) };
-  const girassol = { cestos: filtradasGirassol.reduce((s,c)=>s+(c.cestos||0),0), hastes: filtradasGirassol.reduce((s,c)=>s+((c.hastes ?? c.pressas) || 0),0) };
+  const statice = { cestos: filtradasStatice.reduce((s,c)=>s+(c.cestos||0),0), hastes: filtradasStatice.reduce((s,c)=>s+getHastesColheita(c),0) };
+  const limonium = { cestos: filtradasLimonium.reduce((s,c)=>s+(c.cestos||0),0), hastes: filtradasLimonium.reduce((s,c)=>s+getHastesColheita(c),0) };
+  const girassol = { cestos: filtradasGirassol.reduce((s,c)=>s+(c.cestos||0),0), hastes: filtradasGirassol.reduce((s,c)=>s+getHastesColheita(c),0) };
   const hojeCount = todasFiltradas.filter((c) => moment(c.data_colheita).isSame(moment(), "day") && !isFloraFixa(c.variedade)).length;
 
   // Meta: apenas flores principais (sem Statice/Limonium/Girassol)
-  const colhidoSemanaAtual = filtradasPrincipais.reduce((s, c) => s + ((c.hastes ?? c.pressas) || 0), 0);
+  const colhidoSemanaAtual = filtradasPrincipais.reduce((s, c) => s + getHastesColheita(c), 0);
   const previstoSemana = previsoes
     .filter(p => p.semana === semanaNav && p.ano === anoNav && !isFloraFixa(p.variedade))
     .reduce((s, p) => s + ((p.hastes_previstas ?? p.pressas_previstas) || 0), 0);
@@ -154,8 +155,8 @@ export default function Colheita() {
     weeklyTrend.push({
       semana: wLabel,
       cestos: wPrincipais.reduce((s, c) => s + (c.cestos || 0), 0),
-      hastes: wPrincipais.reduce((s, c) => s + ((c.hastes ?? c.pressas) || 0), 0),
-      hastesFixas: wFixas.reduce((s, c) => s + ((c.hastes ?? c.pressas) || 0), 0),
+      hastes: wPrincipais.reduce((s, c) => s + getHastesColheita(c), 0),
+      hastesFixas: wFixas.reduce((s, c) => s + getHastesColheita(c), 0),
     });
   }
 
@@ -307,7 +308,7 @@ export default function Colheita() {
           lista.forEach(c => {
             const d = c.destino || "Outros";
             if (!map[d]) map[d] = { hastes: 0, cestos: 0 };
-            map[d].hastes += (c.hastes ?? c.pressas) || 0;
+            map[d].hastes += getHastesColheita(c);
             map[d].cestos += c.cestos || 0;
           });
           return map;
@@ -529,7 +530,7 @@ export default function Colheita() {
           {sortedDates.map((date) => {
             const registros = groupedByDate[date];
             const cestosDia = registros.reduce((s, c) => s + (c.cestos || 0), 0);
-            const hastesDia = registros.reduce((s, c) => s + ((c.hastes ?? c.pressas) || 0), 0);
+            const hastesDia = registros.reduce((s, c) => s + getHastesColheita(c), 0);
 
             // Agrupar por destino normalizado
             const ORDEM_DESTINOS = ["Barracão", "Mercado", "Oferta 60", "Oferta 80"];
@@ -572,7 +573,7 @@ export default function Colheita() {
                     const regs = porDestino[destino];
                     const s = DESTINO_SECTION_STYLE[destino] || DEFAULT_STYLE;
                     const totalC = regs.reduce((sum, c) => sum + (c.cestos || 0), 0);
-                    const totalH = regs.reduce((sum, c) => sum + ((c.hastes ?? c.pressas) || 0), 0);
+                    const totalH = regs.reduce((sum, c) => sum + getHastesColheita(c), 0);
                     return (
                       <div key={destino} className={`rounded-xl border overflow-hidden`}>
                         {/* Header do destino */}
@@ -603,7 +604,7 @@ export default function Colheita() {
                                 </p>
                               </div>
                               <div className="text-right flex-shrink-0">
-                                <p className="font-bold text-sm">{((c.hastes ?? c.pressas) || 0).toLocaleString("pt-BR")} hastes</p>
+                                <p className="font-bold text-sm">{getHastesColheita(c).toLocaleString("pt-BR")} hastes</p>
                                 <p className="text-xs text-muted-foreground">{c.cestos || 0} cestos</p>
                               </div>
                               <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">

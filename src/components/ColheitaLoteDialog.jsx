@@ -6,6 +6,7 @@ import { Scissors, Check, Loader2, ChevronDown, ChevronUp, WifiOff, Leaf } from 
 import { toast } from "sonner";
 import moment from "moment";
 import { enqueue } from "@/lib/offlineQueue";
+import { getHastesPorCesto } from "@/lib/colheitaHastes";
 
 // Cache de canteiros no localStorage para uso offline
 const CANTEIROS_CACHE_KEY = "canteiros_cache";
@@ -23,8 +24,9 @@ const DESTINOS = {
   "Oferta 80": 80,
 };
 
-// Estufa 2 tem destino fixo: Barracão com 40 hastes/cesto (Statice/Limonium)
-const DESTINOS_ESTUFA2 = { "Barracão": 40 };
+// Estufa 2 tem destino fixo Barracão. A conversão depende da variedade:
+// Statice/Limonium = 40 hastes/cesto; Girassol = 50 hastes/cesto.
+const DESTINOS_ESTUFA2 = { "Barracão": true };
 function isEstufaFixa(estufaNum) { return parseInt(estufaNum) === 2; }
 
 function getWeekNumber(date) {
@@ -132,14 +134,19 @@ export default function ColheitaLoteDialog({ open, onClose, onSaved }) {
     });
   }
 
-  // Estufa 2: 40 hastes/cesto (Statice/Limonium); demais: conforme destino selecionado
   const destinosDisponiveis = isEstufaFixa(estufa) ? DESTINOS_ESTUFA2 : DESTINOS;
-  const hastesPorCesto = isEstufaFixa(estufa) ? 40 : (destino ? (DESTINOS[destino] || 0) : 0);
+  const getHastesDaEntrada = (entrada) => getHastesPorCesto({
+    variedade: entrada?.variedade,
+    destino,
+  });
 
   // Contar quantos têm valor preenchido
   const preenchidos = Object.values(entradas).filter(e => parseInt(e.cestos) > 0).length;
   const totalCestos = Object.values(entradas).reduce((s, e) => s + (parseInt(e.cestos) || 0), 0);
-  const totalHastes = totalCestos * hastesPorCesto;
+  const totalHastes = Object.values(entradas).reduce(
+    (s, e) => s + ((parseInt(e.cestos) || 0) * getHastesDaEntrada(e)),
+    0,
+  );
 
   async function handleSalvar() {
     if (!destino) { toast.error("Selecione o destino!"); return; }
@@ -160,7 +167,7 @@ export default function ColheitaLoteDialog({ open, onClose, onSaved }) {
         variedade: entradas[c.id].variedade || "—",
         destino,
         cestos: parseInt(entradas[c.id].cestos),
-        hastes: parseInt(entradas[c.id].cestos) * hastesPorCesto,
+        hastes: parseInt(entradas[c.id].cestos) * getHastesDaEntrada(entradas[c.id]),
         data_colheita: data,
         semana,
       }));
@@ -257,7 +264,7 @@ export default function ColheitaLoteDialog({ open, onClose, onSaved }) {
             {isEstufaFixa(estufa) ? (
               <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1.5">
                 <Leaf className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                <span className="text-xs font-medium text-emerald-700">Barracão — 40 hastes/cesto</span>
+                <span className="text-xs font-medium text-emerald-700">Barracão — 40 hastes/cesto (Statice/Limonium) · 50 (Girassol)</span>
               </div>
             ) : (
               <div className="flex gap-1 flex-wrap">
