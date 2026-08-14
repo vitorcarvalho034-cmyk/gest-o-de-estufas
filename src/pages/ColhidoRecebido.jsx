@@ -76,6 +76,25 @@ function formatarDiferenca(valor) {
   return valor > 0 ? `+${valor}` : String(valor);
 }
 
+function dataLocal(dataISO) {
+  // Meio-dia evita que o fuso horário altere o dia selecionado.
+  return new Date(`${dataISO}T12:00:00`);
+}
+
+function formatarDiaMes(dataISO) {
+  return dataLocal(dataISO).toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "long",
+  });
+}
+
+function formatarSemanaAno(dataISO) {
+  return dataLocal(dataISO).toLocaleDateString("pt-BR", {
+    weekday: "long",
+    year: "numeric",
+  });
+}
+
 function StatusDiferenca({ diferenca }) {
   if (diferenca === 0) {
     return <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-100 px-2 py-1 rounded-full"><CheckCircle2 className="w-3.5 h-3.5" /> Conferido</span>;
@@ -217,8 +236,8 @@ export default function ColhidoRecebido() {
         <div className="flex items-center justify-between gap-3">
           <button onClick={() => mudarDia(-1)} className="p-2 rounded-lg hover:bg-muted transition-colors" aria-label="Dia anterior"><ChevronLeft className="w-5 h-5" /></button>
           <div className="text-center">
-            <div className="flex items-center justify-center gap-2"><CalendarDays className="w-4 h-4 text-primary" /><p className="text-lg font-bold capitalize">{moment(dataSelecionada).format("DD [de] MMMM")}</p></div>
-            <p className="text-xs text-muted-foreground">{moment(dataSelecionada).format("dddd, YYYY")}{dataSelecionada === hoje ? " · Hoje" : ""}</p>
+            <div className="flex items-center justify-center gap-2"><CalendarDays className="w-4 h-4 text-primary" /><p className="text-lg font-bold capitalize">{formatarDiaMes(dataSelecionada)}</p></div>
+            <p className="text-xs text-muted-foreground capitalize">{formatarSemanaAno(dataSelecionada)}{dataSelecionada === hoje ? " · Hoje" : ""}</p>
           </div>
           <button onClick={() => mudarDia(1)} disabled={dataSelecionada >= hoje} className="p-2 rounded-lg hover:bg-muted transition-colors disabled:opacity-30" aria-label="Próximo dia"><ChevronRight className="w-5 h-5" /></button>
         </div>
