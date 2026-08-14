@@ -398,3 +398,53 @@ export const pautaSemanaAPI = {
     return result;
   },
 };
+
+
+// ─── Colhido × Recebido ──────────────────────────────────────────────────────
+// Uma conferência de cestos de crisântemos por dia.
+export const colhidoRecebidoAPI = {
+  list: async (limit = 120) => {
+    return withCacheFallback('cache_colhido_recebido', async () => {
+      const { data, error } = await supabase
+        .from('conferencia_colhido_recebido')
+        .select('*')
+        .order('data_conferencia', { ascending: false })
+        .limit(limit);
+      if (error) throw error;
+      return data || [];
+    });
+  },
+  getByData: async (dataConferencia) => {
+    const { data, error } = await supabase
+      .from('conferencia_colhido_recebido')
+      .select('*')
+      .eq('data_conferencia', dataConferencia)
+      .maybeSingle();
+    if (error) throw error;
+    return data;
+  },
+  upsert: async (dataConferencia, payload) => {
+    const existing = await colhidoRecebidoAPI.getByData(dataConferencia);
+    let result;
+    if (existing) {
+      const { data, error } = await supabase
+        .from('conferencia_colhido_recebido')
+        .update(payload)
+        .eq('id', existing.id)
+        .select()
+        .single();
+      if (error) throw error;
+      result = data;
+    } else {
+      const { data, error } = await supabase
+        .from('conferencia_colhido_recebido')
+        .insert([{ data_conferencia: dataConferencia, ...payload }])
+        .select()
+        .single();
+      if (error) throw error;
+      result = data;
+    }
+    localStorage.removeItem('cache_colhido_recebido');
+    return result;
+  },
+};
