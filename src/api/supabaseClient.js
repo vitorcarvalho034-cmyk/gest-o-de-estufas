@@ -448,3 +448,41 @@ export const colhidoRecebidoAPI = {
     return result;
   },
 };
+
+
+// ─── Plano de Separação ──────────────────────────────────────────────────────
+// Planejamento semanal em cestos por variedade de crisântemo e destino.
+export const planoSeparacaoAPI = {
+  listBySemana: async (semana, ano) => {
+    const cacheKey = `cache_plano_separacao_${ano}_${semana}`;
+    return withCacheFallback(cacheKey, async () => {
+      const { data, error } = await supabase
+        .from('plano_separacao')
+        .select('*')
+        .eq('semana', semana)
+        .eq('ano', ano)
+        .order('variedade');
+      if (error) throw error;
+      return data || [];
+    });
+  },
+  upsert: async (semana, ano, variedade, payload) => {
+    const { data, error } = await supabase
+      .from('plano_separacao')
+      .upsert(
+        [{ semana, ano, variedade, ...payload }],
+        { onConflict: 'semana,ano,variedade' },
+      )
+      .select()
+      .single();
+    if (error) throw error;
+    localStorage.removeItem(`cache_plano_separacao_${ano}_${semana}`);
+    return data;
+  },
+  delete: async (id, semana, ano) => {
+    const { error } = await supabase.from('plano_separacao').delete().eq('id', id);
+    if (error) throw error;
+    localStorage.removeItem(`cache_plano_separacao_${ano}_${semana}`);
+    return true;
+  },
+};

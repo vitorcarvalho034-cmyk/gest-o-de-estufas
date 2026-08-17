@@ -17,6 +17,7 @@ import Historico from './pages/Historico';
 import GerenciarCiclos from './pages/GerenciarCiclos';
 import Pautas from './pages/Pautas';
 import ColhidoRecebido from './pages/ColhidoRecebido';
+import PlanoSeparacao from './pages/PlanoSeparacao';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -56,6 +57,7 @@ const AuthenticatedApp = () => {
         <Route path="/ciclos" element={<GerenciarCiclos />} />
         <Route path="/pautas" element={<Pautas />} />
         <Route path="/colhido-recebido" element={<ColhidoRecebido />} />
+        <Route path="/plano-separacao" element={<PlanoSeparacao />} />
         <Route path="*" element={<PageNotFound />} />
       </Route>
     </Routes>
