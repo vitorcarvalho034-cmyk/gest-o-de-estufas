@@ -4,7 +4,7 @@ import { AlertTriangle, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, C
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { colheitasAPI, planoSeparacaoAPI, previsaoColheitaAPI } from "@/api/supabaseClient";
+import { colheitasAPI, planoSeparacaoAPI, previsaoColheitaAPI, pautaSemanaAPI } from "@/api/supabaseClient";
 import { isVariedadeFixa, isVariedadeGirassol, normalizarVariedade } from "@/lib/coresVariedades";
 import { getHastesColheita, getHastesPorCesto } from "@/lib/colheitaHastes";
 
@@ -81,6 +81,7 @@ export default function PlanoSeparacao() {
   const [previsoes, setPrevisoes] = useState([]);
   const [planos, setPlanos] = useState([]);
   const [progresso, setProgresso] = useState({});
+  const [limites, setLimites] = useState({ oferta: 0, mercado: 0, barracao: 0 });
   const [loading, setLoading] = useState(true);
   const [atualizando, setAtualizando] = useState(false);
   const [bancoPronto, setBancoPronto] = useState(true);
@@ -93,9 +94,28 @@ export default function PlanoSeparacao() {
   async function carregarDados(silencioso = false) {
     if (silencioso) setAtualizando(true); else setLoading(true);
     try {
-      const [previsoesDados, colheitasDados] = await Promise.all([previsaoColheitaAPI.list(2000), colheitasAPI.listByAno(ano)]);
-      setPrevisoes(previsoesDados.filter((item) => item.semana === semana && item.ano === ano && isCrisantemo(item.variedade)));
+      const [previsoesDados, colheitasDados, pauta] = await Promise.all([
+        previsaoColheitaAPI.list(2000),
+        colheitasAPI.listByAno(ano),
+        pautaSemanaAPI.getBySemana(semana, ano).catch(() => null),
+      ]);
+      const previsoesSemana = previsoesDados.filter((item) => item.semana === semana && item.ano === ano && isCrisantemo(item.variedade));
+      setPrevisoes(previsoesSemana);
       setProgresso(montarProgresso(colheitasDados.filter((item) => moment(item.data_colheita).isoWeek() === semana && moment(item.data_colheita).isoWeekYear() === ano && isCrisantemo(item.variedade))));
+
+      // Mesma regra da tela Previsão: Oferta recebe 50% (ou toda Anastasia,
+      // quando ela ultrapassar a metade), Mercado vem da meta confirmada e
+      // Barracão recebe o saldo. Estes são os tetos globais do plano.
+      const totalHastes = previsoesSemana.reduce((soma, item) => soma + (Number(item.hastes_previstas ?? item.pressas_previstas) || 0), 0);
+      const hastesAnastasia = previsoesSemana.filter((item) => isAnastasia(item.variedade)).reduce((soma, item) => soma + (Number(item.hastes_previstas ?? item.pressas_previstas) || 0), 0);
+      const cestosMercado = Number(pauta?.cestos_mercado) || 0;
+      const hastesOferta = Math.max(hastesAnastasia, Math.round(totalHastes * 0.5));
+      const hastesBarracao = Math.max(0, totalHastes - hastesOferta - (cestosMercado * 60));
+      setLimites({
+        oferta: Math.floor(hastesOferta / 60),
+        mercado: cestosMercado,
+        barracao: Math.floor(hastesBarracao / 50),
+      });
       try {
         setPlanos(await planoSeparacaoAPI.listBySemana(semana, ano));
         setBancoPronto(true);
@@ -139,6 +159,12 @@ export default function PlanoSeparacao() {
     return resultado;
   }, [variedades, progresso]);
 
+  const distribuicaoPlanejada = useMemo(() => planos.reduce((acumulado, plano) => ({
+    oferta: acumulado.oferta + (Number(plano.cestos_oferta) || 0),
+    mercado: acumulado.mercado + (Number(plano.cestos_mercado) || 0),
+    barracao: acumulado.barracao + (Number(plano.cestos_barracao) || 0),
+  }), { oferta: 0, mercado: 0, barracao: 0 }), [planos]);
+
   function navegarSemana(direcao) {
     const data = moment().isoWeekYear(ano).isoWeek(semana).add(direcao, "week");
     setSemana(data.isoWeek());
@@ -159,6 +185,20 @@ export default function PlanoSeparacao() {
     const mercado = somenteOferta ? 0 : valorInteiro(form.mercado);
     const barracao = somenteOferta ? 0 : valorInteiro(form.barracao);
     if ((oferta + mercado + barracao) === 0) { toast.error("Defina pelo menos um cesto para o plano"); return; }
+
+    const novoPlano = { oferta, mercado, barracao };
+    const excessos = DESTINOS.map((destino) => {
+      const valorAtualDaVariedade = Number(editando.plano?.[destino.campo]) || 0;
+      const totalProposto = (distribuicaoPlanejada[destino.key] || 0) - valorAtualDaVariedade + novoPlano[destino.key];
+      return { destino, totalProposto, limite: limites[destino.key] || 0 };
+    }).filter((item) => item.totalProposto > item.limite);
+
+    if (excessos.length > 0) {
+      const texto = excessos.map((item) => `${item.destino.label}: limite de ${item.limite} cestos; o plano ficaria com ${item.totalProposto}`).join(" · ");
+      toast.error(`Não é possível salvar: ${texto}`);
+      return;
+    }
+
     setSalvando(true);
     try {
       await planoSeparacaoAPI.upsert(semana, ano, editando.variedade, { cestos_oferta: oferta, cestos_mercado: mercado, cestos_barracao: barracao, observacao: form.observacao.trim() || null });
@@ -180,9 +220,9 @@ export default function PlanoSeparacao() {
 
     <div className="bg-card border rounded-xl p-4 flex items-center justify-between gap-3"><button aria-label="Semana anterior" onClick={() => navegarSemana(-1)} className="p-2 rounded-lg hover:bg-muted"><ChevronLeft className="w-5 h-5" /></button><div className="text-center"><div className="flex items-center justify-center gap-2"><CalendarDays className="w-4 h-4 text-primary" /><p className="text-lg font-bold">Semana {semana}/{ano}</p></div><p className="text-xs text-muted-foreground">{periodoSemana(semana, ano)}</p></div><button aria-label="Próxima semana" onClick={() => navegarSemana(1)} className="p-2 rounded-lg hover:bg-muted"><ChevronRight className="w-5 h-5" /></button></div>
 
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3"><div className="rounded-xl border bg-card p-4"><p className="text-xs text-muted-foreground">Cestos planejados</p><p className="text-2xl font-bold">{totais.planejado}</p></div><div className="rounded-xl border bg-card p-4"><p className="text-xs text-muted-foreground">Cestos colhidos</p><p className="text-2xl font-bold text-primary">{totais.colhido}</p></div><div className="rounded-xl border bg-card p-4"><p className="text-xs text-muted-foreground">Oferta · Mercado</p><p className="text-2xl font-bold"><span className="text-amber-700">{totais.oferta}</span><span className="text-muted-foreground text-base"> · </span><span className="text-emerald-700">{totais.mercado}</span></p></div><div className="rounded-xl border bg-card p-4"><p className="text-xs text-muted-foreground">Barracão</p><p className="text-2xl font-bold text-blue-700">{totais.barracao}</p></div></div>
+    <div className="grid grid-cols-2 lg:grid-cols-5 gap-3"><div className="rounded-xl border bg-card p-4"><p className="text-xs text-muted-foreground">Total planejado</p><p className="text-2xl font-bold">{totais.planejado}</p><p className="text-[10px] text-muted-foreground">de {limites.oferta + limites.mercado + limites.barracao} cestos previstos</p></div><div className="rounded-xl border bg-card p-4"><p className="text-xs text-muted-foreground">Cestos colhidos</p><p className="text-2xl font-bold text-primary">{totais.colhido}</p><p className="text-[10px] text-muted-foreground">na semana</p></div>{DESTINOS.map((destino) => { const planejado = distribuicaoPlanejada[destino.key] || 0; const limite = limites[destino.key] || 0; const excedeu = planejado > limite; const saldo = Math.max(0, limite - planejado); return <div key={destino.key} className={`rounded-xl border p-4 ${excedeu ? "border-red-200 bg-red-50" : CORES[destino.cor].card}`}><p className="text-xs text-muted-foreground">{destino.emoji} {destino.label}</p><p className={`text-2xl font-bold ${excedeu ? "text-red-700" : CORES[destino.cor].value}`}>{planejado}<span className="text-base text-muted-foreground"> / {limite}</span></p><p className={`text-[10px] ${excedeu ? "text-red-700 font-semibold" : "text-muted-foreground"}`}>{excedeu ? `${planejado - limite} acima do limite` : `${saldo} cestos disponíveis`}</p></div>; })}</div>
 
-    <div className="rounded-xl border border-primary/15 bg-primary/5 p-4 text-sm text-muted-foreground"><strong className="text-foreground">Como usar:</strong> defina os cestos desejados de cada variedade. Durante a semana, os cartões puxam automaticamente as colheitas lançadas. Ao completar uma meta, fica conferido; se ultrapassar, aparece em vermelho para evitar desbalancear a separação.</div>
+    <div className="rounded-xl border border-primary/15 bg-primary/5 p-4 text-sm text-muted-foreground"><strong className="text-foreground">Como usar:</strong> os tetos de Oferta, Mercado e Barracão vêm automaticamente da Previsão da semana. Ao distribuir uma variedade, o sistema mostra o saldo disponível e bloqueia qualquer plano que faça o total passar do limite — por exemplo, Oferta não passa de 444 cestos se essa for a previsão.</div>
 
     {variedades.length === 0 ? <div className="rounded-xl border border-dashed p-10 text-center"><Target className="w-8 h-8 text-muted-foreground mx-auto mb-3" /><p className="font-semibold">Nenhuma previsão de crisântemo nesta semana</p><p className="text-sm text-muted-foreground mt-1">Cadastre as previsões primeiro para montar o roteiro de separação.</p></div> : <div className="space-y-4">{variedades.map((item) => {
       const plano = item.plano || {};
@@ -196,6 +236,6 @@ export default function PlanoSeparacao() {
         {!item.plano ? <div className="p-5 text-sm text-muted-foreground">Ainda não há divisão definida. Clique em <strong>Definir plano</strong> para informar os cestos de cada destino.</div> : <><>{(alertas.length > 0 || (totalPlanejado > 0 && totalColhido > totalPlanejado)) && <div className="mx-5 mt-4 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800"><AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" /><div><strong>Alerta de equilíbrio:</strong> {alertas.map((destino) => `${destino.label} está ${colhido[destino.key] - planejado[destino.key]} cesto(s) acima`).join(" · ") || "A variedade já ultrapassou o total planejado."}</div></div>}</><div className="grid md:grid-cols-3 gap-3 p-5">{DESTINOS.map((destino) => <ProgressoDestino key={destino.key} destino={destino} planejado={planejado[destino.key]} colhido={colhido[destino.key]} />)}</div><div className="px-5 pb-5 flex flex-wrap gap-2 text-xs">{DESTINOS.map((destino) => { const falta = planejado[destino.key] - colhido[destino.key]; return falta > 0 ? <span key={destino.key} className="rounded-full bg-muted px-2.5 py-1">Faltam <strong>{falta}</strong> para {destino.label}</span> : null; })}{totalPlanejado > 0 && totalColhido === totalPlanejado && <span className="rounded-full bg-emerald-100 text-emerald-700 px-2.5 py-1 font-semibold">Plano da variedade concluído</span>}</div></>}</section>;
     })}</div>}
 
-    <Dialog open={Boolean(editando)} onOpenChange={(aberto) => !aberto && setEditando(null)}><DialogContent className="sm:max-w-md"><DialogHeader><DialogTitle>Plano de {editando?.variedade}</DialogTitle><DialogDescription>Informe somente os cestos que o líder deve separar durante a semana.</DialogDescription></DialogHeader><div className="rounded-lg bg-muted/60 p-3 text-sm">Previsão da semana: <strong>{editando?.hastesPrevistas?.toLocaleString("pt-BR")} hastes</strong></div><div className="grid gap-3">{DESTINOS.map((destino) => { const bloqueado = isAnastasia(editando?.variedade) && destino.key !== "oferta"; return <label key={destino.key} className={`rounded-lg border p-3 flex items-center justify-between gap-3 ${bloqueado ? "opacity-50 bg-muted" : CORES[destino.cor].card}`}><span className="font-semibold text-sm">{destino.emoji} {destino.label}<span className="block text-[10px] text-muted-foreground font-normal">{destino.hastesPorCesto} hastes/cesto</span></span><input type="number" min="0" disabled={bloqueado} value={form[destino.key]} onChange={(e) => setForm((atual) => ({ ...atual, [destino.key]: e.target.value }))} className={`w-20 h-10 rounded-md border bg-background px-2 text-center font-bold outline-none disabled:bg-muted ${CORES[destino.cor].input}`} placeholder="0" /></label>; })}</div><div><label className="text-sm font-medium">Observação <span className="text-muted-foreground font-normal">(opcional)</span></label><textarea rows={2} value={form.observacao} onChange={(e) => setForm((atual) => ({ ...atual, observacao: e.target.value }))} placeholder="Ex.: priorizar Mercado até quarta-feira." className="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm resize-none" /></div><DialogFooter><Button variant="outline" onClick={() => setEditando(null)}>Cancelar</Button><Button disabled={salvando || !bancoPronto} onClick={salvarPlano} className="gap-2"><Save className="w-4 h-4" /> {salvando ? "Salvando..." : "Salvar plano"}</Button></DialogFooter></DialogContent></Dialog>
+    <Dialog open={Boolean(editando)} onOpenChange={(aberto) => !aberto && setEditando(null)}><DialogContent className="sm:max-w-md"><DialogHeader><DialogTitle>Plano de {editando?.variedade}</DialogTitle><DialogDescription>Informe somente os cestos que o líder deve separar durante a semana.</DialogDescription></DialogHeader><div className="rounded-lg bg-muted/60 p-3 text-sm">Previsão da semana: <strong>{editando?.hastesPrevistas?.toLocaleString("pt-BR")} hastes</strong></div><div className="grid gap-3">{DESTINOS.map((destino) => { const bloqueado = isAnastasia(editando?.variedade) && destino.key !== "oferta"; const cestosAtuaisDaVariedade = Number(editando?.plano?.[destino.campo]) || 0; const saldoDestino = Math.max(0, (limites[destino.key] || 0) - ((distribuicaoPlanejada[destino.key] || 0) - cestosAtuaisDaVariedade)); return <label key={destino.key} className={`rounded-lg border p-3 flex items-center justify-between gap-3 ${bloqueado ? "opacity-50 bg-muted" : CORES[destino.cor].card}`}><span className="font-semibold text-sm">{destino.emoji} {destino.label}<span className="block text-[10px] text-muted-foreground font-normal">{destino.hastesPorCesto} hastes/cesto · saldo: {saldoDestino}</span></span><input type="number" min="0" max={saldoDestino} disabled={bloqueado} value={form[destino.key]} onChange={(e) => setForm((atual) => ({ ...atual, [destino.key]: e.target.value }))} className={`w-20 h-10 rounded-md border bg-background px-2 text-center font-bold outline-none disabled:bg-muted ${CORES[destino.cor].input}`} placeholder="0" /></label>; })}</div><div><label className="text-sm font-medium">Observação <span className="text-muted-foreground font-normal">(opcional)</span></label><textarea rows={2} value={form.observacao} onChange={(e) => setForm((atual) => ({ ...atual, observacao: e.target.value }))} placeholder="Ex.: priorizar Mercado até quarta-feira." className="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm resize-none" /></div><DialogFooter><Button variant="outline" onClick={() => setEditando(null)}>Cancelar</Button><Button disabled={salvando || !bancoPronto} onClick={salvarPlano} className="gap-2"><Save className="w-4 h-4" /> {salvando ? "Salvando..." : "Salvar plano"}</Button></DialogFooter></DialogContent></Dialog>
   </div>;
 }
