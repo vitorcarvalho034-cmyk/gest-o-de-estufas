@@ -3,54 +3,38 @@ import ReactDOM from 'react-dom/client'
 import App from '@/App.jsx'
 import '@/index.css'
 
-// Detecta nova versão automaticamente: a cada 2 minutos verifica se o index.html mudou.
-// Se mudou (novo deploy), recarrega a página silenciosamente para o usuário ter sempre a versão mais recente.
-(function checkForUpdates() {
-  let lastEtag = null;
-
-  async function check() {
-    try {
-      const res = await fetch('/index.html', {
-        method: 'HEAD',
-        cache: 'no-store',
-      });
-      const etag = res.headers.get('etag') || res.headers.get('last-modified');
-      if (lastEtag === null) {
-        lastEtag = etag;
-      } else if (etag && etag !== lastEtag) {
-        // Nova versão detectada — recarrega
-        window.location.reload();
-      }
-    } catch {
-      // Sem conexão, ignora
-    }
-  }
-
-  // Faz uma verificação imediata e depois repete a cada minuto.
-  check();
-  setInterval(check, 60 * 1000);
-
-  // Também verifica quando o app volta ao foco (usuário volta para a aba/app)
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') check();
-  });
-})();
-
-// PWA: permite instalar o app no celular e troca a versão instalada assim que houver deploy novo.
+// PWA: procura atualizações sem interromper lançamentos em andamento.
+// Quando houver uma versão nova, a interface mostra um aviso e o usuário decide quando atualizar.
 if ('serviceWorker' in navigator) {
-  let reloadingForServiceWorker = false;
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (!reloadingForServiceWorker) {
-      reloadingForServiceWorker = true;
-      window.location.reload();
-    }
-  });
-
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' })
       .then((registration) => {
-        registration.update();
-        setInterval(() => registration.update(), 60 * 1000);
+        const notifyUpdate = () => {
+          window.dispatchEvent(new CustomEvent('flores-update-available'));
+        };
+
+        const watchInstallingWorker = () => {
+          const worker = registration.installing;
+          if (!worker) return;
+
+          worker.addEventListener('statechange', () => {
+            if (worker.state === 'installed' && navigator.serviceWorker.controller) {
+              notifyUpdate();
+            }
+          });
+        };
+
+        if (registration.waiting) notifyUpdate();
+        registration.addEventListener('updatefound', watchInstallingWorker);
+
+        const checkForUpdate = () => registration.update().catch(() => undefined);
+        checkForUpdate();
+
+        // Verifica em segundo plano sem recarregar a tela. Uma vez a cada 5 minutos é suficiente.
+        setInterval(checkForUpdate, 5 * 60 * 1000);
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible') checkForUpdate();
+        });
       })
       .catch(() => {
         // Sem suporte a PWA ou falha temporária: o app continua funcionando no navegador.

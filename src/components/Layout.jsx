@@ -3,6 +3,7 @@ import { Flower2, LayoutDashboard, Warehouse, Sprout, Scissors, Trash2, BarChart
 import { useState } from "react";
 import OfflineBanner from "./OfflineBanner";
 import PwaInstallPrompt from "./PwaInstallPrompt";
+import PwaUpdateBanner from "./PwaUpdateBanner";
 
 const navItems = [
   { path: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -118,6 +119,7 @@ export default function Layout() {
         </header>
 
         <OfflineBanner />
+        <PwaUpdateBanner />
         <PwaInstallPrompt />
 
         {/* Conteúdo principal — com padding-bottom no mobile para não ficar atrás da barra inferior */}
