@@ -2,6 +2,7 @@ import { Outlet, Link, useLocation } from "react-router-dom";
 import { Flower2, LayoutDashboard, Warehouse, Sprout, Scissors, Trash2, BarChart3, CalendarClock, Menu, History, RefreshCw, ClipboardList, ClipboardCheck, ListChecks } from "lucide-react";
 import { useState } from "react";
 import OfflineBanner from "./OfflineBanner";
+import PwaInstallPrompt from "./PwaInstallPrompt";
 
 const navItems = [
   { path: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -117,6 +118,7 @@ export default function Layout() {
         </header>
 
         <OfflineBanner />
+        <PwaInstallPrompt />
 
         {/* Conteúdo principal — com padding-bottom no mobile para não ficar atrás da barra inferior */}
         <main className="flex-1 overflow-y-auto bg-background pb-20 lg:pb-0">

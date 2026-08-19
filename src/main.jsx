@@ -26,14 +26,37 @@ import '@/index.css'
     }
   }
 
-  // Verifica a cada 2 minutos
-  setInterval(check, 2 * 60 * 1000);
+  // Faz uma verificação imediata e depois repete a cada minuto.
+  check();
+  setInterval(check, 60 * 1000);
 
   // Também verifica quando o app volta ao foco (usuário volta para a aba/app)
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') check();
   });
 })();
+
+// PWA: permite instalar o app no celular e troca a versão instalada assim que houver deploy novo.
+if ('serviceWorker' in navigator) {
+  let reloadingForServiceWorker = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!reloadingForServiceWorker) {
+      reloadingForServiceWorker = true;
+      window.location.reload();
+    }
+  });
+
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' })
+      .then((registration) => {
+        registration.update();
+        setInterval(() => registration.update(), 60 * 1000);
+      })
+      .catch(() => {
+        // Sem suporte a PWA ou falha temporária: o app continua funcionando no navegador.
+      });
+  });
+}
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <App />
