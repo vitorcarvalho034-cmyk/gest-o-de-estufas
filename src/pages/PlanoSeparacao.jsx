@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import moment from "moment";
-import { AlertTriangle, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, Edit3, Loader2, RefreshCw, Save, Target } from "lucide-react";
+import { AlertTriangle, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, Copy, Edit3, Loader2, RefreshCw, Save, Target } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -62,6 +62,15 @@ function montarProgresso(colheitas) {
   return resultado;
 }
 
+function pluralCestos(quantidade) {
+  return `${quantidade} ${quantidade === 1 ? "cesto" : "cestos"}`;
+}
+
+function horarioDeRoteiro() {
+  const agora = moment();
+  return agora.hour() > 15 || (agora.hour() === 15 && agora.minute() >= 30);
+}
+
 function ProgressoDestino({ destino, planejado, colhido }) {
   const estilo = CORES[destino.cor];
   const diferenca = colhido - planejado;
@@ -88,8 +97,14 @@ export default function PlanoSeparacao() {
   const [editando, setEditando] = useState(null);
   const [form, setForm] = useState({ oferta: "", mercado: "", barracao: "", observacao: "" });
   const [salvando, setSalvando] = useState(false);
+  const [roteiroAberto, setRoteiroAberto] = useState(false);
+  const [agora, setAgora] = useState(() => moment());
 
   useEffect(() => { carregarDados(); }, [semana, ano]);
+  useEffect(() => {
+    const intervalo = window.setInterval(() => setAgora(moment()), 30000);
+    return () => window.clearInterval(intervalo);
+  }, []);
 
   async function carregarDados(silencioso = false) {
     if (silencioso) setAtualizando(true); else setLoading(true);
@@ -165,6 +180,62 @@ export default function PlanoSeparacao() {
     barracao: acumulado.barracao + (Number(plano.cestos_barracao) || 0),
   }), { oferta: 0, mercado: 0, barracao: 0 }), [planos]);
 
+  const pendenciasDiarias = useMemo(() => variedades.flatMap((item) => {
+    const plano = item.plano || {};
+    return DESTINOS.map((destino) => {
+      const planejado = Number(plano[destino.campo]) || 0;
+      const colhido = progresso[`${item.variedade}::${destino.key}`] || 0;
+      return { variedade: item.variedade, destino, planejado, colhido, falta: Math.max(0, planejado - colhido) };
+    }).filter((itemDestino) => itemDestino.falta > 0);
+  }), [variedades, progresso]);
+
+  const excessosPorVariedade = useMemo(() => variedades.flatMap((item) => {
+    const plano = item.plano || {};
+    return DESTINOS.map((destino) => {
+      const planejado = Number(plano[destino.campo]) || 0;
+      const colhido = progresso[`${item.variedade}::${destino.key}`] || 0;
+      return { variedade: item.variedade, destino, planejado, colhido, excesso: Math.max(0, colhido - planejado) };
+    }).filter((itemDestino) => itemDestino.planejado > 0 && itemDestino.excesso > 0);
+  }), [variedades, progresso]);
+
+  const roteiroLiberado = agora.hour() > 15 || (agora.hour() === 15 && agora.minute() >= 30);
+  const mensagemRoteiro = useMemo(() => {
+    const data = agora.format("DD/MM/YYYY");
+    const linhas = [
+      `*ROTEIRO DE COLHEITA — ${data} | posição 15h30*`,
+      `*Semana ${semana}/${ano}*`,
+      "",
+      "*O que falta colher para cumprir as metas:*",
+    ];
+    if (pendenciasDiarias.length === 0) {
+      linhas.push("✅ Nenhum cesto pendente no plano da semana.");
+    } else {
+      DESTINOS.forEach((destino) => {
+        const itens = pendenciasDiarias.filter((item) => item.destino.key === destino.key);
+        if (!itens.length) return;
+        linhas.push("", `*${destino.emoji} ${destino.label}*`);
+        itens.forEach((item) => linhas.push(`• ${item.variedade}: colher ${pluralCestos(item.falta)}`));
+      });
+    }
+    if (excessosPorVariedade.length > 0) {
+      linhas.push("", "*⚠️ Atenção — acima da meta:* ");
+      excessosPorVariedade.forEach((item) => linhas.push(`• ${item.variedade}: ${item.destino.label} +${pluralCestos(item.excesso)} (${item.colhido}/${item.planejado})`));
+    }
+    linhas.push("", "Conferir a qualidade e manter a divisão planejada entre os destinos.");
+    return linhas.join("\n");
+  }, [agora, semana, ano, pendenciasDiarias, excessosPorVariedade]);
+
+  async function copiarRoteiro() {
+    try {
+      await navigator.clipboard.writeText(mensagemRoteiro);
+      toast.success("Roteiro diário copiado. Agora é só colar no WhatsApp.");
+      setRoteiroAberto(false);
+    } catch (erro) {
+      console.error("Não foi possível copiar o roteiro:", erro);
+      toast.error("Não foi possível copiar. Selecione o texto e copie manualmente.");
+    }
+  }
+
   function navegarSemana(direcao) {
     const data = moment().isoWeekYear(ano).isoWeek(semana).add(direcao, "week");
     setSemana(data.isoWeek());
@@ -214,7 +285,7 @@ export default function PlanoSeparacao() {
   if (loading) return <div className="flex items-center justify-center h-full"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
 
   return <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto space-y-6">
-    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4"><div className="flex items-center gap-3"><div className="p-2.5 rounded-xl bg-primary/10"><ClipboardList className="w-7 h-7 text-primary" /></div><div><h1 className="text-2xl sm:text-3xl font-bold">Plano de Separação</h1><p className="text-sm text-muted-foreground">Crisântemos: roteiro em cestos para Oferta, Mercado e Barracão</p></div></div><Button variant="outline" onClick={() => carregarDados(true)} disabled={atualizando} className="gap-2 w-fit"><RefreshCw className={`w-4 h-4 ${atualizando ? "animate-spin" : ""}`} /> Atualizar colheitas</Button></div>
+    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4"><div className="flex items-center gap-3"><div className="p-2.5 rounded-xl bg-primary/10"><ClipboardList className="w-7 h-7 text-primary" /></div><div><h1 className="text-2xl sm:text-3xl font-bold">Plano de Separação</h1><p className="text-sm text-muted-foreground">Crisântemos: roteiro em cestos para Oferta, Mercado e Barracão</p></div></div><div className="flex flex-wrap gap-2"><Button onClick={() => setRoteiroAberto(true)} disabled={!roteiroLiberado} className="gap-2 w-fit"><Copy className="w-4 h-4" /> {roteiroLiberado ? "Roteiro diário 15h30" : "Roteiro libera às 15h30"}</Button><Button variant="outline" onClick={() => carregarDados(true)} disabled={atualizando} className="gap-2 w-fit"><RefreshCw className={`w-4 h-4 ${atualizando ? "animate-spin" : ""}`} /> Atualizar colheitas</Button></div></div>
 
     {!bancoPronto && <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"><strong>Falta ativar o salvamento do Plano de Separação.</strong> A tela mostra previsões e colheitas, mas os planos só poderão ser salvos após criar a tabela no Supabase.</div>}
 
@@ -223,6 +294,8 @@ export default function PlanoSeparacao() {
     <div className="grid grid-cols-2 lg:grid-cols-5 gap-3"><div className="rounded-xl border bg-card p-4"><p className="text-xs text-muted-foreground">Total planejado</p><p className="text-2xl font-bold">{totais.planejado}</p><p className="text-[10px] text-muted-foreground">de {limites.oferta + limites.mercado + limites.barracao} cestos previstos</p></div><div className="rounded-xl border bg-card p-4"><p className="text-xs text-muted-foreground">Cestos colhidos</p><p className="text-2xl font-bold text-primary">{totais.colhido}</p><p className="text-[10px] text-muted-foreground">na semana</p></div>{DESTINOS.map((destino) => { const planejado = distribuicaoPlanejada[destino.key] || 0; const limite = limites[destino.key] || 0; const excedeu = planejado > limite; const saldo = Math.max(0, limite - planejado); return <div key={destino.key} className={`rounded-xl border p-4 ${excedeu ? "border-red-200 bg-red-50" : CORES[destino.cor].card}`}><p className="text-xs text-muted-foreground">{destino.emoji} {destino.label}</p><p className={`text-2xl font-bold ${excedeu ? "text-red-700" : CORES[destino.cor].value}`}>{planejado}<span className="text-base text-muted-foreground"> / {limite}</span></p><p className={`text-[10px] ${excedeu ? "text-red-700 font-semibold" : "text-muted-foreground"}`}>{excedeu ? `${planejado - limite} acima do limite` : `${saldo} cestos disponíveis`}</p></div>; })}</div>
 
     <div className="rounded-xl border border-primary/15 bg-primary/5 p-4 text-sm text-muted-foreground"><strong className="text-foreground">Como usar:</strong> os tetos de Oferta, Mercado e Barracão vêm automaticamente da Previsão da semana. Ao distribuir uma variedade, o sistema mostra o saldo disponível e bloqueia qualquer plano que faça o total passar do limite — por exemplo, Oferta não passa de 444 cestos se essa for a previsão.</div>
+
+    {excessosPorVariedade.length > 0 && <div className="rounded-xl border border-red-200 bg-red-50 p-4"><div className="flex items-start gap-3"><AlertTriangle className="w-5 h-5 text-red-700 mt-0.5 shrink-0" /><div><h2 className="font-bold text-red-900">Variedades acima da meta planejada</h2><p className="text-sm text-red-800 mt-0.5">Evite direcionar novos cestos para estes destinos até ajustar o plano.</p><div className="mt-3 flex flex-wrap gap-2">{excessosPorVariedade.map((item) => <span key={`${item.variedade}-${item.destino.key}`} className="rounded-full bg-white border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-800">{item.variedade} · {item.destino.emoji} {item.destino.label}: {item.colhido}/{item.planejado} (+{item.excesso})</span>)}</div></div></div></div>}
 
     {variedades.length === 0 ? <div className="rounded-xl border border-dashed p-10 text-center"><Target className="w-8 h-8 text-muted-foreground mx-auto mb-3" /><p className="font-semibold">Nenhuma previsão de crisântemo nesta semana</p><p className="text-sm text-muted-foreground mt-1">Cadastre as previsões primeiro para montar o roteiro de separação.</p></div> : <div className="space-y-4">{variedades.map((item) => {
       const plano = item.plano || {};
@@ -235,6 +308,8 @@ export default function PlanoSeparacao() {
       return <section key={item.variedade} className="bg-card border rounded-xl overflow-hidden"><div className="p-5 border-b flex flex-col md:flex-row md:items-start md:justify-between gap-3"><div><h2 className="text-lg font-bold">{item.variedade}</h2><p className="text-sm text-muted-foreground">Previsão: <strong className="text-foreground">{item.hastesPrevistas.toLocaleString("pt-BR")} hastes</strong>{totalPlanejado > 0 && <> · Plano: <strong className="text-foreground">{totalPlanejado} cestos</strong></>}{hastesDistribuidas > 0 && <span className="text-xs"> ({hastesDistribuidas} hastes distribuídas)</span>}</p>{isAnastasia(item.variedade) && <p className="text-xs text-amber-700 mt-1">Anastasia: planejamento exclusivo para Oferta.</p>}</div><Button onClick={() => abrirEdicao(item)} variant={item.plano ? "outline" : "default"} className="gap-2 w-fit"><Edit3 className="w-4 h-4" /> {item.plano ? "Ajustar plano" : "Definir plano"}</Button></div>
         {!item.plano ? <div className="p-5 text-sm text-muted-foreground">Ainda não há divisão definida. Clique em <strong>Definir plano</strong> para informar os cestos de cada destino.</div> : <><>{(alertas.length > 0 || (totalPlanejado > 0 && totalColhido > totalPlanejado)) && <div className="mx-5 mt-4 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800"><AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" /><div><strong>Alerta de equilíbrio:</strong> {alertas.map((destino) => `${destino.label} está ${colhido[destino.key] - planejado[destino.key]} cesto(s) acima`).join(" · ") || "A variedade já ultrapassou o total planejado."}</div></div>}</><div className="grid md:grid-cols-3 gap-3 p-5">{DESTINOS.filter((destino) => planejado[destino.key] > 0).map((destino) => <ProgressoDestino key={destino.key} destino={destino} planejado={planejado[destino.key]} colhido={colhido[destino.key]} />)}</div><div className="px-5 pb-5 flex flex-wrap gap-2 text-xs">{DESTINOS.map((destino) => { const falta = planejado[destino.key] - colhido[destino.key]; return falta > 0 ? <span key={destino.key} className="rounded-full bg-muted px-2.5 py-1">Faltam <strong>{falta}</strong> para {destino.label}</span> : null; })}{totalPlanejado > 0 && totalColhido === totalPlanejado && <span className="rounded-full bg-emerald-100 text-emerald-700 px-2.5 py-1 font-semibold">Plano da variedade concluído</span>}</div></>}</section>;
     })}</div>}
+
+    <Dialog open={roteiroAberto} onOpenChange={setRoteiroAberto}><DialogContent className="sm:max-w-xl"><DialogHeader><DialogTitle>Roteiro diário para WhatsApp</DialogTitle><DialogDescription>Posição da semana em {agora.format("DD/MM/YYYY")} às 15h30. Revise antes de copiar e enviar ao encarregado.</DialogDescription></DialogHeader><textarea readOnly value={mensagemRoteiro} rows={18} className="w-full rounded-lg border bg-muted/30 px-3 py-3 text-sm font-mono leading-6 resize-none" /><DialogFooter><Button variant="outline" onClick={() => setRoteiroAberto(false)}>Cancelar</Button><Button onClick={copiarRoteiro} className="gap-2"><Copy className="w-4 h-4" /> Copiar para WhatsApp</Button></DialogFooter></DialogContent></Dialog>
 
     <Dialog open={Boolean(editando)} onOpenChange={(aberto) => !aberto && setEditando(null)}><DialogContent className="sm:max-w-md"><DialogHeader><DialogTitle>Plano de {editando?.variedade}</DialogTitle><DialogDescription>Informe somente os cestos que o líder deve separar durante a semana.</DialogDescription></DialogHeader><div className="rounded-lg bg-muted/60 p-3 text-sm">Previsão da semana: <strong>{editando?.hastesPrevistas?.toLocaleString("pt-BR")} hastes</strong></div><div className="grid gap-3">{DESTINOS.map((destino) => { const bloqueado = isAnastasia(editando?.variedade) && destino.key !== "oferta"; const cestosAtuaisDaVariedade = Number(editando?.plano?.[destino.campo]) || 0; const saldoDestino = Math.max(0, (limites[destino.key] || 0) - ((distribuicaoPlanejada[destino.key] || 0) - cestosAtuaisDaVariedade)); return <label key={destino.key} className={`rounded-lg border p-3 flex items-center justify-between gap-3 ${bloqueado ? "opacity-50 bg-muted" : CORES[destino.cor].card}`}><span className="font-semibold text-sm">{destino.emoji} {destino.label}<span className="block text-[10px] text-muted-foreground font-normal">{destino.hastesPorCesto} hastes/cesto · saldo: {saldoDestino}</span></span><input type="number" min="0" max={saldoDestino} disabled={bloqueado} value={form[destino.key]} onChange={(e) => setForm((atual) => ({ ...atual, [destino.key]: e.target.value }))} className={`w-20 h-10 rounded-md border bg-background px-2 text-center font-bold outline-none disabled:bg-muted ${CORES[destino.cor].input}`} placeholder="0" /></label>; })}</div><div><label className="text-sm font-medium">Observação <span className="text-muted-foreground font-normal">(opcional)</span></label><textarea rows={2} value={form.observacao} onChange={(e) => setForm((atual) => ({ ...atual, observacao: e.target.value }))} placeholder="Ex.: priorizar Mercado até quarta-feira." className="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm resize-none" /></div><DialogFooter><Button variant="outline" onClick={() => setEditando(null)}>Cancelar</Button><Button disabled={salvando || !bancoPronto} onClick={salvarPlano} className="gap-2"><Save className="w-4 h-4" /> {salvando ? "Salvando..." : "Salvar plano"}</Button></DialogFooter></DialogContent></Dialog>
   </div>;
