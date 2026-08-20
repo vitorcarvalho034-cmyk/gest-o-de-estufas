@@ -237,8 +237,26 @@ export default function DadosColheita() {
             </TabsContent>
 
             <TabsContent value="dias" className="space-y-5">
-              <Card><CardHeader><CardTitle className="text-base">Colheita por dia da semana</CardTitle></CardHeader><CardContent className="h-80"><ResponsiveContainer width="100%" height="100%"><BarChart data={porDiaGrafico}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="curto" /><YAxis tick={{ fontSize: 11 }} /><Tooltip {...tooltipStyle} formatter={(valor, nome) => [formatarNumero(valor), nome === "hastes_colhidas" ? "Hastes colhidas" : "Cestos"]} /><Legend /><Bar dataKey="hastes_colhidas" name="Hastes colhidas" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} /><Bar dataKey="cestos" name="Cestos" fill="hsl(42 80% 55%)" radius={[4, 4, 0, 0]} /></BarChart></ResponsiveContainer></CardContent></Card>
-              <Card><CardHeader><CardTitle className="text-base">Resumo por dia</CardTitle></CardHeader><CardContent className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b text-xs uppercase tracking-wide text-muted-foreground"><th className="px-2 py-3 text-left">Dia</th><th className="px-2 py-3 text-right">Hastes colhidas</th><th className="px-2 py-3 text-right">Cestos</th><th className="px-2 py-3 text-right">Lançamentos</th></tr></thead><tbody>{analise.porDiaSemana.map((linha) => <LinhaTabela key={linha.numero}><td className="px-2 py-3 font-medium">{linha.nome}</td><td className="px-2 py-3 text-right font-semibold text-primary">{formatarNumero(linha.hastes_colhidas)}</td><td className="px-2 py-3 text-right">{formatarNumero(linha.cestos)}</td><td className="px-2 py-3 text-right">{formatarNumero(linha.registros)}</td></LinhaTabela>)}</tbody></table></CardContent></Card>
+              {semana === "all" ? (
+                <Card className="border-amber-300 bg-amber-50">
+                  <CardContent className="flex flex-col items-start gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex gap-3">
+                      <CalendarDays className="mt-0.5 h-6 w-6 text-amber-700" />
+                      <div>
+                        <h3 className="font-semibold text-amber-950">Escolha uma semana para analisar os dias</h3>
+                        <p className="mt-1 max-w-2xl text-sm text-amber-900">Esta análise é semanal. Para evitar somar segundas-feiras, terças-feiras e outros dias de semanas diferentes, os totais só aparecem depois de selecionar uma semana no filtro acima.</p>
+                      </div>
+                    </div>
+                    <button onClick={() => setSemana(String(moment().isoWeek()))} className="shrink-0 rounded-lg bg-amber-700 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-800">Ver semana atual</button>
+                  </CardContent>
+                </Card>
+              ) : (
+                <>
+                  <Card className="border-primary/20 bg-primary/[0.03]"><CardContent className="flex items-center gap-3 p-4 text-sm text-muted-foreground"><CalendarDays className="h-5 w-5 text-primary" /><span><strong className="text-foreground">Semana {semana}/{ano}:</strong> comparação de segunda a domingo apenas dentro desta semana.</span></CardContent></Card>
+                  <Card><CardHeader><CardTitle className="text-base">Colheita por dia da semana</CardTitle></CardHeader><CardContent className="h-80"><ResponsiveContainer width="100%" height="100%"><BarChart data={porDiaGrafico}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="curto" /><YAxis tick={{ fontSize: 11 }} /><Tooltip {...tooltipStyle} formatter={(valor, nome) => [formatarNumero(valor), nome === "hastes_colhidas" ? "Hastes colhidas" : "Cestos"]} /><Legend /><Bar dataKey="hastes_colhidas" name="Hastes colhidas" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} /><Bar dataKey="cestos" name="Cestos" fill="hsl(42 80% 55%)" radius={[4, 4, 0, 0]} /></BarChart></ResponsiveContainer></CardContent></Card>
+                  <Card><CardHeader><CardTitle className="text-base">Resumo por dia — Semana {semana}</CardTitle></CardHeader><CardContent className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b text-xs uppercase tracking-wide text-muted-foreground"><th className="px-2 py-3 text-left">Dia</th><th className="px-2 py-3 text-right">Hastes colhidas</th><th className="px-2 py-3 text-right">Cestos</th><th className="px-2 py-3 text-right">Lançamentos</th></tr></thead><tbody>{analise.porDiaSemana.map((linha) => <LinhaTabela key={linha.numero}><td className="px-2 py-3 font-medium">{linha.nome}</td><td className="px-2 py-3 text-right font-semibold text-primary">{formatarNumero(linha.hastes_colhidas)}</td><td className="px-2 py-3 text-right">{formatarNumero(linha.cestos)}</td><td className="px-2 py-3 text-right">{formatarNumero(linha.registros)}</td></LinhaTabela>)}</tbody></table></CardContent></Card>
+                </>
+              )}
             </TabsContent>
 
             <TabsContent value="criterios" className="space-y-5">
