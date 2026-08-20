@@ -223,26 +223,53 @@ export const colheitasAPI = {
     Object.keys(localStorage).filter(k => k.startsWith('cache_colheitas')).forEach(k => localStorage.removeItem(k));
     return true;
   },
-  // Busca todas as colheitas de um ano (sem limite fixo de registros)
+  // Busca anual direta, paginada e sem cache: relatórios não podem mostrar dados silenciosamente incompletos.
   listByAno: async (ano) => {
-    const cacheKey = `cache_colheitas_ano_${ano}`;
-    const data = await withCacheFallback(cacheKey, async () => {
-      const inicio = `${ano}-01-01`;
-      const fim    = `${ano}-12-31`;
-      const { data: result, error } = await supabase
+    const inicio = `${ano}-01-01`;
+    const fim = `${ano}-12-31`;
+    const tamanhoPagina = 1000;
+    const registros = [];
+
+    for (let inicioPagina = 0; ; inicioPagina += tamanhoPagina) {
+      const { data: pagina, error } = await supabase
         .from('colheitas')
         .select('*')
         .gte('data_colheita', inicio)
         .lte('data_colheita', fim)
-        .order('data_colheita', { ascending: false });
+        .order('data_colheita', { ascending: false })
+        .order('id', { ascending: false })
+        .range(inicioPagina, inicioPagina + tamanhoPagina - 1);
       if (error) throw error;
-      return result || [];
-    });
-    return (Array.isArray(data) ? data : []).map(normalizarColheitaParaLeitura);
+      registros.push(...(pagina || []));
+      if (!pagina || pagina.length < tamanhoPagina) break;
+    }
+    return registros.map(normalizarColheitaParaLeitura);
   },
 };
 
 export const descartesAPI = {
+  // Busca anual direta e paginada para análises e exportações completas.
+  listByAno: async (ano) => {
+    const inicio = `${ano}-01-01`;
+    const fim = `${ano}-12-31`;
+    const tamanhoPagina = 1000;
+    const registros = [];
+
+    for (let inicioPagina = 0; ; inicioPagina += tamanhoPagina) {
+      const { data: pagina, error } = await supabase
+        .from('descartes')
+        .select('*')
+        .gte('data_descarte', inicio)
+        .lte('data_descarte', fim)
+        .order('data_descarte', { ascending: false })
+        .order('id', { ascending: false })
+        .range(inicioPagina, inicioPagina + tamanhoPagina - 1);
+      if (error) throw error;
+      registros.push(...(pagina || []));
+      if (!pagina || pagina.length < tamanhoPagina) break;
+    }
+    return registros;
+  },
   list: async (limit = 500) => {
     return withCacheFallback(`cache_descartes_${limit}`, async () => {
       const { data, error } = await supabase
@@ -262,22 +289,19 @@ export const descartesAPI = {
   create: async (data) => {
     const { data: result, error } = await supabase.from('descartes').insert([data]).select().single();
     if (error) throw error;
-    localStorage.removeItem('cache_descartes_500');
-    localStorage.removeItem('cache_descartes_1000');
+    Object.keys(localStorage).filter(k => k.startsWith('cache_descartes')).forEach(k => localStorage.removeItem(k));
     return result;
   },
   update: async (id, data) => {
     const { data: result, error } = await supabase.from('descartes').update(data).eq('id', id).select().single();
     if (error) throw error;
-    localStorage.removeItem('cache_descartes_500');
-    localStorage.removeItem('cache_descartes_1000');
+    Object.keys(localStorage).filter(k => k.startsWith('cache_descartes')).forEach(k => localStorage.removeItem(k));
     return result;
   },
   delete: async (id) => {
     const { error } = await supabase.from('descartes').delete().eq('id', id);
     if (error) throw error;
-    localStorage.removeItem('cache_descartes_500');
-    localStorage.removeItem('cache_descartes_1000');
+    Object.keys(localStorage).filter(k => k.startsWith('cache_descartes')).forEach(k => localStorage.removeItem(k));
     return true;
   },
 };
