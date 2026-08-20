@@ -59,6 +59,7 @@ export const VARIEDADES = [
   "SORBET VANILLA",
   "SPARTAK",
   "TOPSPIN",
+  "URBAN",
   "VARESE",
   "VESPA PINK",
   "VESPA SALMON",

@@ -109,6 +109,28 @@ export const ALIAS_VARIEDADES = {
   // ── Fireball ──────────────────────────────────────────────────────────────
   "fireball dark":         "Fireball Dark",
   "fireball":              "Fireball Dark",
+
+  // ── Grafias históricas encontradas nos lançamentos ─────────────────────────
+  "abbey rosa":            "Abbey",
+  "anast.sunny":           "Anastasia Sunny",
+  "anast sunny":           "Anastasia Sunny",
+  "balrd":                 "Baldr",
+  "cléo":                  "Cleo",
+  "eirine":                "Eirini",
+  "felidade jade":         "Felicidade Jade",
+  "felling green dark":    "Feeling Green Dark",
+  "fire ball dark":        "Fireball Dark",
+  "fênix":                 "Fenix",
+  "fênix 2000":            "Fenix",
+  "fenix 2000":            "Fenix",
+  "herreira":              "Anastasia Herrera",
+  "herrera":               "Anastasia Herrera",
+  "lion king":             "Lionking",
+  "mariele":               "Marielle",
+  "sorbet":                "Sorbet Vanilla",
+  "spartac":               "Spartak",
+  "urban":                 "Urban",
+  "vespa rosa":            "Vespa Pink",
 };
 
 /**
