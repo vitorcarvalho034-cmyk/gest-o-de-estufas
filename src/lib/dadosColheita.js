@@ -19,6 +19,9 @@ export const DIAS_SEMANA = [
   { numero: 7, nome: "Domingo" },
 ];
 
+// Mantido localmente para não depender do idioma configurado no navegador.
+export const MESES_PT_BR = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+
 export function numeroSeguro(valor) {
   const numero = Number(valor);
   return Number.isFinite(numero) && numero > 0 ? numero : 0;
@@ -111,7 +114,7 @@ function consolidarPorMes(colheitas, descartes, variedadeSelecionada) {
     const chave = String(mes).padStart(2, "0");
     mapa.set(chave, {
       mes_numero: mes,
-      mes: moment().month(mes - 1).locale("pt-br").format("MMM").replace(".", ""),
+      mes: MESES_PT_BR[mes - 1],
       hastes_colhidas: 0,
       hastes_descartadas: 0,
       cestos: 0,
