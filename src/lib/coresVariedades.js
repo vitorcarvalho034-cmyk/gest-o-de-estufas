@@ -25,6 +25,9 @@ export const ALIAS_VARIEDADES = {
   "desb.fuego dark":             "Anastasia Fuego Dark",
   "desb.dark fuego":             "Anastasia Fuego Dark",
   "desb. dark fuego":            "Anastasia Fuego Dark",
+  "anastasia dark fuego":        "Anastasia Fuego Dark",
+  "dark fuego":                  "Anastasia Fuego Dark",
+  "fuego":                       "Anastasia Fuego Dark",
   "anastasia fuego dark":        "Anastasia Fuego Dark",
   "fuego dark":                  "Anastasia Fuego Dark",
 
@@ -42,31 +45,37 @@ export const ALIAS_VARIEDADES = {
   "anastasia herrera":     "Anastasia Herrera",
 
   // ── Anastasia Magnum ──────────────────────────────────────────────────────
+  "magnum":                "Anastasia Magnum",
   "desb. magnum":          "Anastasia Magnum",
   "desb.magnum":           "Anastasia Magnum",
   "anastasia magnum":      "Anastasia Magnum",
 
   // ── Anastasia Lotso ───────────────────────────────────────────────────────
+  "lotso":                 "Anastasia Lotso",
   "desb. lotso":           "Anastasia Lotso",
   "desb.lotso":            "Anastasia Lotso",
   "anastasia lotso":       "Anastasia Lotso",
 
   // ── Anastasia Boda ────────────────────────────────────────────────────────
+  "boda":                  "Anastasia Boda",
   "desb. boda":            "Anastasia Boda",
   "desb.boda":             "Anastasia Boda",
   "anastasia boda":        "Anastasia Boda",
 
   // ── Anastasia Fiebre ──────────────────────────────────────────────────────
+  "fiebre":                "Anastasia Fiebre",
   "desb. fiebre":          "Anastasia Fiebre",
   "desb.fiebre":           "Anastasia Fiebre",
   "anastasia fiebre":      "Anastasia Fiebre",
 
   // ── Anastasia Chispa ──────────────────────────────────────────────────────
+  "chispa":                "Anastasia Chispa",
   "desb. chispa":          "Anastasia Chispa",
   "desb.chispa":           "Anastasia Chispa",
   "anastasia chispa":      "Anastasia Chispa",
 
   // ── Anastasia Sunny ───────────────────────────────────────────────────────
+  "sunny":                 "Anastasia Sunny",
   "desb. anastasia sunny": "Anastasia Sunny",
   "desb.anastasia sunny":  "Anastasia Sunny",
   "anastasia sunny":       "Anastasia Sunny",
@@ -74,8 +83,9 @@ export const ALIAS_VARIEDADES = {
   // ── Anastasia Dark Green ──────────────────────────────────────────────────
   "desb. anastasia dark green":  "Anastasia Green Dark",
   "des. anastasia dark green":   "Anastasia Green Dark",
+  "anast dark green":            "Anastasia Green Dark",
   "anastasia dark green":        "Anastasia Green Dark",
-  "anastasia green dark":        "Anastasia Green Dark",
+  "dark green":                  "Anastasia Green Dark",
   "anastasia green dark":        "Anastasia Green Dark",
 
   // ── Sorbet / Sobert Vanilla (erro de digitação) ───────────────────────────
