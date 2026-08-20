@@ -1,4 +1,5 @@
 import moment from "moment";
+import ExcelJS from "exceljs";
 import { AREA_M2_POR_CANTEIRO, formatarNumero } from "@/lib/dadosColheita";
 
 const VERDE = "0F5132";
@@ -101,7 +102,6 @@ function filtroTexto(filtros) {
 }
 
 export async function exportarDadosColheitaExcel(analise) {
-  const ExcelJS = await import("exceljs");
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "Flores da Terra";
   workbook.created = new Date();
