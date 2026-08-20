@@ -110,6 +110,14 @@ export function normalizarVariedade(variedade) {
   if (!variedade) return variedade;
   const key = variedade.toLowerCase().trim().replace(/\s+/g, " ");
   if (ALIAS_VARIEDADES[key]) return ALIAS_VARIEDADES[key];
+
+  // Evita que variações apenas de maiúsculas/minúsculas criem linhas duplicadas
+  // em produtividade, previsão e relatórios (ex.: "Maverick white" = "Maverick White").
+  const nomeOficial = Object.keys(CORES_VARIEDADES).find(
+    (nome) => nome.toLowerCase().trim().replace(/\s+/g, " ") === key
+  );
+  if (nomeOficial) return nomeOficial;
+
   return variedade.trim();
 }
 
