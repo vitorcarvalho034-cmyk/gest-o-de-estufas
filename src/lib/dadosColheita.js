@@ -105,7 +105,7 @@ function consolidarVariedades(colheitas, descartes) {
         descarte_pct: total_processado > 0 ? Number(((linha.hastes_descartadas / total_processado) * 100).toFixed(2)) : 0,
       };
     })
-    .sort((a, b) => b.hastes_colhidas - a.hastes_colhidas || a.variedade.localeCompare(b.variedade, "pt-BR"));
+    .sort((a, b) => a.variedade.localeCompare(b.variedade, "pt-BR", { sensitivity: "base" }));
 }
 
 function consolidarPorMes(colheitas, descartes, variedadeSelecionada) {
