@@ -70,13 +70,27 @@ function nomeVariedades(canteiro) {
   return nomes.length ? nomes.join(", ") : "variedade não informada";
 }
 
+function escolherVozMasculinaPtBr() {
+  if (!("speechSynthesis" in window)) return null;
+  const vozes = window.speechSynthesis.getVoices();
+  const portuguesBrasil = vozes.filter((voz) => /^pt[-_]BR$/i.test(voz.lang || ""));
+  const nomesMasculinos = /daniel|antonio|felipe|ricardo|carlos|paulo|male|mascul/i;
+  return portuguesBrasil.find((voz) => nomesMasculinos.test(voz.name || ""))
+    || portuguesBrasil.find((voz) => /google.*portugu/i.test(voz.name || ""))
+    || portuguesBrasil[0]
+    || vozes.find((voz) => /^pt/i.test(voz.lang || ""))
+    || null;
+}
+
 function falar(texto, habilitado) {
   if (!habilitado || !("speechSynthesis" in window)) return;
   window.speechSynthesis.cancel();
   const fala = new SpeechSynthesisUtterance(texto);
   fala.lang = "pt-BR";
   fala.rate = 1;
-  fala.pitch = 1;
+  fala.pitch = 0.82;
+  const voz = escolherVozMasculinaPtBr();
+  if (voz) fala.voice = voz;
   window.speechSynthesis.speak(fala);
 }
 
@@ -105,9 +119,14 @@ export default function AgroVitaoIA() {
     return typeof window !== "undefined" && Boolean(window.SpeechRecognition || window.webkitSpeechRecognition);
   }, []);
 
-  useEffect(() => () => {
-    reconhecimentoRef.current?.stop?.();
-    if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.cancel();
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      window.speechSynthesis.getVoices();
+    }
+    return () => {
+      reconhecimentoRef.current?.stop?.();
+      if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.cancel();
+    };
   }, []);
 
   function fechar() {
