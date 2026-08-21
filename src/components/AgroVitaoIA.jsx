@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Bot, Loader2, MessageCircle, Mic, Send, Sparkles, Volume2, VolumeX, X } from "lucide-react";
+import { Bot, Loader2, Mic, Send, Sparkles, Volume2, VolumeX, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -89,6 +89,17 @@ export default function AgroVitaoIA() {
   const [escutando, setEscutando] = useState(false);
   const [vozAtiva, setVozAtiva] = useState(true);
   const reconhecimentoRef = useRef(null);
+  const arrasteRef = useRef(null);
+  const ignorarCliqueRef = useRef(false);
+  const [arrastando, setArrastando] = useState(false);
+  const [posicao, setPosicao] = useState(() => {
+    try {
+      const salva = JSON.parse(localStorage.getItem("agro-vitao-posicao") || "null");
+      return salva && Number.isFinite(salva.x) && Number.isFinite(salva.y) ? salva : null;
+    } catch (_) {
+      return null;
+    }
+  });
 
   const suportaReconhecimento = useMemo(() => {
     return typeof window !== "undefined" && Boolean(window.SpeechRecognition || window.webkitSpeechRecognition);
@@ -190,15 +201,65 @@ export default function AgroVitaoIA() {
     reconhecimento.start();
   }
 
+  function iniciarArraste(evento) {
+    if (evento.pointerType === "mouse" && evento.button !== 0) return;
+    const retangulo = evento.currentTarget.getBoundingClientRect();
+    arrasteRef.current = {
+      pointerId: evento.pointerId,
+      offsetX: evento.clientX - retangulo.left,
+      offsetY: evento.clientY - retangulo.top,
+      moveu: false,
+      inicioX: evento.clientX,
+      inicioY: evento.clientY,
+    };
+    evento.currentTarget.setPointerCapture?.(evento.pointerId);
+    setArrastando(true);
+  }
+
+  function moverArraste(evento) {
+    const arraste = arrasteRef.current;
+    if (!arraste || arraste.pointerId !== evento.pointerId) return;
+    const margem = 8;
+    const margemInferior = window.innerWidth < 1024 ? 96 : 16;
+    const maxX = Math.max(margem, window.innerWidth - 64 - margem);
+    const maxY = Math.max(margem, window.innerHeight - 64 - margemInferior);
+    const x = Math.min(maxX, Math.max(margem, evento.clientX - arraste.offsetX));
+    const y = Math.min(maxY, Math.max(margem, evento.clientY - arraste.offsetY));
+    if (Math.abs(evento.clientX - arraste.inicioX) > 5 || Math.abs(evento.clientY - arraste.inicioY) > 5) arraste.moveu = true;
+    setPosicao({ x, y });
+  }
+
+  function terminarArraste(evento) {
+    const arraste = arrasteRef.current;
+    if (!arraste || arraste.pointerId !== evento.pointerId) return;
+    evento.currentTarget.releasePointerCapture?.(evento.pointerId);
+    if (arraste.moveu) {
+      ignorarCliqueRef.current = true;
+      setTimeout(() => { ignorarCliqueRef.current = false; }, 0);
+      setPosicao((atual) => {
+        if (atual) localStorage.setItem("agro-vitao-posicao", JSON.stringify(atual));
+        return atual;
+      });
+    }
+    arrasteRef.current = null;
+    setArrastando(false);
+  }
+
   return <>
     <button
       type="button"
       aria-label="Abrir Agro Vitão IA"
-      onClick={() => setAberto(true)}
-      className="fixed right-4 bottom-24 lg:bottom-6 z-[60] h-16 w-16 rounded-full border-2 border-white/70 bg-emerald-700/90 p-1 shadow-xl shadow-emerald-950/30 backdrop-blur transition-all duration-200 hover:scale-105 hover:bg-emerald-700 focus:outline-none focus:ring-4 focus:ring-emerald-300/60"
+      title="Arraste para mover · toque para falar com o Vitão"
+      onPointerDown={iniciarArraste}
+      onPointerMove={moverArraste}
+      onPointerUp={terminarArraste}
+      onPointerCancel={terminarArraste}
+      onClick={() => { if (!ignorarCliqueRef.current) setAberto(true); }}
+      style={posicao ? { left: `${posicao.x}px`, top: `${posicao.y}px`, right: "auto", bottom: "auto" } : undefined}
+      className={`fixed right-4 bottom-24 lg:bottom-6 z-[60] h-16 w-16 touch-none rounded-full border-2 border-white/60 bg-emerald-700/55 p-1 shadow-lg shadow-emerald-950/20 backdrop-blur transition-[transform,opacity,background-color] duration-200 hover:scale-105 hover:bg-emerald-700/90 hover:opacity-100 focus:outline-none focus:ring-4 focus:ring-emerald-300/50 ${arrastando ? "scale-105 cursor-grabbing opacity-100" : "cursor-grab opacity-65"}`}
     >
-      <img src="/vitao-avatar-sem-borda.png" alt="Agro Vitão IA" className="h-full w-full rounded-full object-cover" />
-      <span className="absolute -right-0.5 -top-0.5 h-4 w-4 rounded-full border-2 border-white bg-emerald-400" />
+      <img src="/vitao-avatar-sem-borda.png" alt="Agro Vitão IA" draggable="false" className="pointer-events-none h-full w-full rounded-full object-cover" />
+      <span className="pointer-events-none absolute -right-0.5 -top-0.5 h-3.5 w-3.5 rounded-full border-2 border-white bg-emerald-400" />
     </button>
 
     <Dialog open={aberto} onOpenChange={(valor) => (valor ? setAberto(true) : fechar())}>
