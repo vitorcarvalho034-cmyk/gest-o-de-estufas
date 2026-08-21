@@ -489,7 +489,7 @@ function StepConfirm({ form, onChange, isEditing }) {
   );
 }
 
-export default function ColheitaWizard({ open, onClose, onSaved, editingColheita }) {
+export default function ColheitaWizard({ open, onClose, onSaved, editingColheita, initialForm }) {
   const isEditing = !!editingColheita;
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
@@ -518,6 +518,15 @@ export default function ColheitaWizard({ open, onClose, onSaved, editingColheita
         data_colheita: editingColheita.data_colheita || new Date().toISOString().split("T")[0],
         descarte_motivo: "", descarte_quantidade: "", descarte_observacao: "",
       });
+      setStep(0);
+    } else if (initialForm) {
+      setForm({
+        estufa: String(initialForm.estufa || ""), lado: initialForm.lado || "", vao: String(initialForm.vao || ""), canteiro: String(initialForm.canteiro || ""),
+        variedade: initialForm.variedade || "", destino: initialForm.destino || "", cestos: String(initialForm.cestos || ""), macos: String(initialForm.macos || ""), hastes_avulsas: String(initialForm.hastes_avulsas || ""), modo: initialForm.modo || "cestos",
+        data_colheita: initialForm.data_colheita || new Date().toISOString().split("T")[0],
+        descarte_motivo: "", descarte_quantidade: "", descarte_observacao: "",
+      });
+      setStep(3);
     } else {
       setForm({
         estufa: "", lado: "", vao: "", canteiro: "",
@@ -525,9 +534,9 @@ export default function ColheitaWizard({ open, onClose, onSaved, editingColheita
         data_colheita: new Date().toISOString().split("T")[0],
         descarte_motivo: "", descarte_quantidade: "", descarte_observacao: "",
       });
+      setStep(0);
     }
-    setStep(0);
-  }, [editingColheita, open]);
+  }, [editingColheita, initialForm, open]);
 
   useEffect(() => {
     if (form.estufa && form.lado && form.vao && form.canteiro) {

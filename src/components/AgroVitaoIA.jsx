@@ -3,12 +3,14 @@ import { Bot, Loader2, Mic, Send, Sparkles, Volume2, VolumeX, X } from "lucide-r
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { canteirosAPI } from "@/api/supabaseClient";
+import { interpretarComandoColheita, responderAgroVitao } from "@/lib/agroVitaoDados";
 
 const SUGESTOES = [
+  "Como foi a colheita ontem?",
+  "Qual estufa colheu mais esta semana?",
   "O que está plantado na Estufa 4, Lado B, Vão 10?",
-  "O que está plantado na Estufa 1, Lado A, Vão 5?",
-  "O que está plantado na Estufa 2, Lado B, Vão 30?",
+  "O que falta colher para a meta da semana?",
+  "Como está a previsão desta semana?",
 ];
 
 const NUMEROS_SIMPLES = {
@@ -143,48 +145,31 @@ export default function AgroVitaoIA() {
       return;
     }
 
-    const local = interpretarConsulta(texto);
     setTranscricao(texto);
     setConsultando(true);
     setResposta("");
 
     try {
-      if (!local.estufa || !local.lado || !local.vao) {
-        const mensagem = "Para eu consultar o plantio, informe Estufa, Lado e Vão. Exemplo: o que está plantado na Estufa 4, Lado B, Vão 10?";
-        setResposta(mensagem);
-        falar(mensagem, vozAtiva);
+      const comando = await interpretarComandoColheita(texto);
+      if (comando.eComando) {
+        setResposta(comando.mensagem);
+        falar(comando.mensagem, vozAtiva);
+        if (comando.completo && comando.prefill) {
+          sessionStorage.setItem("agro-vitao-colheita-pendente", JSON.stringify(comando.prefill));
+          if (window.location.pathname === "/colheita") {
+            window.dispatchEvent(new CustomEvent("agro-vitao-confirmar-colheita", { detail: comando.prefill }));
+          } else {
+            window.setTimeout(() => { window.location.assign("/colheita?agro-vitao=1"); }, 850);
+          }
+        }
         return;
       }
-
-      const canteiros = await canteirosAPI.list();
-      const encontrados = (Array.isArray(canteiros) ? canteiros : [])
-        .filter((canteiro) => Number(canteiro.estufa) === local.estufa)
-        .filter((canteiro) => String(canteiro.lado || "").toUpperCase() === local.lado)
-        .filter((canteiro) => Number(canteiro.vao) === local.vao)
-        .filter((canteiro) => !local.canteiro || Number(canteiro.numero) === local.canteiro)
-        .filter((canteiro) => (canteiro.variedades || []).length > 0 || Number(canteiro.total_mudas || 0) > 0)
-        .sort((a, b) => Number(a.numero) - Number(b.numero));
-
-      if (!encontrados.length) {
-        const localFalado = `Estufa ${local.estufa}, Lado ${local.lado}, Vão ${local.vao}${local.canteiro ? `, Canteiro ${local.canteiro}` : ""}`;
-        const mensagem = `Não encontrei plantio ativo em ${localFalado}. Confira o local ou veja se o plantio já foi registrado.`;
-        setResposta(mensagem);
-        falar(mensagem, vozAtiva);
-        return;
-      }
-
-      const resumoCanteiros = encontrados.map((canteiro) => {
-        const quantidade = Number(canteiro.total_mudas || 0);
-        const mudas = quantidade > 0 ? `, com ${quantidade.toLocaleString("pt-BR")} mudas` : "";
-        return `Canteiro ${canteiro.numero}: ${nomeVariedades(canteiro)}${mudas}`;
-      });
-      const tituloLocal = `Na Estufa ${local.estufa}, Lado ${local.lado}, Vão ${local.vao}`;
-      const mensagem = `${tituloLocal}, encontrei ${resumoCanteiros.join(". ")}.`;
+      const mensagem = await responderAgroVitao(texto);
       setResposta(mensagem);
       falar(mensagem, vozAtiva);
     } catch (erro) {
       console.error("Agro Vitão IA — erro na consulta:", erro);
-      const mensagem = "Não consegui consultar os plantios agora. Verifique a conexão e tente novamente.";
+      const mensagem = "Não consegui consultar os dados agora. Verifique a conexão e tente novamente.";
       setResposta(mensagem);
       falar(mensagem, vozAtiva);
     } finally {
@@ -293,7 +278,7 @@ export default function AgroVitaoIA() {
 
         <div className="space-y-4 p-5">
           <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-3 text-sm text-emerald-950">
-            <strong>Posso consultar o que está plantado.</strong> Diga Estufa, Lado e Vão. Eu respondo na tela e por voz.
+            <strong>Posso consultar todo o app.</strong> Pergunte sobre plantio, colheita, descarte, previsão, metas, plano de separação, conferência ou pautas. Eu respondo na tela e por voz.
           </div>
 
           {transcricao && <div className="rounded-lg bg-muted px-3 py-2 text-xs"><span className="font-semibold">Entendi:</span> {transcricao}</div>}
@@ -303,7 +288,7 @@ export default function AgroVitaoIA() {
           <div className="flex flex-wrap gap-2">{SUGESTOES.map((sugestao) => <button key={sugestao} type="button" onClick={() => { setPergunta(sugestao); consultar(sugestao); }} className="rounded-full border bg-background px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-primary">{sugestao}</button>)}</div>
 
           <div className="flex items-end gap-2">
-            <textarea value={pergunta} onChange={(evento) => setPergunta(evento.target.value)} onKeyDown={(evento) => { if (evento.key === "Enter" && !evento.shiftKey) { evento.preventDefault(); consultar(); } }} placeholder="Ex.: O que está plantado na Estufa 4, Lado B, Vão 10?" rows={3} className="min-h-[80px] flex-1 resize-none rounded-xl border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30" />
+            <textarea value={pergunta} onChange={(evento) => setPergunta(evento.target.value)} onKeyDown={(evento) => { if (evento.key === "Enter" && !evento.shiftKey) { evento.preventDefault(); consultar(); } }} placeholder="Ex.: Como foi a colheita ontem?" rows={3} className="min-h-[80px] flex-1 resize-none rounded-xl border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30" />
             <div className="flex flex-col gap-2"><Button type="button" size="icon" variant={escutando ? "destructive" : "outline"} onClick={iniciarVoz} disabled={consultando} title="Falar com o Agro Vitão IA" className={escutando ? "animate-pulse" : ""}>{escutando ? <Mic className="h-4 w-4" /> : <Mic className="h-4 w-4" />}</Button><Button type="button" size="icon" onClick={() => consultar()} disabled={consultando} title="Consultar"><>{consultando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}</></Button></div>
           </div>
 

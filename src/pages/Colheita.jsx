@@ -53,6 +53,7 @@ export default function Colheita() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [loteDialogOpen, setLoteDialogOpen] = useState(false);
   const [editingColheita, setEditingColheita] = useState(null);
+  const [vozColheitaInicial, setVozColheitaInicial] = useState(null);
   const [deleteDialog, setDeleteDialog] = useState({ open: false, id: null });
   const [buscaVariedade, setBuscaVariedade] = useState("");
   const [filtroEstufa, setFiltroEstufa] = useState("todas");
@@ -76,6 +77,27 @@ export default function Colheita() {
   }
 
   useEffect(() => { loadColheitas(anoNav); }, []);
+
+  useEffect(() => {
+    const abrirConfirmacaoPorVoz = (evento) => {
+      const dados = evento.detail;
+      if (!dados) return;
+      setEditingColheita(null);
+      setVozColheitaInicial(dados);
+      setDialogOpen(true);
+    };
+    try {
+      const pendente = JSON.parse(sessionStorage.getItem("agro-vitao-colheita-pendente") || "null");
+      if (pendente) {
+        sessionStorage.removeItem("agro-vitao-colheita-pendente");
+        abrirConfirmacaoPorVoz({ detail: pendente });
+      }
+    } catch (erro) {
+      console.warn("Não foi possível recuperar a colheita preparada pelo Agro Vitão IA:", erro);
+    }
+    window.addEventListener("agro-vitao-confirmar-colheita", abrirConfirmacaoPorVoz);
+    return () => window.removeEventListener("agro-vitao-confirmar-colheita", abrirConfirmacaoPorVoz);
+  }, []);
 
   // Recarregar quando o ano muda (navegação entre semanas)
   useEffect(() => {
@@ -635,9 +657,10 @@ export default function Colheita() {
       />
       <ColheitaWizard 
         open={dialogOpen} 
-        onClose={handleCloseDialog} 
-        onSaved={loadColheitas} 
+        onClose={() => { handleCloseDialog(); setVozColheitaInicial(null); }}
+        onSaved={async () => { await loadColheitas(); setVozColheitaInicial(null); }}
         editingColheita={editingColheita}
+        initialForm={vozColheitaInicial}
       />
 
       {/* Delete Confirmation Dialog */}
