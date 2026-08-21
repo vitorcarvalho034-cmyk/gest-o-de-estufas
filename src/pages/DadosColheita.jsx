@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import moment from "moment";
-import { BarChart3, Download, RefreshCw, AlertTriangle, Scissors, Trash2, Ruler, CheckCircle2, CalendarDays, Leaf } from "lucide-react";
+import { BarChart3, Download, RefreshCw, AlertTriangle, Scissors, Trash2, Ruler, CheckCircle2, CalendarDays, Leaf, ArrowUpDown, ChevronUp, ChevronDown } from "lucide-react";
 import { BarChart, Bar, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, LineChart, Line, Legend } from "recharts";
 import { toast } from "sonner";
 import { colheitasAPI, descartesAPI } from "@/api/supabaseClient";
@@ -36,6 +36,22 @@ function LinhaTabela({ children, className = "" }) {
   return <tr className={`border-b transition-colors hover:bg-muted/30 ${className}`}>{children}</tr>;
 }
 
+function CabecalhoOrdenavel({ campo, children, alinhamento = "text-left", ordenacao, onOrdenar }) {
+  const ativo = ordenacao.campo === campo;
+  const Icone = ativo ? (ordenacao.direcao === "asc" ? ChevronUp : ChevronDown) : ArrowUpDown;
+  const titulo = ativo
+    ? `${children}: ${ordenacao.direcao === "asc" ? "menor para maior" : "maior para menor"}. Clique para inverter.`
+    : `Ordenar por ${String(children).toLowerCase()}`;
+
+  return (
+    <th scope="col" aria-sort={ativo ? (ordenacao.direcao === "asc" ? "ascending" : "descending") : "none"} className={`px-2 py-3 ${alinhamento}`}>
+      <button type="button" onClick={() => onOrdenar(campo)} title={titulo} className={`inline-flex items-center gap-1.5 rounded px-1 py-0.5 transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${alinhamento === "text-right" ? "ml-auto" : ""}`}>
+        <span>{children}</span><Icone className={`h-3.5 w-3.5 ${ativo ? "text-primary" : "text-muted-foreground/70"}`} />
+      </button>
+    </th>
+  );
+}
+
 export default function DadosColheita() {
   const anoAtual = moment().year();
   const [ano, setAno] = useState(String(anoAtual));
@@ -48,6 +64,7 @@ export default function DadosColheita() {
   const [atualizando, setAtualizando] = useState(false);
   const [erro, setErro] = useState("");
   const [exportando, setExportando] = useState(false);
+  const [ordenacaoVariedades, setOrdenacaoVariedades] = useState({ campo: "variedade", direcao: "asc" });
 
   const carregar = async (mostrarToast = false) => {
     setAtualizando(true);
@@ -93,6 +110,22 @@ export default function DadosColheita() {
 
   const filtros = useMemo(() => ({ ano: Number(ano), semana, estufa, variedade }), [ano, semana, estufa, variedade]);
   const analise = useMemo(() => construirAnaliseColheita(colheitas, descartes, filtros), [colheitas, descartes, filtros]);
+  const porVariedadeOrdenada = useMemo(() => {
+    const { campo, direcao } = ordenacaoVariedades;
+    const multiplicador = direcao === "asc" ? 1 : -1;
+    return [...analise.porVariedade].sort((a, b) => {
+      if (campo === "variedade") return a.variedade.localeCompare(b.variedade, "pt-BR", { sensitivity: "base" }) * multiplicador;
+      const diferenca = (Number(a[campo]) || 0) - (Number(b[campo]) || 0);
+      return diferenca === 0 ? a.variedade.localeCompare(b.variedade, "pt-BR", { sensitivity: "base" }) : diferenca * multiplicador;
+    });
+  }, [analise.porVariedade, ordenacaoVariedades]);
+
+  const alterarOrdenacaoVariedades = (campo) => {
+    setOrdenacaoVariedades((atual) => {
+      if (atual.campo === campo) return { campo, direcao: atual.direcao === "asc" ? "desc" : "asc" };
+      return { campo, direcao: campo === "variedade" ? "asc" : "desc" };
+    });
+  };
 
   const semanasDoAno = useMemo(() => {
     const inicio = moment(`${ano}-01-04`).startOf("isoWeek");
@@ -228,7 +261,7 @@ export default function DadosColheita() {
                 <Card className="xl:col-span-3"><CardHeader><CardTitle className="text-base">Leitura do relatório</CardTitle></CardHeader><CardContent className="space-y-3 text-sm text-muted-foreground"><p>O ranking considera somente <strong className="text-foreground">crisântemos</strong> e unifica nomes equivalentes de variedade para não duplicar o resultado.</p><p>Área efetiva é calculada por canteiro único com colheita no período: <strong className="text-foreground">{AREA_M2_POR_CANTEIRO.toLocaleString("pt-BR")} m² por canteiro</strong>.</p><p>O descarte é lido em <strong className="text-foreground">hastes</strong>, separado da colheita, e entra na taxa de aproveitamento.</p><p className="rounded-lg bg-muted p-3 text-xs">Para auditoria, o Excel inclui as abas de bases brutas e de validações junto com todos os cálculos consolidados.</p></CardContent></Card>
               </div>
 
-              <Card><CardHeader><CardTitle className="text-base">Produtividade / variedade</CardTitle></CardHeader><CardContent className="overflow-x-auto"><table className="w-full min-w-[900px] text-sm"><thead><tr className="border-b text-xs uppercase tracking-wide text-muted-foreground"><th className="px-2 py-3 text-left">Variedade</th><th className="px-2 py-3 text-right">Hastes colhidas</th><th className="px-2 py-3 text-right">Descartadas</th><th className="px-2 py-3 text-right">Cestos</th><th className="px-2 py-3 text-right">Canteiros</th><th className="px-2 py-3 text-right">Área (m²)</th><th className="px-2 py-3 text-right">Hastes/m²</th><th className="px-2 py-3 text-right">Aproveitamento</th></tr></thead><tbody>{analise.porVariedade.map((linha) => <LinhaTabela key={linha.variedade}><td className="px-2 py-3 font-medium">{linha.variedade}</td><td className="px-2 py-3 text-right font-semibold text-primary">{formatarNumero(linha.hastes_colhidas)}</td><td className="px-2 py-3 text-right text-destructive">{formatarNumero(linha.hastes_descartadas)}</td><td className="px-2 py-3 text-right">{formatarNumero(linha.cestos)}</td><td className="px-2 py-3 text-right">{formatarNumero(linha.canteiros)}</td><td className="px-2 py-3 text-right">{formatarNumero(linha.area_m2, 2)}</td><td className="px-2 py-3 text-right font-semibold">{formatarNumero(linha.produtividade_m2, 2)}</td><td className="px-2 py-3 text-right">{formatarPercentual(linha.aproveitamento_pct)}</td></LinhaTabela>)}{!analise.porVariedade.length && <tr><td colSpan={8} className="py-10 text-center text-muted-foreground">Nenhum registro de crisântemo foi encontrado para este filtro.</td></tr>}</tbody></table></CardContent></Card>
+              <Card><CardHeader><CardTitle className="text-base">Produtividade / variedade</CardTitle><p className="text-xs font-normal text-muted-foreground">Clique no título de uma coluna para ordenar. Em números, o primeiro clique mostra do maior para o menor.</p></CardHeader><CardContent className="overflow-x-auto"><table className="w-full min-w-[900px] text-sm"><thead><tr className="border-b text-xs uppercase tracking-wide text-muted-foreground"><CabecalhoOrdenavel campo="variedade" ordenacao={ordenacaoVariedades} onOrdenar={alterarOrdenacaoVariedades}>Variedade</CabecalhoOrdenavel><CabecalhoOrdenavel campo="hastes_colhidas" alinhamento="text-right" ordenacao={ordenacaoVariedades} onOrdenar={alterarOrdenacaoVariedades}>Hastes colhidas</CabecalhoOrdenavel><CabecalhoOrdenavel campo="hastes_descartadas" alinhamento="text-right" ordenacao={ordenacaoVariedades} onOrdenar={alterarOrdenacaoVariedades}>Descartadas</CabecalhoOrdenavel><CabecalhoOrdenavel campo="cestos" alinhamento="text-right" ordenacao={ordenacaoVariedades} onOrdenar={alterarOrdenacaoVariedades}>Cestos</CabecalhoOrdenavel><CabecalhoOrdenavel campo="canteiros" alinhamento="text-right" ordenacao={ordenacaoVariedades} onOrdenar={alterarOrdenacaoVariedades}>Canteiros</CabecalhoOrdenavel><CabecalhoOrdenavel campo="area_m2" alinhamento="text-right" ordenacao={ordenacaoVariedades} onOrdenar={alterarOrdenacaoVariedades}>Área (m²)</CabecalhoOrdenavel><CabecalhoOrdenavel campo="produtividade_m2" alinhamento="text-right" ordenacao={ordenacaoVariedades} onOrdenar={alterarOrdenacaoVariedades}>Hastes/m²</CabecalhoOrdenavel><CabecalhoOrdenavel campo="aproveitamento_pct" alinhamento="text-right" ordenacao={ordenacaoVariedades} onOrdenar={alterarOrdenacaoVariedades}>Aproveitamento</CabecalhoOrdenavel></tr></thead><tbody>{porVariedadeOrdenada.map((linha) => <LinhaTabela key={linha.variedade}><td className="px-2 py-3 font-medium">{linha.variedade}</td><td className="px-2 py-3 text-right font-semibold text-primary">{formatarNumero(linha.hastes_colhidas)}</td><td className="px-2 py-3 text-right text-destructive">{formatarNumero(linha.hastes_descartadas)}</td><td className="px-2 py-3 text-right">{formatarNumero(linha.cestos)}</td><td className="px-2 py-3 text-right">{formatarNumero(linha.canteiros)}</td><td className="px-2 py-3 text-right">{formatarNumero(linha.area_m2, 2)}</td><td className="px-2 py-3 text-right font-semibold">{formatarNumero(linha.produtividade_m2, 2)}</td><td className="px-2 py-3 text-right">{formatarPercentual(linha.aproveitamento_pct)}</td></LinhaTabela>)}{!porVariedadeOrdenada.length && <tr><td colSpan={8} className="py-10 text-center text-muted-foreground">Nenhum registro de crisântemo foi encontrado para este filtro.</td></tr>}</tbody></table></CardContent></Card>
             </TabsContent>
 
             <TabsContent value="mensal" className="space-y-5">
