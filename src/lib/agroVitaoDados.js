@@ -102,7 +102,7 @@ function nomeVariedades(canteiro) {
 }
 
 function agruparColheitas(colheitas) {
-  const total = { hastes: 0, cestos: 0, lancamentos: 0, destinos: {}, variedades: {}, estufas: {} };
+  const total = { hastes: 0, cestos: 0, lancamentos: 0, destinos: {}, variedades: {}, estufas: {}, porDia: {} };
   (colheitas || []).forEach((colheita) => {
     const hastes = getHastesColheita(colheita);
     const cestos = numero(colheita.cestos);
@@ -122,6 +122,25 @@ function agruparColheitas(colheitas) {
       if (!total.estufas[estufa]) total.estufas[estufa] = { hastes: 0, cestos: 0 };
       total.estufas[estufa].hastes += hastes;
       total.estufas[estufa].cestos += cestos;
+    }
+    const data = String(colheita.data_colheita || "").slice(0, 10);
+    if (data) {
+      if (!total.porDia[data]) total.porDia[data] = { hastes: 0, cestos: 0, lancamentos: 0, variedades: {}, estufas: {}, destinos: {} };
+      const dia = total.porDia[data];
+      dia.hastes += hastes;
+      dia.cestos += cestos;
+      dia.lancamentos += 1;
+      if (!dia.variedades[variedade]) dia.variedades[variedade] = { hastes: 0, cestos: 0 };
+      dia.variedades[variedade].hastes += hastes;
+      dia.variedades[variedade].cestos += cestos;
+      if (estufa) {
+        if (!dia.estufas[estufa]) dia.estufas[estufa] = { hastes: 0, cestos: 0 };
+        dia.estufas[estufa].hastes += hastes;
+        dia.estufas[estufa].cestos += cestos;
+      }
+      if (!dia.destinos[destino]) dia.destinos[destino] = { hastes: 0, cestos: 0 };
+      dia.destinos[destino].hastes += hastes;
+      dia.destinos[destino].cestos += cestos;
     }
   });
   return total;
@@ -258,6 +277,69 @@ function responderPauta(contexto) {
   if (numero(pauta.env_mercado)) itens.push(`Mercado enviado: ${formatarNumero(pauta.env_mercado)} caixas`);
   if (numero(pauta.env_buques)) itens.push(`Buquês enviados: ${formatarNumero(pauta.env_buques)} caixas`);
   return itens.length ? `Pauta da semana ${contexto.semana}/${contexto.ano}: ${itens.join(", ")}.` : `A Pauta da semana ${contexto.semana}/${contexto.ano} ainda não tem envios preenchidos.`;
+}
+
+export async function carregarContextoParaAgroVitao() {
+  const contexto = await carregarContexto();
+  const inicio = moment().subtract(14, "days").startOf("day");
+  const colheitasRecentes = (contexto.colheitas || []).filter((item) => item?.data_colheita && moment(item.data_colheita).isSameOrAfter(inicio, "day"));
+  const descartesRecentes = (contexto.descartes || []).filter((item) => item?.data_descarte && moment(item.data_descarte).isSameOrAfter(inicio, "day"));
+  const previsaoAtual = (contexto.previsoes || []).filter((item) => numero(item.semana) === contexto.semana && numero(item.ano) === contexto.ano);
+  const resumoColheita = agruparColheitas(colheitasRecentes);
+  const { porDia, ...resumoSemDias } = resumoColheita;
+  const ranking = (mapa = {}) => Object.entries(mapa)
+    .sort((a, b) => numero(b[1]?.hastes ?? b[1]) - numero(a[1]?.hastes ?? a[1]))
+    .slice(0, 12)
+    .map(([nome, valores]) => ({ nome, ...(typeof valores === "object" ? valores : { hastes: valores }) }));
+  const porDiaPadronizado = Object.fromEntries(Object.entries(porDia || {}).map(([data, valores]) => [data, {
+    hastes: numero(valores.hastes), cestos: numero(valores.cestos), lancamentos: numero(valores.lancamentos),
+    por_destino: valores.destinos || {}, variedades_lideres: ranking(valores.variedades), estufas_lideres: ranking(valores.estufas),
+  }]));
+
+  return {
+    referencia: {
+      data: contexto.agora.format("YYYY-MM-DD"),
+      semana: contexto.semana,
+      ano: contexto.ano,
+      janela_dados: `últimos 14 dias desde ${inicio.format("YYYY-MM-DD")}`,
+    },
+    canteiros_ativos: (contexto.canteiros || [])
+      .filter((item) => (item.variedades || []).length > 0 || numero(item.total_mudas) > 0)
+      .slice(0, 400)
+      .map((item) => ({
+        estufa: numero(item.estufa),
+        lado: String(item.lado || "").toUpperCase(),
+        vao: numero(item.vao),
+        canteiro: numero(item.numero),
+        variedades: (item.variedades || []).map((variedade) => variedade?.nome || variedade?.variedade).filter(Boolean).slice(0, 8),
+        mudas: numero(item.total_mudas),
+        finalizado_em: item.data_finalizacao || null,
+      })),
+    colheita_ultimos_14_dias: { ...resumoSemDias, por_dia: porDiaPadronizado },
+    descartes_ultimos_14_dias: descartesRecentes.slice(0, 200).map((item) => ({
+      data: item.data_descarte,
+      variedade: item.variedade || "Sem variedade",
+      hastes: numero(item.quantidade ?? item.hastes ?? item.pressas),
+      motivo: item.motivo || "",
+    })),
+    previsao_recente: previsaoAtual.slice(0, 200).map((item) => ({
+      semana: numero(item.semana), ano: numero(item.ano), variedade: item.variedade || "Sem variedade",
+      hastes_previstas: numero(item.hastes_previstas ?? item.pressas_previstas),
+    })),
+    plano_separacao_atual: (contexto.planos || []).slice(0, 150).map((item) => ({
+      semana: numero(item.semana), ano: numero(item.ano), variedade: item.variedade || "Sem variedade",
+      oferta: numero(item.cestos_oferta), mercado: numero(item.cestos_mercado), barracao: numero(item.cestos_barracao),
+    })),
+    conferencia_recente: (contexto.conferencias || []).slice(0, 30).map((item) => ({
+      data: item.data_conferencia,
+      oferta: numero(item.recebido_oferta), mercado: numero(item.recebido_mercado), barracao: numero(item.recebido_barracao),
+    })),
+    pauta_atual: contexto.pauta ? {
+      semana: numero(contexto.pauta.semana), ano: numero(contexto.pauta.ano),
+      oferta: numero(contexto.pauta.env_oferta), mercado: numero(contexto.pauta.env_mercado), buques: numero(contexto.pauta.env_buques),
+      ofertas_extras: Array.isArray(contexto.pauta.ofertas_extras) ? contexto.pauta.ofertas_extras.slice(0, 30) : [],
+    } : null,
+  };
 }
 
 export async function responderAgroVitao(pergunta) {

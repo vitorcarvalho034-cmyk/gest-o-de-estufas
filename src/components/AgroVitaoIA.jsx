@@ -3,7 +3,7 @@ import { Bot, Loader2, Mic, Send, Sparkles, Volume2, VolumeX, X } from "lucide-r
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { interpretarComandoColheita, responderAgroVitao } from "@/lib/agroVitaoDados";
+import { carregarContextoParaAgroVitao, interpretarComandoColheita, responderAgroVitao } from "@/lib/agroVitaoDados";
 
 const SUGESTOES = [
   "Como foi a colheita ontem?",
@@ -96,6 +96,19 @@ function falar(texto, habilitado) {
   window.speechSynthesis.speak(fala);
 }
 
+async function consultarAgroVitaoSemantico(pergunta) {
+  const contexto = await carregarContextoParaAgroVitao();
+  const resposta = await fetch("/.netlify/functions/agro-vitao", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ pergunta, contexto }),
+  });
+  const resultado = await resposta.json().catch(() => ({}));
+  if (!resposta.ok) throw new Error(resultado.erro || "A consulta semântica não ficou disponível.");
+  if (!resultado.resposta) throw new Error("O Agro Vitão IA não retornou uma resposta válida.");
+  return resultado;
+}
+
 export default function AgroVitaoIA() {
   const [aberto, setAberto] = useState(false);
   const [pergunta, setPergunta] = useState("");
@@ -150,28 +163,47 @@ export default function AgroVitaoIA() {
     setResposta("");
 
     try {
-      const comando = await interpretarComandoColheita(texto);
-      if (comando.eComando) {
-        setResposta(comando.mensagem);
-        falar(comando.mensagem, vozAtiva);
-        if (comando.completo && comando.prefill) {
-          sessionStorage.setItem("agro-vitao-colheita-pendente", JSON.stringify(comando.prefill));
-          if (window.location.pathname === "/colheita") {
-            window.dispatchEvent(new CustomEvent("agro-vitao-confirmar-colheita", { detail: comando.prefill }));
-          } else {
-            window.setTimeout(() => { window.location.assign("/colheita?agro-vitao=1"); }, 850);
-          }
+      const comandoLocal = await interpretarComandoColheita(texto);
+      if (comandoLocal.eComando && comandoLocal.completo && comandoLocal.prefill) {
+        setResposta(comandoLocal.mensagem);
+        falar(comandoLocal.mensagem, vozAtiva);
+        sessionStorage.setItem("agro-vitao-colheita-pendente", JSON.stringify(comandoLocal.prefill));
+        if (window.location.pathname === "/colheita") {
+          window.dispatchEvent(new CustomEvent("agro-vitao-confirmar-colheita", { detail: comandoLocal.prefill }));
+        } else {
+          window.setTimeout(() => { window.location.assign("/colheita?agro-vitao=1"); }, 850);
         }
         return;
       }
-      const mensagem = await responderAgroVitao(texto);
+
+      const resultado = await consultarAgroVitaoSemantico(texto);
+      const mensagem = resultado.resposta;
       setResposta(mensagem);
       falar(mensagem, vozAtiva);
+
+      if (resultado.comando?.eComando && resultado.comando.completo && resultado.comando.prefill) {
+        sessionStorage.setItem("agro-vitao-colheita-pendente", JSON.stringify(resultado.comando.prefill));
+        if (window.location.pathname === "/colheita") {
+          window.dispatchEvent(new CustomEvent("agro-vitao-confirmar-colheita", { detail: resultado.comando.prefill }));
+        } else {
+          window.setTimeout(() => { window.location.assign("/colheita?agro-vitao=1"); }, 850);
+        }
+      }
     } catch (erro) {
-      console.error("Agro Vitão IA — erro na consulta:", erro);
-      const mensagem = "Não consegui consultar os dados agora. Verifique a conexão e tente novamente.";
-      setResposta(mensagem);
-      falar(mensagem, vozAtiva);
+      console.error("Agro Vitão IA — consulta semântica indisponível:", erro);
+      try {
+        const mensagem = await responderAgroVitao(texto);
+        const complemento = navigator.onLine
+          ? `${mensagem}\n\nEstou em modo de consulta local; a conversa completa volta assim que a IA for ativada no servidor.`
+          : `${mensagem}\n\nEstou sem internet e respondi com os dados salvos neste aparelho.`;
+        setResposta(complemento);
+        falar(complemento, vozAtiva);
+      } catch (erroLocal) {
+        console.error("Agro Vitão IA — falha no modo local:", erroLocal);
+        const mensagem = "Não consegui consultar os dados agora. Verifique a conexão e tente novamente.";
+        setResposta(mensagem);
+        falar(mensagem, vozAtiva);
+      }
     } finally {
       setConsultando(false);
     }
