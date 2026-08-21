@@ -4,7 +4,6 @@ import { useState } from "react";
 import OfflineBanner from "./OfflineBanner";
 import PwaInstallPrompt from "./PwaInstallPrompt";
 import PwaUpdateBanner from "./PwaUpdateBanner";
-import AgroVitaoIA from "./AgroVitaoIA";
 
 const navItems = [
   { path: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -123,7 +122,6 @@ export default function Layout() {
         <OfflineBanner />
         <PwaUpdateBanner />
         <PwaInstallPrompt />
-        <AgroVitaoIA />
 
         {/* Conteúdo principal — com padding-bottom no mobile para não ficar atrás da barra inferior */}
         <main className="flex-1 overflow-y-auto bg-background pb-20 lg:pb-0">

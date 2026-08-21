@@ -489,7 +489,7 @@ function StepConfirm({ form, onChange, isEditing }) {
   );
 }
 
-export default function ColheitaWizard({ open, onClose, onSaved, editingColheita, initialForm }) {
+export default function ColheitaWizard({ open, onClose, onSaved, editingColheita }) {
   const isEditing = !!editingColheita;
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
@@ -519,14 +519,6 @@ export default function ColheitaWizard({ open, onClose, onSaved, editingColheita
         descarte_motivo: "", descarte_quantidade: "", descarte_observacao: "",
       });
       setStep(0);
-    } else if (initialForm) {
-      setForm({
-        estufa: String(initialForm.estufa || ""), lado: initialForm.lado || "", vao: String(initialForm.vao || ""), canteiro: String(initialForm.canteiro || ""),
-        variedade: initialForm.variedade || "", destino: initialForm.destino || "", cestos: String(initialForm.cestos || ""), macos: String(initialForm.macos || ""), hastes_avulsas: String(initialForm.hastes_avulsas || ""), modo: initialForm.modo || "cestos",
-        data_colheita: initialForm.data_colheita || new Date().toISOString().split("T")[0],
-        descarte_motivo: "", descarte_quantidade: "", descarte_observacao: "",
-      });
-      setStep(3);
     } else {
       setForm({
         estufa: "", lado: "", vao: "", canteiro: "",
@@ -536,7 +528,7 @@ export default function ColheitaWizard({ open, onClose, onSaved, editingColheita
       });
       setStep(0);
     }
-  }, [editingColheita, initialForm, open]);
+  }, [editingColheita, open]);
 
   useEffect(() => {
     if (form.estufa && form.lado && form.vao && form.canteiro) {

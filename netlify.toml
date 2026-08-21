@@ -1,9 +1,6 @@
 [build]
   publish = "dist"
 
-[functions]
-  directory = "netlify/functions"
-
 [[headers]]
   # index.html nunca deve ser cacheado — garante que o mobile sempre busca a versão mais recente
   for = "/index.html"
