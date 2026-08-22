@@ -78,7 +78,8 @@ export default function Descarte() {
 
   const filtrados = descartes.filter((d) => {
     if (filtroMotivo !== "todos" && d.motivo !== filtroMotivo) return false;
-    if (busca && !d.variedade?.toLowerCase().includes(busca.toLowerCase())) return false;
+    const termo = busca.toLowerCase().trim();
+    if (termo && !`${d.variedade || ""} ${d.observacao || ""}`.toLowerCase().includes(termo)) return false;
     return true;
   });
 
@@ -142,6 +143,10 @@ export default function Descarte() {
   async function handleSave() {
     if (!form.variedade || !form.quantidade || !form.motivo) {
       toast.error("Preencha variedade, quantidade e motivo.");
+      return;
+    }
+    if (form.motivo === "Doença" && !form.observacao.trim()) {
+      toast.error("Informe qual é a doença para registrar o descarte.");
       return;
     }
     setSaving(true);
@@ -296,7 +301,7 @@ export default function Descarte() {
                             {d.lado ? ` ${d.lado}` : ""}
                             {d.vao ? ` · V${d.vao}` : ""}
                             {d.canteiro ? `-C${d.canteiro}` : ""}
-                            {d.observacao ? ` · ${d.observacao}` : ""}
+                            {d.observacao ? ` · ${d.motivo === "Doença" ? `Doença: ${d.observacao}` : d.observacao}` : ""}
                           </p>
                         </div>
                         <div className="text-right flex-shrink-0 pr-2">
@@ -367,13 +372,29 @@ export default function Descarte() {
               <select
                 className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm focus:ring-1 focus:ring-destructive"
                 value={form.motivo}
-                onChange={(e) => setForm({ ...form, motivo: e.target.value })}
+                onChange={(e) => {
+                  const motivo = e.target.value;
+                  setForm({ ...form, motivo, observacao: motivo === form.motivo ? form.observacao : "" });
+                }}
               >
                 {MOTIVOS.map((m) => (
                   <option key={m} value={m}>{m}</option>
                 ))}
               </select>
             </div>
+
+            {form.motivo === "Doença" && (
+              <div className="space-y-1.5 rounded-lg border border-red-200 bg-red-50/60 p-3">
+                <Label className="text-red-800">Qual doença? *</Label>
+                <Input
+                  autoFocus
+                  placeholder="Ex: Botrytis, Ferrugem, Fusarium..."
+                  value={form.observacao}
+                  onChange={(e) => setForm({ ...form, observacao: e.target.value })}
+                />
+                <p className="text-xs text-red-700">A especificação aparecerá junto ao motivo do descarte.</p>
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
@@ -426,14 +447,16 @@ export default function Descarte() {
               />
             </div>
 
-            <div className="space-y-1.5">
-              <Label>Observação</Label>
-              <Input
-                placeholder="Ex: Botrites, Tripes..."
-                value={form.observacao}
-                onChange={(e) => setForm({ ...form, observacao: e.target.value })}
-              />
-            </div>
+            {form.motivo !== "Doença" && (
+              <div className="space-y-1.5">
+                <Label>Observação (opcional)</Label>
+                <Input
+                  placeholder="Ex: Hastes tortas, flores passadas..."
+                  value={form.observacao}
+                  onChange={(e) => setForm({ ...form, observacao: e.target.value })}
+                />
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => { setDialogOpen(false); setEditingDescarte(null); }}>
@@ -441,7 +464,7 @@ export default function Descarte() {
             </Button>
             <Button
               onClick={handleSave}
-              disabled={saving || !form.variedade || !form.quantidade}
+              disabled={saving || !form.variedade || !form.quantidade || (form.motivo === "Doença" && !form.observacao.trim())}
               className="bg-destructive hover:bg-destructive/90"
             >
               {saving ? "Salvando..." : editingDescarte ? "Salvar Alterações" : "Registrar Descarte"}
