@@ -5,6 +5,7 @@ import { getHastesColheita } from "@/lib/colheitaHastes";
 import { Scissors, Plus, TrendingUp, Package, Target, Calendar, Pencil, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import ColheitaWizard from "../components/ColheitaWizard";
+import ColheitaRapidaDialog from "../components/ColheitaRapidaDialog";
 import ColheitaLoteDialog from "../components/ColheitaLoteDialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -51,6 +52,7 @@ export default function Colheita() {
   const [previsoes, setPrevisoes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [rapidaDialogOpen, setRapidaDialogOpen] = useState(false);
   const [loteDialogOpen, setLoteDialogOpen] = useState(false);
   const [editingColheita, setEditingColheita] = useState(null);
   const [deleteDialog, setDeleteDialog] = useState({ open: false, id: null });
@@ -215,8 +217,8 @@ export default function Colheita() {
           </div>
         </div>
         <div className="flex gap-2 w-full sm:w-auto">
-          <Button onClick={() => setDialogOpen(true)} className="gap-2 shadow-sm flex-1 sm:flex-none">
-            <Plus className="w-4 h-4" /> Nova Colheita
+          <Button onClick={() => setRapidaDialogOpen(true)} className="gap-2 shadow-sm flex-1 sm:flex-none">
+            <Plus className="w-4 h-4" /> Lançamento Rápido
           </Button>
           <Button variant="outline" onClick={() => setLoteDialogOpen(true)} className="gap-2 shadow-sm flex-1 sm:flex-none">
             <Scissors className="w-4 h-4" /> Em Lote
@@ -629,6 +631,16 @@ export default function Colheita() {
         </div>
       )}
 
+      <ColheitaRapidaDialog
+        open={rapidaDialogOpen}
+        onClose={() => setRapidaDialogOpen(false)}
+        onSaved={loadColheitas}
+        onOpenCompleto={() => {
+          setRapidaDialogOpen(false);
+          setEditingColheita(null);
+          setDialogOpen(true);
+        }}
+      />
       <ColheitaLoteDialog
         open={loteDialogOpen}
         onClose={() => setLoteDialogOpen(false)}
