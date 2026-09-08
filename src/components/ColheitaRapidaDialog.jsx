@@ -364,4 +364,3 @@ export default function ColheitaRapidaDialog({ open, onClose, onSaved, onOpenCom
     </Dialog>
   );
 }
-EOF
