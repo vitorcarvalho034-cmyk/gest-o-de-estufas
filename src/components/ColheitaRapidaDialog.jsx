@@ -213,6 +213,18 @@ export default function ColheitaRapidaDialog({ open, onClose, onSaved, onOpenCom
           <Button variant="ghost" size="sm" onClick={onOpenCompleto} className="shrink-0 text-xs">Formulário completo</Button>
         </div>
 
+        <div className="rounded-xl border border-primary/20 bg-primary/5 p-3">
+          <label htmlFor="data-colheita-rapida" className="block text-sm font-semibold mb-1">Data da colheita</label>
+          <p className="text-xs text-muted-foreground mb-2">Essa data será mantida nos próximos lançamentos enquanto esta janela estiver aberta.</p>
+          <Input
+            id="data-colheita-rapida"
+            type="date"
+            value={form.data_colheita}
+            onChange={(event) => updateBase("data_colheita", event.target.value)}
+            className="h-11 bg-background font-semibold"
+          />
+        </div>
+
         <div className="grid grid-cols-4 gap-2 mt-1">
           {[1, 2, 3, 4].map((number) => (
             <button
