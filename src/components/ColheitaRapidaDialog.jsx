@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { colheitasAPI, canteirosAPI } from "@/api/supabaseClient";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -62,6 +62,7 @@ export default function ColheitaRapidaDialog({ open, onClose, onSaved, onOpenCom
   const [loadingCanteiros, setLoadingCanteiros] = useState(false);
   const [saving, setSaving] = useState(false);
   const [pendingHarvests, setPendingHarvests] = useState([]);
+  const vaoRefs = useRef({});
 
   const vaos = useMemo(
     () => (form.estufa ? getVaosArray(parseInt(form.estufa, 10)) : []),
@@ -174,7 +175,8 @@ export default function ColheitaRapidaDialog({ open, onClose, onSaved, onOpenCom
   function limparLancamentoAtual() {
     setSelectedCanteiro(false);
     setVariedades([]);
-    setForm((f) => ({ ...f, vao: "", canteiro: "", variedade: "", destino: "", cestos: "", macos: "", hastes_avulsas: "", data_colheita: f.data_colheita || today() }));
+    // Mantém estufa, lado, data e o vão atual para continuar no mesmo ponto.
+    setForm((f) => ({ ...f, canteiro: "", variedade: "", destino: "", cestos: "", macos: "", hastes_avulsas: "", data_colheita: f.data_colheita || today() }));
   }
 
   function handleAddPending() {
@@ -188,6 +190,14 @@ export default function ColheitaRapidaDialog({ open, onClose, onSaved, onOpenCom
   function removePending(draftId) {
     setPendingHarvests((items) => items.filter((item) => item._draftId !== draftId));
   }
+
+  useEffect(() => {
+    if (!form.lado || selectedCanteiro || !form.vao) return;
+    const element = vaoRefs.current[form.vao];
+    if (element) {
+      requestAnimationFrame(() => element.scrollIntoView({ behavior: "smooth", block: "center" }));
+    }
+  }, [form.vao, form.lado, selectedCanteiro]);
 
   async function handleConfirmAll() {
     if (!pendingHarvests.length || saving) return;
@@ -300,7 +310,11 @@ export default function ColheitaRapidaDialog({ open, onClose, onSaved, onOpenCom
             </div>
             <div className="space-y-3 max-h-[42vh] overflow-y-auto pr-1">
               {vaos.map((vao) => (
-                <div key={vao} className="rounded-xl border p-3">
+                <div
+                  key={vao}
+                  ref={(element) => { vaoRefs.current[String(vao)] = element; }}
+                  className={`rounded-xl border p-3 transition-all ${form.vao === String(vao) ? "border-primary bg-primary/5 ring-1 ring-primary/30" : ""}`}
+                >
                   <p className="text-xs font-bold text-muted-foreground mb-2">Vão {vao}</p>
                   <div className="grid grid-cols-4 gap-2">
                     {[1, 2, 3, 4].map((numero) => (
