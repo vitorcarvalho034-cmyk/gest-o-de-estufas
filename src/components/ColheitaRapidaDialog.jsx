@@ -61,6 +61,7 @@ export default function ColheitaRapidaDialog({ open, onClose, onSaved, onOpenCom
   const [selectedCanteiro, setSelectedCanteiro] = useState(false);
   const [loadingCanteiros, setLoadingCanteiros] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [pendingHarvests, setPendingHarvests] = useState([]);
 
   const vaos = useMemo(
     () => (form.estufa ? getVaosArray(parseInt(form.estufa, 10)) : []),
@@ -72,6 +73,7 @@ export default function ColheitaRapidaDialog({ open, onClose, onSaved, onOpenCom
     setForm(emptyForm());
     setVariedades([]);
     setSelectedCanteiro(false);
+    setPendingHarvests([]);
     setLoadingCanteiros(true);
     canteirosAPI.list()
       .then((list) => setCanteiros(Array.isArray(list) ? list : []))
@@ -153,11 +155,8 @@ export default function ColheitaRapidaDialog({ open, onClose, onSaved, onOpenCom
     (destinoFixo || form.destino) && total > 0
   );
 
-  async function handleSave() {
-    if (!canSave || saving) return;
-    setSaving(true);
-    const hastes = total;
-    const colheitaData = {
+  function buildHarvestData() {
+    return {
       estufa: parseInt(form.estufa, 10),
       lado: form.lado,
       vao: parseInt(form.vao, 10),
@@ -166,34 +165,55 @@ export default function ColheitaRapidaDialog({ open, onClose, onSaved, onOpenCom
       destino: destinoFixo ? destinoFixo.destino : form.destino,
       cestos: parseInt(form.cestos, 10) || 0,
       hastes_avulsas: parseInt(form.hastes_avulsas, 10) || 0,
-      hastes,
+      hastes: total,
       data_colheita: form.data_colheita,
       semana: moment(form.data_colheita).isoWeek(),
     };
+  }
 
+  function limparLancamentoAtual() {
+    setSelectedCanteiro(false);
+    setVariedades([]);
+    setForm((f) => ({ ...f, vao: "", canteiro: "", variedade: "", destino: "", cestos: "", macos: "", hastes_avulsas: "", data_colheita: f.data_colheita || today() }));
+  }
+
+  function handleAddPending() {
+    if (!canSave || saving) return;
+    const colheitaData = buildHarvestData();
+    setPendingHarvests((items) => [...items, { ...colheitaData, _draftId: `${Date.now()}-${Math.random()}` }]);
+    toast.success(`Adicionado à lista: ${colheitaData.hastes.toLocaleString("pt-BR")} hastes`);
+    limparLancamentoAtual();
+  }
+
+  function removePending(draftId) {
+    setPendingHarvests((items) => items.filter((item) => item._draftId !== draftId));
+  }
+
+  async function handleConfirmAll() {
+    if (!pendingHarvests.length || saving) return;
+    setSaving(true);
+    let confirmados = 0;
     try {
-      if (!navigator.onLine) {
-        enqueue("Colheita", colheitaData);
-        window.dispatchEvent(new Event("offline-queue-updated"));
-        toast.success(`📴 ${hastes.toLocaleString("pt-BR")} hastes salvas offline`);
-      } else {
-        try {
-          await colheitasAPI.create(colheitaData);
-          toast.success(`✂️ ${hastes.toLocaleString("pt-BR")} hastes registradas`);
-        } catch (networkError) {
-          console.warn("Falha online; colheita enviada para a fila:", networkError);
+      for (const item of pendingHarvests) {
+        const { _draftId, ...colheitaData } = item;
+        if (!navigator.onLine) {
           enqueue("Colheita", colheitaData);
-          window.dispatchEvent(new Event("offline-queue-updated"));
-          toast.warning("⚠️ Salvo na fila; será sincronizado automaticamente");
+        } else {
+          try {
+            await colheitasAPI.create(colheitaData);
+          } catch (networkError) {
+            console.warn("Falha online; colheita enviada para a fila:", networkError);
+            enqueue("Colheita", colheitaData);
+          }
         }
+        confirmados += 1;
       }
+      window.dispatchEvent(new Event("offline-queue-updated"));
       await onSaved?.();
-      // Mantém estufa, lado e data; limpa apenas o lançamento atual.
-      setSelectedCanteiro(false);
-      setVariedades([]);
-      setForm((f) => ({ ...f, vao: "", canteiro: "", variedade: "", destino: "", cestos: "", macos: "", hastes_avulsas: "", data_colheita: f.data_colheita || today() }));
+      toast.success(`${confirmados} lançamento(s) confirmado(s)`);
+      setPendingHarvests([]);
     } catch (error) {
-      toast.error(`Erro ao salvar colheita: ${error.message}`);
+      toast.error(`Erro ao confirmar colheitas: ${error.message}`);
     } finally {
       setSaving(false);
     }
@@ -244,6 +264,31 @@ export default function ColheitaRapidaDialog({ open, onClose, onSaved, onOpenCom
                 className={`rounded-xl border-2 py-3 font-bold transition-all ${form.lado === side ? "bg-primary text-primary-foreground border-primary shadow-md" : "bg-background border-border hover:border-primary/50"}`}
               >Lado {side}</button>
             ))}
+          </div>
+        )}
+
+        {pendingHarvests.length > 0 && (
+          <div className="rounded-xl border-2 border-amber-300 bg-amber-50/70 p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-bold text-amber-900">Lançamentos aguardando confirmação</p>
+                <p className="text-xs text-amber-800">{pendingHarvests.length} registro(s) · {pendingHarvests.reduce((sum, item) => sum + item.hastes, 0).toLocaleString("pt-BR")} hastes</p>
+              </div>
+              <Button size="sm" onClick={handleConfirmAll} disabled={saving} className="gap-1 bg-amber-600 hover:bg-amber-700">
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                {saving ? "Confirmando..." : "Confirmar tudo"}
+              </Button>
+            </div>
+            <div className="space-y-1 max-h-36 overflow-y-auto">
+              {pendingHarvests.map((item) => (
+                <div key={item._draftId} className="flex items-center justify-between rounded-lg bg-background border px-2 py-1.5 text-xs">
+                  <span><strong>E{item.estufa} {item.lado} · V{item.vao}-C{item.canteiro}</strong> · {item.variedade} · {item.hastes.toLocaleString("pt-BR")} hastes</span>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => removePending(item._draftId)} aria-label="Remover lançamento">
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
@@ -357,9 +402,9 @@ export default function ColheitaRapidaDialog({ open, onClose, onSaved, onOpenCom
 
                 <div className="flex gap-2 justify-end">
                   <Button variant="outline" onClick={voltarParaCanteiros} className="gap-1"><RotateCcw className="w-4 h-4" /> Outro canteiro</Button>
-                  <Button onClick={handleSave} disabled={!canSave || saving} className="gap-1">
-                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                    {saving ? "Salvando..." : "Salvar e próximo"}
+                  <Button onClick={handleAddPending} disabled={!canSave || saving} className="gap-1">
+                    <Check className="w-4 h-4" />
+                    Adicionar à lista
                   </Button>
                 </div>
               </>
