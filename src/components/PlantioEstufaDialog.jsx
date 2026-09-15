@@ -457,7 +457,8 @@ export default function PlantioEstufaDialog({ open, onClose, onSaved }) {
         data_corte_luz_ultimo: dataPlantio ? moment(dataPlantio).add(25, "days").format("YYYY-MM-DD") : null,
         data_previsao_colheita_ultimo: dataPlantio ? moment(dataPlantio).add(12, "weeks").format("YYYY-MM-DD") : null,
         total_colhido_cestos: totalCestos,
-        total_colhido_hastes: totalHastes,
+        // Compatibilidade com a coluna legada do banco; a UI usa o nome hastes.
+        total_colhido_pressas: totalHastes,
         total_descartado: totalDescartado,
         variedades_ultimo_ciclo: canteiro.variedades || [],
         observacao_finalizacao: "Canteiro encerrado manualmente antes de novo plantio",
