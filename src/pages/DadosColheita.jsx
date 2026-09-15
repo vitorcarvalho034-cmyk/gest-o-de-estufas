@@ -3,11 +3,11 @@ import moment from "moment";
 import { BarChart3, Download, RefreshCw, AlertTriangle, Scissors, Trash2, Ruler, CheckCircle2, CalendarDays, Leaf, ArrowUpDown, ChevronUp, ChevronDown } from "lucide-react";
 import { BarChart, Bar, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, LineChart, Line, Legend } from "recharts";
 import { toast } from "sonner";
-import { colheitasAPI, descartesAPI } from "@/api/supabaseClient";
+import { colheitasAPI, descartesAPI, plantiosAPI } from "@/api/supabaseClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AREA_M2_POR_CANTEIRO, construirAnaliseColheita, formatarNumero, formatarPercentual, isCrisantemo, nomeCanonicamenteNormalizado } from "@/lib/dadosColheita";
+import { AREA_M2_POR_CANTEIRO, construirAnaliseColheita, construirCiclosPrimeiraColheita, formatarNumero, formatarPercentual, isCrisantemo, nomeCanonicamenteNormalizado } from "@/lib/dadosColheita";
 import { exportarDadosColheitaExcel } from "@/lib/exportarDadosColheitaExcel";
 
 const tooltipStyle = {
@@ -36,6 +36,14 @@ function LinhaTabela({ children, className = "" }) {
   return <tr className={`border-b transition-colors hover:bg-muted/30 ${className}`}>{children}</tr>;
 }
 
+function formatarCiclo(dias) {
+  const valor = Number(dias || 0);
+  const semanas = Math.floor(valor / 7);
+  const restantes = Number((valor - semanas * 7).toFixed(1));
+  if (restantes === 0) return `${semanas} sem.`;
+  return `${semanas} sem. e ${String(restantes).replace(".", ",")} dias`;
+}
+
 function CabecalhoOrdenavel({ campo, children, alinhamento = "text-left", ordenacao, onOrdenar }) {
   const ativo = ordenacao.campo === campo;
   const Icone = ativo ? (ordenacao.direcao === "asc" ? ChevronUp : ChevronDown) : ArrowUpDown;
@@ -60,6 +68,7 @@ export default function DadosColheita() {
   const [variedade, setVariedade] = useState("all");
   const [colheitas, setColheitas] = useState([]);
   const [descartes, setDescartes] = useState([]);
+  const [plantios, setPlantios] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [atualizando, setAtualizando] = useState(false);
   const [erro, setErro] = useState("");
@@ -70,12 +79,14 @@ export default function DadosColheita() {
     setAtualizando(true);
     setErro("");
     try {
-      const [dadosColheita, dadosDescarte] = await Promise.all([
+      const [dadosColheita, dadosDescarte, dadosPlantio] = await Promise.all([
         colheitasAPI.listByAno(Number(ano)),
         descartesAPI.listByAno(Number(ano)),
+        plantiosAPI.list(2000),
       ]);
       setColheitas(Array.isArray(dadosColheita) ? dadosColheita : []);
       setDescartes(Array.isArray(dadosDescarte) ? dadosDescarte : []);
+      setPlantios(Array.isArray(dadosPlantio) ? dadosPlantio : []);
       if (mostrarToast) toast.success("Dados de colheita atualizados");
     } catch (e) {
       console.error("Dados de colheita:", e);
@@ -110,6 +121,7 @@ export default function DadosColheita() {
 
   const filtros = useMemo(() => ({ ano: Number(ano), semana, estufa, variedade }), [ano, semana, estufa, variedade]);
   const analise = useMemo(() => construirAnaliseColheita(colheitas, descartes, filtros), [colheitas, descartes, filtros]);
+  const ciclosPrimeiraColheita = useMemo(() => construirCiclosPrimeiraColheita(plantios, colheitas, filtros), [plantios, colheitas, filtros]);
   const porVariedadeOrdenada = useMemo(() => {
     const { campo, direcao } = ordenacaoVariedades;
     const multiplicador = direcao === "asc" ? 1 : -1;
@@ -141,7 +153,7 @@ export default function DadosColheita() {
     }
     setExportando(true);
     try {
-      await exportarDadosColheitaExcel(analise);
+      await exportarDadosColheitaExcel({ ...analise, ciclosPrimeiraColheita });
       toast.success("Planilha Excel gerada com sucesso");
     } catch (e) {
       console.error("Exportação Excel:", e);
@@ -250,6 +262,7 @@ export default function DadosColheita() {
               <TabsTrigger value="variedades">Produtividade por variedade</TabsTrigger>
               <TabsTrigger value="mensal">Comparativo mensal</TabsTrigger>
               <TabsTrigger value="dias">Colheita por dia</TabsTrigger>
+              <TabsTrigger value="ciclos">Ciclo até 1ª colheita</TabsTrigger>
               <TabsTrigger value="criterios">Critérios e validações</TabsTrigger>
             </TabsList>
 
@@ -290,6 +303,11 @@ export default function DadosColheita() {
                   <Card><CardHeader><CardTitle className="text-base">Resumo por dia — Semana {semana}</CardTitle></CardHeader><CardContent className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b text-xs uppercase tracking-wide text-muted-foreground"><th className="px-2 py-3 text-left">Dia</th><th className="px-2 py-3 text-right">Hastes colhidas</th><th className="px-2 py-3 text-right">Cestos</th><th className="px-2 py-3 text-right">Lançamentos</th></tr></thead><tbody>{analise.porDiaSemana.map((linha) => <LinhaTabela key={linha.numero}><td className="px-2 py-3 font-medium">{linha.nome}</td><td className="px-2 py-3 text-right font-semibold text-primary">{formatarNumero(linha.hastes_colhidas)}</td><td className="px-2 py-3 text-right">{formatarNumero(linha.cestos)}</td><td className="px-2 py-3 text-right">{formatarNumero(linha.registros)}</td></LinhaTabela>)}</tbody></table></CardContent></Card>
                 </>
               )}
+            </TabsContent>
+
+            <TabsContent value="ciclos" className="space-y-5">
+              <Card className="border-primary/20 bg-primary/[0.03]"><CardContent className="flex items-start gap-3 p-4 text-sm text-muted-foreground"><CalendarDays className="mt-0.5 h-5 w-5 shrink-0 text-primary" /><span>O ciclo é calculado desde o plantio até a <strong className="text-foreground">primeira colheita</strong> do mesmo canteiro e variedade. Os filtros de ano, semana, estufa e variedade acima também se aplicam a esta lista.</span></CardContent></Card>
+              <Card><CardHeader><CardTitle className="text-base">Ciclo médio por variedade</CardTitle><p className="text-xs font-normal text-muted-foreground">Somente ciclos com plantio e primeira colheita associados com segurança entram na média.</p></CardHeader><CardContent className="overflow-x-auto"><table className="w-full min-w-[760px] text-sm"><thead><tr className="border-b text-xs uppercase tracking-wide text-muted-foreground"><th className="px-2 py-3 text-left">Variedade</th><th className="px-2 py-3 text-right">Ciclos</th><th className="px-2 py-3 text-right">Média (dias)</th><th className="px-2 py-3 text-right">Média (semanas)</th><th className="px-2 py-3 text-right">Menor</th><th className="px-2 py-3 text-right">Maior</th></tr></thead><tbody>{ciclosPrimeiraColheita.porVariedade.map((linha) => <LinhaTabela key={linha.variedade}><td className="px-2 py-3 font-medium">{linha.variedade}</td><td className="px-2 py-3 text-right">{formatarNumero(linha.ciclos_analisados)}</td><td className="px-2 py-3 text-right font-semibold text-primary">{formatarNumero(linha.media_dias, 1)} dias</td><td className="px-2 py-3 text-right">{formatarCiclo(linha.media_dias)}</td><td className="px-2 py-3 text-right">{formatarNumero(linha.menor_ciclo)} dias</td><td className="px-2 py-3 text-right">{formatarNumero(linha.maior_ciclo)} dias</td></LinhaTabela>)}{!ciclosPrimeiraColheita.porVariedade.length && <tr><td colSpan={6} className="py-10 text-center text-muted-foreground">Nenhum ciclo com primeira colheita foi encontrado para estes filtros.</td></tr>}</tbody></table></CardContent></Card>
             </TabsContent>
 
             <TabsContent value="criterios" className="space-y-5">

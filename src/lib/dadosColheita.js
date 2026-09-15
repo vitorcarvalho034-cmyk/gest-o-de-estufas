@@ -43,6 +43,86 @@ function chaveCanteiro(registro) {
   return `E${estufa}-${lado}-V${vao}-C${canteiro}`;
 }
 
+export function construirCiclosPrimeiraColheita(plantios = [], colheitas = [], filtros = {}) {
+  const plantiosValidos = plantios
+    .filter((plantio) => isCrisantemo(plantio?.variedade) && moment(plantio?.data_plantio, "YYYY-MM-DD", true).isValid())
+    .map((plantio) => ({ ...plantio, _chave: chaveCanteiro(plantio), _variedade: nomeCanonicamenteNormalizado(plantio.variedade) }))
+    .filter((plantio) => plantio._chave && plantio._variedade)
+    .sort((a, b) => moment(a.data_plantio).valueOf() - moment(b.data_plantio).valueOf());
+
+  const colheitasValidas = colheitas
+    .filter((colheita) => isCrisantemo(colheita?.variedade) && moment(colheita?.data_colheita, "YYYY-MM-DD", true).isValid())
+    .map((colheita) => ({ ...colheita, _chave: chaveCanteiro(colheita), _variedade: nomeCanonicamenteNormalizado(colheita.variedade) }))
+    .filter((colheita) => colheita._chave && colheita._variedade);
+
+  const gruposPlantio = new Map();
+  plantiosValidos.forEach((plantio) => {
+    const grupo = `${plantio._chave}|${plantio._variedade}`;
+    if (!gruposPlantio.has(grupo)) gruposPlantio.set(grupo, []);
+    gruposPlantio.get(grupo).push(plantio);
+  });
+
+  const ciclos = [];
+  gruposPlantio.forEach((lista) => {
+    lista.forEach((plantio, indice) => {
+      const proximoPlantio = lista[indice + 1]?.data_plantio;
+      const primeiraColheita = colheitasValidas
+        .filter((colheita) => colheita._chave === plantio._chave && colheita._variedade === plantio._variedade)
+        .filter((colheita) => colheita.data_colheita >= plantio.data_plantio)
+        .filter((colheita) => !proximoPlantio || colheita.data_colheita < proximoPlantio)
+        .sort((a, b) => a.data_colheita.localeCompare(b.data_colheita))[0];
+
+      if (!primeiraColheita) return;
+      const dias = moment(primeiraColheita.data_colheita, "YYYY-MM-DD").diff(moment(plantio.data_plantio, "YYYY-MM-DD"), "days");
+      if (dias < 0) return;
+
+      const dataReferencia = moment(primeiraColheita.data_colheita, "YYYY-MM-DD");
+      if (filtros.ano && dataReferencia.year() !== Number(filtros.ano)) return;
+      if (filtros.semana !== undefined && filtros.semana !== "all" && dataReferencia.isoWeek() !== Number(filtros.semana)) return;
+      if (filtros.estufa !== undefined && filtros.estufa !== "all" && Number(plantio.estufa) !== Number(filtros.estufa)) return;
+      if (filtros.variedade !== undefined && filtros.variedade !== "all" && plantio._variedade !== filtros.variedade) return;
+
+      ciclos.push({
+        variedade: plantio._variedade,
+        estufa: plantio.estufa,
+        lado: plantio.lado,
+        vao: plantio.vao,
+        canteiro: plantio.canteiro,
+        data_plantio: plantio.data_plantio,
+        data_primeira_colheita: primeiraColheita.data_colheita,
+        semana_primeira_colheita: primeiraColheita.semana || dataReferencia.isoWeek(),
+        dias,
+      });
+    });
+  });
+
+  const agrupado = new Map();
+  ciclos.forEach((ciclo) => {
+    if (!agrupado.has(ciclo.variedade)) agrupado.set(ciclo.variedade, []);
+    agrupado.get(ciclo.variedade).push(ciclo);
+  });
+
+  const porVariedade = [...agrupado.entries()].map(([nome, itens]) => {
+    const soma = itens.reduce((total, item) => total + item.dias, 0);
+    const media_dias = Number((soma / itens.length).toFixed(1));
+    const semanas_completas = Math.floor(media_dias / 7);
+    const dias_restantes = Number((media_dias - semanas_completas * 7).toFixed(1));
+    return {
+      variedade: nome,
+      ciclos_analisados: itens.length,
+      media_dias,
+      media_semanas: Number((media_dias / 7).toFixed(2)),
+      media_semanas_completas: semanas_completas,
+      media_dias_restantes: dias_restantes,
+      menor_ciclo: Math.min(...itens.map((item) => item.dias)),
+      maior_ciclo: Math.max(...itens.map((item) => item.dias)),
+      ciclos: itens,
+    };
+  }).sort((a, b) => a.variedade.localeCompare(b.variedade, "pt-BR", { sensitivity: "base" }));
+
+  return { ciclos, porVariedade };
+}
+
 function pertenceAoFiltro(registro, filtros, campoData) {
   const data = registro?.[campoData];
   if (!data || !moment(data, "YYYY-MM-DD", true).isValid()) return false;

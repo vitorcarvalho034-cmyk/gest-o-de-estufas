@@ -175,6 +175,39 @@ export async function exportarDadosColheitaExcel(analise) {
   );
   ajustarLarguras(dias, [11, 24, 20, 14, 15]);
 
+  const ciclosResumo = workbook.addWorksheet("Ciclo Médio", { views: [{ showGridLines: false }] });
+  criarCabecalhoRelatorio(ciclosResumo, "Ciclo Médio até a Primeira Colheita", `${contexto} · Somente crisântemos`, 8);
+  const linhasCiclos = (analise.ciclosPrimeiraColheita?.porVariedade || []).map((linha) => [
+    linha.variedade,
+    linha.ciclos_analisados,
+    linha.media_dias,
+    linha.media_semanas_completas,
+    linha.media_dias_restantes,
+    linha.media_semanas,
+    linha.menor_ciclo,
+    linha.maior_ciclo,
+  ]);
+  escreverTabela(ciclosResumo,
+    ["Variedade", "Ciclos analisados", "Média (dias)", "Semanas completas", "Dias restantes", "Média (semanas)", "Menor ciclo (dias)", "Maior ciclo (dias)"],
+    linhasCiclos,
+    { colunasNumericas: [2, 3, 4, 5, 6, 7, 8] }
+  );
+  ajustarLarguras(ciclosResumo, [30, 18, 16, 20, 16, 18, 19, 19]);
+  adicionarRodape(ciclosResumo, Math.max(7, 7 + linhasCiclos.length), "Ciclo = primeira colheita associada ao mesmo canteiro e variedade menos a data do plantio. Registros sem associação segura ficam fora da média.", 8);
+
+  const ciclosIndividuais = workbook.addWorksheet("Ciclos Individuais", { views: [{ showGridLines: false }] });
+  criarCabecalhoRelatorio(ciclosIndividuais, "Ciclos Individuais até a Primeira Colheita", `${contexto} · Base auditável do ciclo médio`, 9);
+  const linhasCiclosIndividuais = (analise.ciclosPrimeiraColheita?.ciclos || []).map((linha) => [
+    linha.variedade, linha.data_plantio, linha.data_primeira_colheita, linha.semana_primeira_colheita,
+    linha.estufa || "", linha.lado || "", linha.vao || "", linha.canteiro || "", linha.dias,
+  ]);
+  escreverTabela(ciclosIndividuais,
+    ["Variedade", "Data plantio", "Primeira colheita", "Semana da colheita", "Estufa", "Lado", "Vão", "Canteiro", "Ciclo (dias)"],
+    linhasCiclosIndividuais,
+    { colunasNumericas: [4, 5, 7, 8, 9] }
+  );
+  ajustarLarguras(ciclosIndividuais, [30, 16, 20, 20, 10, 10, 10, 12, 14]);
+
   const baseColheitas = workbook.addWorksheet("Base Colheitas", { views: [{ showGridLines: false }] });
   criarCabecalhoRelatorio(baseColheitas, "Base Auditável — Colheitas", `${contexto} · Dados que compõem os cálculos`, 12);
   const dadosBaseColheitas = analise.bases.colheitas.map((linha) => [
