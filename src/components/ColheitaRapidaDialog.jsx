@@ -140,7 +140,8 @@ export default function ColheitaRapidaDialog({ open, onClose, onSaved, onOpenCom
   function voltarParaCanteiros() {
     setSelectedCanteiro(false);
     setVariedades([]);
-    setForm((f) => ({ ...f, vao: "", canteiro: "", variedade: "", destino: "", cestos: "", macos: "", hastes_avulsas: "" }));
+    // Mantém o vão atual para retornar exatamente ao ponto do lançamento.
+    setForm((f) => ({ ...f, canteiro: "", variedade: "", destino: "", cestos: "", macos: "", hastes_avulsas: "" }));
   }
 
   const destinoFixo = getDestinoFixo(form.variedade);
@@ -394,7 +395,7 @@ export default function ColheitaRapidaDialog({ open, onClose, onSaved, onOpenCom
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <p className="text-xs font-semibold text-muted-foreground mb-1">Cestos</p>
-                      <Input type="number" min="0" value={form.cestos} onChange={(event) => updateBase("cestos", event.target.value)} placeholder="0" className="h-11 text-lg font-bold" autoFocus />
+                      <Input type="number" min="0" value={form.cestos} onChange={(event) => updateBase("cestos", event.target.value)} placeholder="0" className="h-11 text-lg font-bold" />
                     </div>
                     {hastesPorMaco > 0 && (
                       <div>
