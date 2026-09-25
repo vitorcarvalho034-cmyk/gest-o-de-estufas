@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { plantiosAPI, canteirosAPI } from "@/api/supabaseClient";
-import { Sprout, Plus, LayoutGrid, FileText, ClipboardList, Printer, ChevronDown, ChevronRight } from "lucide-react";
+import { Sprout, Plus, LayoutGrid, FileText, ClipboardList, Printer, Pencil, ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,6 +28,7 @@ export default function Plantio() {
   const [vaoDialogOpen, setVaoDialogOpen] = useState(false);
   const [notaDialogOpen, setNotaDialogOpen] = useState(false);
   const [estufaDialogOpen, setEstufaDialogOpen] = useState(false);
+  const [editCroquiPlantios, setEditCroquiPlantios] = useState(null);
   const [buscaVariedade, setBuscaVariedade] = useState("");
   const [semanaAberta, setSemanaAberta] = useState(null);
   const [form, setForm] = useState({
@@ -233,17 +234,33 @@ export default function Plantio() {
                       </div>
                     </div>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5 text-xs"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      printCroquiFromPlantios(grupo.plantios, grupo.data, true);
-                    }}
-                  >
-                    <Printer className="w-3.5 h-3.5" /> Croqui
-                  </Button>
+                  <div className="flex flex-wrap justify-end gap-2">
+                    {[...new Set(grupo.plantios.map((p) => p.estufa).filter(Boolean))].sort((a, b) => a - b).map((numeroEstufa) => (
+                      <Button
+                        key={`edit-${numeroEstufa}`}
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5 text-xs border-primary/30 text-primary hover:bg-primary/5"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditCroquiPlantios({ estufa: numeroEstufa, plantios: grupo.plantios.filter((p) => p.estufa === numeroEstufa) });
+                        }}
+                      >
+                        <Pencil className="w-3.5 h-3.5" /> Editar E{numeroEstufa}
+                      </Button>
+                    ))}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 text-xs"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        printCroquiFromPlantios(grupo.plantios, grupo.data, true);
+                      }}
+                    >
+                      <Printer className="w-3.5 h-3.5" /> Croqui
+                    </Button>
+                  </div>
                 </div>
 
                 {isAberta && (
@@ -339,8 +356,10 @@ export default function Plantio() {
         onSaved={loadPlantios}
       />
       <PlantioEstufaDialog
-        open={estufaDialogOpen}
-        onClose={() => setEstufaDialogOpen(false)}
+        open={estufaDialogOpen || Boolean(editCroquiPlantios)}
+        initialPlantios={editCroquiPlantios?.plantios || null}
+        initialEstufa={editCroquiPlantios?.estufa || null}
+        onClose={() => { setEstufaDialogOpen(false); setEditCroquiPlantios(null); }}
         onSaved={loadPlantios}
       />
     </div>

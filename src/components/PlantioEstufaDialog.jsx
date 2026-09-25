@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { plantiosAPI, canteirosAPI } from "@/api/supabaseClient";
 import { ClipboardList, Info, Plus, Trash2, AlertCircle, AlertTriangle, CheckCircle2, RotateCcw, X } from "lucide-react";
 import { printCroquiFromPlantios } from "@/components/CroquiPrint";
@@ -302,7 +302,7 @@ function ConflitoCicloDialog({ open, conflitos, onFecharCanteiro, onFecharVao, o
   );
 }
 
-export default function PlantioEstufaDialog({ open, onClose, onSaved }) {
+export default function PlantioEstufaDialog({ open, onClose, onSaved, initialPlantios = null, initialEstufa = null }) {
   const [step, setStep] = useState("select"); // "select" | "edit"
   const [estufa, setEstufa] = useState(null);
   const [vaos, setVaos] = useState([]);
@@ -311,6 +311,37 @@ export default function PlantioEstufaDialog({ open, onClose, onSaved }) {
   const [saving, setSaving] = useState(false);
   const [loadingCroqui, setLoadingCroqui] = useState(false);
   const [conflitosDialog, setConflitosDialog] = useState({ open: false, conflitos: [] });
+  const [originalPlantios, setOriginalPlantios] = useState([]);
+
+  const modoEdicao = originalPlantios.length > 0;
+
+  function montarVaos(plantiosSelecionados) {
+    const dataRef = plantiosSelecionados[0]?.data_plantio || moment().format("YYYY-MM-DD");
+    const porVao = {};
+    for (const p of plantiosSelecionados) {
+      if (!porVao[p.vao]) porVao[p.vao] = { ladoA: {}, ladoB: {} };
+      const ladoKey = p.lado === "A" ? "ladoA" : "ladoB";
+      const cantIdx = (p.canteiro || 1) - 1;
+      if (!porVao[p.vao][ladoKey][cantIdx]) porVao[p.vao][ladoKey][cantIdx] = [];
+      porVao[p.vao][ladoKey][cantIdx].push({ variedade: p.variedade || "", quantidade: String(p.quantidade || "") });
+    }
+    return Object.entries(porVao).map(([vaoNum, lados]) => {
+      const montarLado = (ladoData) => ({
+        canteiros: [0, 1, 2, 3].map(i => ladoData[i] && ladoData[i].length > 0 ? ladoData[i] : [{ ...EMPTY_VARIEDADE }]),
+      });
+      return { vaoNum: parseInt(vaoNum), data: dataRef, ladoA: montarLado(lados.ladoA), ladoB: montarLado(lados.ladoB) };
+    }).sort((a, b) => a.vaoNum - b.vaoNum);
+  }
+
+  useEffect(() => {
+    if (!open || !initialPlantios?.length) return;
+    const plantios = Array.isArray(initialPlantios) ? initialPlantios : [];
+    setEstufa(initialEstufa || plantios[0]?.estufa || null);
+    setOriginalPlantios(plantios);
+    setUltimaDataPlantio(plantios[0]?.data_plantio || null);
+    setVaos(montarVaos(plantios));
+    setStep("edit");
+  }, [open, initialPlantios, initialEstufa]);
 
   function reset() {
     setStep("select");
@@ -320,6 +351,7 @@ export default function PlantioEstufaDialog({ open, onClose, onSaved }) {
     setUltimaDataPlantio(null);
     setSaving(false);
     setConflitosDialog({ open: false, conflitos: [] });
+    setOriginalPlantios([]);
   }
 
   async function handleCarregarCroqui() {
@@ -356,30 +388,8 @@ export default function PlantioEstufaDialog({ open, onClose, onSaved }) {
       const dataRef = plantiosUltimos[0]?.data_plantio || moment().format("YYYY-MM-DD");
       setUltimaDataPlantio(dataRef);
 
-      // Agrupar por vão
-      const porVao = {};
-      for (const p of plantiosUltimos) {
-        if (!porVao[p.vao]) porVao[p.vao] = { ladoA: {}, ladoB: {} };
-        const ladoKey = p.lado === "A" ? "ladoA" : "ladoB";
-        const cantIdx = (p.canteiro || 1) - 1;
-        if (!porVao[p.vao][ladoKey][cantIdx]) porVao[p.vao][ladoKey][cantIdx] = [];
-        porVao[p.vao][ladoKey][cantIdx].push({ variedade: p.variedade || "", quantidade: String(p.quantidade || "") });
-      }
-
-      const novosVaos = Object.entries(porVao).map(([vaoNum, lados]) => {
-        const montarLado = (ladoData) => ({
-          canteiros: [0, 1, 2, 3].map(i =>
-            ladoData[i] && ladoData[i].length > 0 ? ladoData[i] : [{ ...EMPTY_VARIEDADE }]
-          ),
-        });
-        return {
-          vaoNum: parseInt(vaoNum),
-          data: dataRef,
-          ladoA: montarLado(lados.ladoA),
-          ladoB: montarLado(lados.ladoB),
-        };
-      }).sort((a, b) => a.vaoNum - b.vaoNum);
-
+      setOriginalPlantios([]);
+      const novosVaos = montarVaos(plantiosUltimos);
       setVaos(novosVaos.length > 0 ? novosVaos : [emptyVao()]);
       setStep("edit");
       toast.success(`Template da Semana ${semanaMax}/${moment(dataRef).year()} carregado`);
@@ -519,7 +529,7 @@ export default function PlantioEstufaDialog({ open, onClose, onSaved }) {
 
     // *** BLOQUEIO: verificar conflitos de ciclo ativo ***
     const conflitos = detectarConflitos();
-    if (conflitos.length > 0) {
+    if (conflitos.length > 0 && !modoEdicao) {
       setConflitosDialog({ open: true, conflitos });
       return; // BLOQUEIA — não salva nada
     }
@@ -533,6 +543,17 @@ export default function PlantioEstufaDialog({ open, onClose, onSaved }) {
     try {
       const allCanteiros = await canteirosAPI.list();
       const safeCanteiros = Array.isArray(allCanteiros) ? allCanteiros : [];
+
+      // Em uma edição, substituímos o croqui anterior para não duplicar
+      // plantios. Primeiro limpamos os registros e canteiros daquela estufa.
+      if (modoEdicao) {
+        const locaisAntigos = [...new Map(originalPlantios.map((p) => [`${p.estufa}-${p.lado}-${p.vao}-${p.canteiro}`, p])).values()];
+        for (const p of originalPlantios) await plantiosAPI.delete(p.id);
+        for (const local of locaisAntigos) {
+          const canteiro = safeCanteiros.find(c => c.estufa === local.estufa && c.lado === local.lado && c.vao === local.vao && c.numero === local.canteiro);
+          if (canteiro) await canteirosAPI.update(canteiro.id, { variedades: [], total_mudas: 0, data_finalizacao: null });
+        }
+      }
 
       for (const vao of vaos) {
         const semana = getWeekNumber(vao.data);
