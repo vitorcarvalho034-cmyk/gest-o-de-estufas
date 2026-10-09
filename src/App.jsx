@@ -16,7 +16,6 @@ import Produtividade from './pages/Produtividade';
 import Historico from './pages/Historico';
 import GerenciarCiclos from './pages/GerenciarCiclos';
 import Pautas from './pages/Pautas';
-import ColhidoRecebido from './pages/ColhidoRecebido';
 import PlanoSeparacao from './pages/PlanoSeparacao';
 import DadosColheita from './pages/DadosColheita';
 
@@ -57,7 +56,6 @@ const AuthenticatedApp = () => {
         <Route path="/historico" element={<Historico />} />
         <Route path="/ciclos" element={<GerenciarCiclos />} />
         <Route path="/pautas" element={<Pautas />} />
-        <Route path="/colhido-recebido" element={<ColhidoRecebido />} />
         <Route path="/plano-separacao" element={<PlanoSeparacao />} />
         <Route path="/dados-colheita" element={<DadosColheita />} />
         <Route path="*" element={<PageNotFound />} />

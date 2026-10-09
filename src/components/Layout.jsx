@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation } from "react-router-dom";
-import { Flower2, LayoutDashboard, Warehouse, Sprout, Scissors, Trash2, BarChart3, CalendarClock, Menu, History, RefreshCw, ClipboardList, ClipboardCheck, ListChecks, FileSpreadsheet } from "lucide-react";
+import { LayoutDashboard, Warehouse, Sprout, Scissors, Trash2, BarChart3, CalendarClock, Menu, History, RefreshCw, ClipboardList, ListChecks, FileSpreadsheet } from "lucide-react";
 import { useState } from "react";
 import OfflineBanner from "./OfflineBanner";
 import PwaInstallPrompt from "./PwaInstallPrompt";
@@ -11,7 +11,6 @@ const navItems = [
   { path: "/plantio", label: "Plantio", icon: Sprout },
   { path: "/colheita", label: "Colheita", icon: Scissors },
   { path: "/plano-separacao", label: "Plano de Separação", icon: ListChecks },
-  { path: "/colhido-recebido", label: "Colhido × Recebido", icon: ClipboardCheck },
   { path: "/descarte", label: "Descarte", icon: Trash2 },
   { path: "/previsao", label: "Previsão", icon: CalendarClock },
   { path: "/produtividade", label: "Produtividade", icon: BarChart3 },
