@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { plantiosAPI, canteirosAPI } from "@/api/supabaseClient";
-import { ClipboardList, Info, Plus, Trash2, AlertCircle, AlertTriangle, CheckCircle2, RotateCcw, X } from "lucide-react";
+import { ClipboardList, Info, Plus, Trash2, AlertCircle, AlertTriangle, CheckCircle2, RotateCcw, ArrowRightLeft, X } from "lucide-react";
 import { printCroquiFromPlantios } from "@/components/CroquiPrint";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -312,6 +312,7 @@ export default function PlantioEstufaDialog({ open, onClose, onSaved, initialPla
   const [loadingCroqui, setLoadingCroqui] = useState(false);
   const [conflitosDialog, setConflitosDialog] = useState({ open: false, conflitos: [] });
   const [originalPlantios, setOriginalPlantios] = useState([]);
+  const [estufaOriginal, setEstufaOriginal] = useState(null);
 
   const modoEdicao = originalPlantios.length > 0;
 
@@ -338,6 +339,7 @@ export default function PlantioEstufaDialog({ open, onClose, onSaved, initialPla
     const plantios = Array.isArray(initialPlantios) ? initialPlantios : [];
     setEstufa(initialEstufa || plantios[0]?.estufa || null);
     setOriginalPlantios(plantios);
+    setEstufaOriginal(initialEstufa || plantios[0]?.estufa || null);
     setUltimaDataPlantio(plantios[0]?.data_plantio || null);
     setVaos(montarVaos(plantios));
     setStep("edit");
@@ -352,6 +354,26 @@ export default function PlantioEstufaDialog({ open, onClose, onSaved, initialPla
     setSaving(false);
     setConflitosDialog({ open: false, conflitos: [] });
     setOriginalPlantios([]);
+    setEstufaOriginal(null);
+  }
+
+  async function trocarEstufa(novaEstufa) {
+    if (!modoEdicao || novaEstufa === estufa) return;
+    try {
+      const todosCanteiros = await canteirosAPI.list();
+      const ocupados = (Array.isArray(todosCanteiros) ? todosCanteiros : []).filter(
+        (canteiro) => canteiro.estufa === novaEstufa && (canteiro.total_mudas || 0) > 0
+      );
+      if (ocupados.length > 0) {
+        toast.error(`A Estufa ${novaEstufa} possui ${ocupados.length} canteiro(s) ocupado(s). Escolha uma estufa livre.`);
+        return;
+      }
+      setEstufa(novaEstufa);
+      setCanteirosOcupados([]);
+      toast.info(`Croqui preparado para a Estufa ${novaEstufa}. Confirme para salvar a troca.`);
+    } catch (e) {
+      toast.error("Não foi possível verificar a estufa: " + e.message);
+    }
   }
 
   async function handleCarregarCroqui() {
@@ -535,6 +557,13 @@ export default function PlantioEstufaDialog({ open, onClose, onSaved, initialPla
     }
 
     // Sem conflitos — salvar
+    if (modoEdicao && estufa !== estufaOriginal) {
+      const confirmou = window.confirm(
+        `Trocar este croqui da Estufa ${estufaOriginal} para a Estufa ${estufa}?\n\n` +
+        "Os plantios antigos serão movidos para a nova estufa e não serão duplicados."
+      );
+      if (!confirmou) return;
+    }
     await salvarPlantio();
   }
 
@@ -745,12 +774,31 @@ export default function PlantioEstufaDialog({ open, onClose, onSaved, initialPla
               )}
 
               <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold">
-                  Estufa {estufa} — {vaos.length} vão(s)
-                </span>
-                <Button variant="outline" size="sm" onClick={addVao} className="gap-1.5 text-xs">
-                  <Plus className="w-3.5 h-3.5" /> Adicionar Vão
-                </Button>
+                <div>
+                  <span className="text-sm font-semibold block">Estufa {estufa} — {vaos.length} vão(s)</span>
+                  {modoEdicao && estufa !== estufaOriginal && (
+                    <span className="text-[11px] text-amber-700">Será movido da Estufa {estufaOriginal} para a Estufa {estufa}</span>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  {modoEdicao && (
+                    <div className="flex items-center gap-1 rounded-lg border border-amber-300 bg-amber-50 px-2 py-1">
+                      <ArrowRightLeft className="w-3.5 h-3.5 text-amber-700" />
+                      <span className="text-[11px] font-semibold text-amber-800">Trocar:</span>
+                      {[1, 2, 3, 4].map((numero) => (
+                        <button
+                          key={numero}
+                          type="button"
+                          onClick={() => trocarEstufa(numero)}
+                          className={`rounded px-1.5 py-0.5 text-[11px] font-bold transition-colors ${estufa === numero ? "bg-primary text-primary-foreground" : "text-amber-800 hover:bg-amber-200"}`}
+                        >E{numero}</button>
+                      ))}
+                    </div>
+                  )}
+                  <Button variant="outline" size="sm" onClick={addVao} className="gap-1.5 text-xs">
+                    <Plus className="w-3.5 h-3.5" /> Adicionar Vão
+                  </Button>
+                </div>
               </div>
 
               <div className="space-y-4">
