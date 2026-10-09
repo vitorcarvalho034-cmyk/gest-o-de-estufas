@@ -9,6 +9,7 @@ import moment from "moment";
 import { getVaosArray } from "@/lib/estufasConfig";
 import { isVariedadeFixa, isVariedadeGirassol } from "@/lib/coresVariedades";
 import { enqueue } from "@/lib/offlineQueue";
+import { VARIEDADES_AREA5 } from "@/lib/colheitaHastes";
 
 const DESTINOS = {
   "Barracão": 50,
@@ -68,6 +69,7 @@ export default function ColheitaRapidaDialog({ open, onClose, onSaved, onOpenCom
     () => (form.estufa ? getVaosArray(parseInt(form.estufa, 10)) : []),
     [form.estufa]
   );
+  const isArea5 = form.estufa === "5";
 
   useEffect(() => {
     if (!open) return;
@@ -137,6 +139,10 @@ export default function ColheitaRapidaDialog({ open, onClose, onSaved, onOpenCom
     }));
   }
 
+  function selectVariedadeArea5(value) {
+    setForm((f) => ({ ...f, variedade: value, destino: "Área 5", cestos: "", macos: "" }));
+  }
+
   function voltarParaCanteiros() {
     setSelectedCanteiro(false);
     setVariedades([]);
@@ -144,25 +150,26 @@ export default function ColheitaRapidaDialog({ open, onClose, onSaved, onOpenCom
     setForm((f) => ({ ...f, canteiro: "", variedade: "", destino: "", cestos: "", macos: "", hastes_avulsas: "" }));
   }
 
-  const destinoFixo = getDestinoFixo(form.variedade);
+  const destinoFixo = isArea5 ? { destino: "Área 5", hastesPorCesto: 0 } : getDestinoFixo(form.variedade);
   const hastesPorCesto = destinoFixo ? destinoFixo.hastesPorCesto : (DESTINOS[form.destino] || 0);
   const hastesPorMaco = destinoFixo ? 0 : (HASTES_POR_MACO[form.destino] || 0);
-  const total =
-    (parseInt(form.cestos, 10) || 0) * hastesPorCesto +
-    (parseInt(form.macos, 10) || 0) * hastesPorMaco +
-    (parseInt(form.hastes_avulsas, 10) || 0);
+  const total = isArea5
+    ? (parseInt(form.hastes_avulsas, 10) || 0)
+    : (parseInt(form.cestos, 10) || 0) * hastesPorCesto +
+      (parseInt(form.macos, 10) || 0) * hastesPorMaco +
+      (parseInt(form.hastes_avulsas, 10) || 0);
 
   const canSave = Boolean(
-    form.estufa && form.lado && form.vao && form.canteiro && form.variedade.trim() &&
+    form.estufa && (isArea5 || (form.lado && form.vao && form.canteiro)) && form.variedade.trim() &&
     (destinoFixo || form.destino) && total > 0
   );
 
   function buildHarvestData() {
     return {
       estufa: parseInt(form.estufa, 10),
-      lado: form.lado,
-      vao: parseInt(form.vao, 10),
-      canteiro: parseInt(form.canteiro, 10),
+      lado: isArea5 ? "Área 5" : form.lado,
+      vao: isArea5 ? 0 : parseInt(form.vao, 10),
+      canteiro: isArea5 ? 0 : parseInt(form.canteiro, 10),
       variedade: form.variedade.trim(),
       destino: destinoFixo ? destinoFixo.destino : form.destino,
       cestos: parseInt(form.cestos, 10) || 0,
@@ -256,17 +263,17 @@ export default function ColheitaRapidaDialog({ open, onClose, onSaved, onOpenCom
           />
         </div>
 
-        <div className="grid grid-cols-4 gap-2 mt-1">
-          {[1, 2, 3, 4].map((number) => (
+        <div className="grid grid-cols-5 gap-2 mt-1">
+          {[1, 2, 3, 4, 5].map((number) => (
             <button
               key={number}
               onClick={() => updateBase("estufa", String(number))}
               className={`rounded-xl border-2 py-3 font-bold text-lg transition-all ${form.estufa === String(number) ? "bg-primary text-primary-foreground border-primary shadow-md" : "bg-background border-border hover:border-primary/50"}`}
-            >E{number}</button>
+            >{number === 5 ? "Área 5" : `E${number}`}</button>
           ))}
         </div>
 
-        {form.estufa && (
+        {form.estufa && !isArea5 && (
           <div className="grid grid-cols-2 gap-2">
             {["A", "B"].map((side) => (
               <button
@@ -275,6 +282,36 @@ export default function ColheitaRapidaDialog({ open, onClose, onSaved, onOpenCom
                 className={`rounded-xl border-2 py-3 font-bold transition-all ${form.lado === side ? "bg-primary text-primary-foreground border-primary shadow-md" : "bg-background border-border hover:border-primary/50"}`}
               >Lado {side}</button>
             ))}
+          </div>
+        )}
+
+        {isArea5 && (
+          <div className="rounded-xl border-2 border-emerald-300 bg-emerald-50/70 p-4 space-y-4">
+            <div>
+              <p className="text-sm font-bold text-emerald-900">Área 5 — Flores e folhagens</p>
+              <p className="text-xs text-emerald-700 mt-1">Lançamento direto da quantidade total de hastes colhidas.</p>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {VARIEDADES_AREA5.map((variedade) => (
+                <button key={variedade} onClick={() => selectVariedadeArea5(variedade)} className={`rounded-lg border-2 px-2 py-2 text-xs font-semibold transition-all ${form.variedade === variedade ? "bg-emerald-600 text-white border-emerald-600" : "bg-background border-emerald-200 hover:border-emerald-500"}`}>
+                  {variedade}
+                </button>
+              ))}
+            </div>
+            {form.variedade && (
+              <div className="space-y-2">
+                <p className="text-sm font-semibold text-emerald-900">{form.variedade}</p>
+                <Input type="number" min="1" value={form.hastes_avulsas} onChange={(event) => updateBase("hastes_avulsas", event.target.value)} placeholder="Quantidade total de hastes" className="h-12 text-lg font-bold bg-background" />
+                <div className="flex items-center justify-between rounded-lg bg-background border border-emerald-200 px-3 py-2">
+                  <span className="text-sm text-muted-foreground">Total do lançamento</span>
+                  <span className="text-xl font-black text-emerald-700">{total.toLocaleString("pt-BR")} hastes</span>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => updateBase("estufa", "")} className="gap-1"><X className="w-4 h-4" /> Trocar área</Button>
+                  <Button onClick={handleAddPending} disabled={!canSave || saving} className="gap-1 bg-emerald-600 hover:bg-emerald-700"><Check className="w-4 h-4" /> Adicionar à lista</Button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -293,7 +330,7 @@ export default function ColheitaRapidaDialog({ open, onClose, onSaved, onOpenCom
             <div className="space-y-1 max-h-36 overflow-y-auto">
               {pendingHarvests.map((item) => (
                 <div key={item._draftId} className="flex items-center justify-between rounded-lg bg-background border px-2 py-1.5 text-xs">
-                  <span><strong>E{item.estufa} {item.lado} · V{item.vao}-C{item.canteiro}</strong> · {item.variedade} · {item.hastes.toLocaleString("pt-BR")} hastes</span>
+                  <span><strong>{item.estufa === 5 ? "Área 5" : `E${item.estufa} ${item.lado} · V${item.vao}-C${item.canteiro}`}</strong> · {item.variedade} · {item.hastes.toLocaleString("pt-BR")} hastes</span>
                   <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => removePending(item._draftId)} aria-label="Remover lançamento">
                     <X className="w-4 h-4" />
                   </Button>
@@ -303,7 +340,7 @@ export default function ColheitaRapidaDialog({ open, onClose, onSaved, onOpenCom
           </div>
         )}
 
-        {form.lado && !selectedCanteiro && (
+        {form.lado && !selectedCanteiro && !isArea5 && (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <p className="text-sm font-semibold">Escolha o canteiro</p>

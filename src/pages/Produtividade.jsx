@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { colheitasAPI, descartesAPI, plantiosAPI } from "@/api/supabaseClient";
 import { normalizarVariedade } from "@/lib/coresVariedades";
+import { getHastesColheita, isArea5Registro } from "@/lib/colheitaHastes";
 import { BarChart3, TrendingUp, TrendingDown, Award, Leaf, Scissors, Trash2, Ruler, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import moment from "moment";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -300,9 +301,12 @@ export default function Produtividade() {
     load();
   }, []);
 
-  const filtered = filterEstufa === "all"
+  const area5Colheitas = colheitas.filter((c) => isArea5Registro(c));
+  const area5Visivel = filterEstufa === "all" || filterEstufa === "5";
+  const filtered = (filterEstufa === "all"
     ? colheitas
-    : colheitas.filter((c) => c.estufa === parseInt(filterEstufa));
+    : colheitas.filter((c) => c.estufa === parseInt(filterEstufa)))
+    .filter((c) => !isArea5Registro(c));
 
   const filteredDescartes = filterEstufa === "all"
     ? descartes
@@ -404,6 +408,34 @@ export default function Produtividade() {
   const totalDescartes = filteredDescartes.reduce((s, d) => s + (d.quantidade || 0), 0);
   const totalPlantadas = filteredPlantios.reduce((s, p) => s + (p.quantidade || 0), 0);
 
+  const area5PorVariedade = Object.values(area5Colheitas.reduce((mapa, registro) => {
+    const nome = registro.variedade || "Sem variedade";
+    if (!mapa[nome]) mapa[nome] = { nome, hastes: 0, registros: 0 };
+    mapa[nome].hastes += getHastesColheita(registro);
+    mapa[nome].registros += 1;
+    return mapa;
+  }, {})).sort((a, b) => b.hastes - a.hastes);
+
+  const area5PorSemana = Object.values(area5Colheitas.reduce((mapa, registro) => {
+    if (!registro.data_colheita) return mapa;
+    const data = moment(registro.data_colheita);
+    const chave = `${data.isoWeekYear()}-${String(data.isoWeek()).padStart(2, "0")}`;
+    if (!mapa[chave]) mapa[chave] = { chave, semana: `S${data.isoWeek()}`, periodo: `${data.isoWeek()}/${data.isoWeekYear()}`, hastes: 0 };
+    mapa[chave].hastes += getHastesColheita(registro);
+    return mapa;
+  }, {})).sort((a, b) => a.chave.localeCompare(b.chave));
+
+  const area5PorMes = Object.values(area5Colheitas.reduce((mapa, registro) => {
+    if (!registro.data_colheita) return mapa;
+    const data = moment(registro.data_colheita);
+    const chave = `${data.year()}-${String(data.month() + 1).padStart(2, "0")}`;
+    if (!mapa[chave]) mapa[chave] = { chave, mes: `${MONTH_NAMES[data.month()]}/${data.year()}`, hastes: 0 };
+    mapa[chave].hastes += getHastesColheita(registro);
+    return mapa;
+  }, {})).sort((a, b) => a.chave.localeCompare(b.chave));
+
+  const area5TotalHastes = area5Colheitas.reduce((s, c) => s + getHastesColheita(c), 0);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -428,8 +460,8 @@ export default function Produtividade() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todas as Estufas</SelectItem>
-            {[1, 2, 3, 4].map((n) => (
-              <SelectItem key={n} value={String(n)}>Estufa {n}</SelectItem>
+            {[1, 2, 3, 4, 5].map((n) => (
+              <SelectItem key={n} value={String(n)}>{n === 5 ? "Área 5" : `Estufa ${n}`}</SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -483,6 +515,7 @@ export default function Produtividade() {
           <TabsTrigger value="estufas">Estufas</TabsTrigger>
           <TabsTrigger value="mensal">Mensal</TabsTrigger>
           <TabsTrigger value="destino">Destino</TabsTrigger>
+          <TabsTrigger value="area5">Área 5</TabsTrigger>
         </TabsList>
 
         {/* ── VARIEDADES ── */}
@@ -752,6 +785,52 @@ export default function Produtividade() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* ── ÁREA 5 ── */}
+        <TabsContent value="area5" className="space-y-6">
+          {!area5Visivel ? (
+            <Card><CardContent className="p-8 text-center text-sm text-muted-foreground">Selecione “Todas as Estufas” ou “Estufa 5” para visualizar a Área 5.</CardContent></Card>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <Card><CardContent className="p-4 text-center"><p className="text-xs text-muted-foreground">Hastes no período</p><p className="text-2xl font-bold text-emerald-700">{area5TotalHastes.toLocaleString("pt-BR")}</p><p className="text-xs text-muted-foreground">lançamento direto</p></CardContent></Card>
+                <Card><CardContent className="p-4 text-center"><p className="text-xs text-muted-foreground">Semanas com produção</p><p className="text-2xl font-bold text-emerald-700">{area5PorSemana.length}</p><p className="text-xs text-muted-foreground">semanas registradas</p></CardContent></Card>
+                <Card><CardContent className="p-4 text-center"><p className="text-xs text-muted-foreground">Variedades</p><p className="text-2xl font-bold text-emerald-700">{area5PorVariedade.length}</p><p className="text-xs text-muted-foreground">Área 5</p></CardContent></Card>
+              </div>
+
+              <Card>
+                <CardHeader><CardTitle className="text-base">Produção semanal — Área 5</CardTitle></CardHeader>
+                <CardContent className="overflow-x-auto">
+                  {area5PorSemana.length === 0 ? <p className="py-8 text-center text-sm text-muted-foreground">Nenhuma produção registrada.</p> : (
+                    <table className="w-full text-sm"><thead><tr className="border-b text-xs text-muted-foreground"><th className="py-2 text-left">Semana</th><th className="py-2 text-right">Hastes</th></tr></thead><tbody>
+                      {[...area5PorSemana].reverse().map((linha) => <tr key={linha.chave} className="border-b"><td className="py-2 font-medium">Semana {linha.periodo}</td><td className="py-2 text-right font-bold text-emerald-700">{linha.hastes.toLocaleString("pt-BR")}</td></tr>)}
+                    </tbody></table>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader><CardTitle className="text-base">Produção mensal — Área 5</CardTitle></CardHeader>
+                <CardContent className="overflow-x-auto">
+                  {area5PorMes.length === 0 ? <p className="py-8 text-center text-sm text-muted-foreground">Nenhuma produção registrada.</p> : (
+                    <table className="w-full text-sm"><thead><tr className="border-b text-xs text-muted-foreground"><th className="py-2 text-left">Mês</th><th className="py-2 text-right">Hastes</th></tr></thead><tbody>
+                      {[...area5PorMes].reverse().map((linha) => <tr key={linha.chave} className="border-b"><td className="py-2 font-medium">{linha.mes}</td><td className="py-2 text-right font-bold text-emerald-700">{linha.hastes.toLocaleString("pt-BR")}</td></tr>)}
+                    </tbody></table>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader><CardTitle className="text-base">Produção por variedade — Área 5</CardTitle></CardHeader>
+                <CardContent className="overflow-x-auto">
+                  <table className="w-full text-sm"><thead><tr className="border-b text-xs text-muted-foreground"><th className="py-2 text-left">Variedade</th><th className="py-2 text-right">Registros</th><th className="py-2 text-right">Hastes</th></tr></thead><tbody>
+                    {area5PorVariedade.map((linha) => <tr key={linha.nome} className="border-b"><td className="py-2 font-medium">{linha.nome}</td><td className="py-2 text-right">{linha.registros}</td><td className="py-2 text-right font-bold text-emerald-700">{linha.hastes.toLocaleString("pt-BR")}</td></tr>)}
+                  </tbody></table>
+                </CardContent>
+              </Card>
+            </>
+          )}
         </TabsContent>
       </Tabs>
     </div>

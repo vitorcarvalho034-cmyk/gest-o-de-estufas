@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { colheitasAPI, previsaoColheitaAPI } from "@/api/supabaseClient";
 import { agruparPorCor, PALETA_CORES, getCorVariedade, isVariedadeFixa, isVariedadeGirassol, normalizarVariedade } from "@/lib/coresVariedades";
-import { getHastesColheita } from "@/lib/colheitaHastes";
+import { getHastesColheita, isArea5Registro } from "@/lib/colheitaHastes";
 import { Scissors, Plus, TrendingUp, Package, Target, Calendar, Pencil, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import ColheitaWizard from "../components/ColheitaWizard";
@@ -14,7 +14,7 @@ import { toast } from "sonner";
 import moment from "moment";
 
 // Flores fixas (Statice, Limonium, Girassol) ficam fora da meta principal
-const isFloraFixa = (variedade) => isVariedadeFixa(variedade) || isVariedadeGirassol(variedade);
+const isFloraFixa = (variedade, registro = null) => isArea5Registro(registro || { variedade }) || isVariedadeFixa(variedade) || isVariedadeGirassol(variedade);
 
 const DESTINOS = {
   "Barracão": 50,
@@ -121,8 +121,8 @@ export default function Colheita() {
   });
 
   // Separar flores principais (Crisântemo/Anastasia) das flores fixas (Statice/Limonium/Girassol)
-  const filtradasPrincipais = filtradas.filter(c => !isFloraFixa(c.variedade));
-  const filtradasFixas = filtradas.filter(c => isFloraFixa(c.variedade));
+  const filtradasPrincipais = filtradas.filter(c => !isFloraFixa(c.variedade, c));
+  const filtradasFixas = filtradas.filter(c => isFloraFixa(c.variedade, c));
 
   const totalCestos = filtradasPrincipais.reduce((s, c) => s + (c.cestos || 0), 0);
   const totalHastesTotal = filtradasPrincipais.reduce((s, c) => s + getHastesColheita(c), 0);
@@ -138,13 +138,14 @@ export default function Colheita() {
   const filtradasGirassol = filtradasFixas.filter(c => isVariedadeGirassol(c.variedade));
   const statice = { cestos: filtradasStatice.reduce((s,c)=>s+(c.cestos||0),0), hastes: filtradasStatice.reduce((s,c)=>s+getHastesColheita(c),0) };
   const limonium = { cestos: filtradasLimonium.reduce((s,c)=>s+(c.cestos||0),0), hastes: filtradasLimonium.reduce((s,c)=>s+getHastesColheita(c),0) };
-  const girassol = { cestos: filtradasGirassol.reduce((s,c)=>s+(c.cestos||0),0), hastes: filtradasGirassol.reduce((s,c)=>s+getHastesColheita(c),0) };
-  const hojeCount = todasFiltradas.filter((c) => moment(c.data_colheita).isSame(moment(), "day") && !isFloraFixa(c.variedade)).length;
+  const girassol = { cestos: filtradasGirassol.filter(c => !isArea5Registro(c)).reduce((s,c)=>s+(c.cestos||0),0), hastes: filtradasGirassol.filter(c => !isArea5Registro(c)).reduce((s,c)=>s+getHastesColheita(c),0) };
+  const area5 = { cestos: filtradas.filter(isArea5Registro).reduce((s,c)=>s+(c.cestos||0),0), hastes: filtradas.filter(isArea5Registro).reduce((s,c)=>s+getHastesColheita(c),0) };
+  const hojeCount = todasFiltradas.filter((c) => moment(c.data_colheita).isSame(moment(), "day") && !isFloraFixa(c.variedade, c)).length;
 
   // Meta: apenas flores principais (sem Statice/Limonium/Girassol)
   const colhidoSemanaAtual = filtradasPrincipais.reduce((s, c) => s + getHastesColheita(c), 0);
   const previstoSemana = previsoes
-    .filter(p => p.semana === semanaNav && p.ano === anoNav && !isFloraFixa(p.variedade))
+    .filter(p => p.semana === semanaNav && p.ano === anoNav && !isFloraFixa(p.variedade, p))
     .reduce((s, p) => s + ((p.hastes_previstas ?? p.pressas_previstas) || 0), 0);
   const pctMeta = previstoSemana > 0 ? Math.round((colhidoSemanaAtual / previstoSemana) * 100) : 0;
 
@@ -153,8 +154,8 @@ export default function Colheita() {
   for (let i = 7; i >= 0; i--) {
     const w = currentWeek - i;
     const wLabel = `S${w > 0 ? w : w + 52}`;
-    const wPrincipais = colheitas.filter((c) => c.semana === (w > 0 ? w : w + 52) && !isFloraFixa(c.variedade));
-    const wFixas = colheitas.filter((c) => c.semana === (w > 0 ? w : w + 52) && isFloraFixa(c.variedade));
+    const wPrincipais = colheitas.filter((c) => c.semana === (w > 0 ? w : w + 52) && !isFloraFixa(c.variedade, c));
+    const wFixas = colheitas.filter((c) => c.semana === (w > 0 ? w : w + 52) && isFloraFixa(c.variedade, c));
     weeklyTrend.push({
       semana: wLabel,
       cestos: wPrincipais.reduce((s, c) => s + (c.cestos || 0), 0),
@@ -288,6 +289,15 @@ export default function Colheita() {
                 </div>
               </div>
             )}
+            {(area5.hastes > 0 || area5.cestos > 0) && (
+              <div className="flex items-center justify-between py-2">
+                <span className="text-sm font-medium text-emerald-800">Área 5</span>
+                <div className="text-right">
+                  <span className="text-sm font-bold text-emerald-700">{area5.hastes.toLocaleString("pt-BR")} hastes</span>
+                  {area5.cestos > 0 && <span className="text-xs text-emerald-600 ml-2">({area5.cestos} cestos)</span>}
+                </div>
+              </div>
+            )}
             <div className="flex items-center justify-between pt-2">
               <span className="text-xs text-emerald-600 font-semibold">Total</span>
               <span className="text-sm font-bold text-emerald-700">{totalHastesFixas.toLocaleString("pt-BR")} hastes · {totalCestosFixas} cestos</span>
@@ -362,7 +372,7 @@ export default function Colheita() {
           );
         }
 
-        const principais = filtradas.filter(c => !isFloraFixa(c.variedade));
+        const principais = filtradas.filter(c => !isFloraFixa(c.variedade, c));
         const staticeList = filtradas.filter(c => isVariedadeFixa(c.variedade) && ['sinzii','tasmania'].some(n => (c.variedade||'').toLowerCase().includes(n)));
         const limoniumList = filtradas.filter(c => isVariedadeFixa(c.variedade) && !['sinzii','tasmania'].some(n => (c.variedade||'').toLowerCase().includes(n)));
         const girassolList = filtradas.filter(c => isVariedadeGirassol(c.variedade));
@@ -475,7 +485,7 @@ export default function Colheita() {
 
       {/* Filter tabs — Estufa */}
       <div className="flex gap-2 flex-wrap">
-        {["todas", "1", "2", "3", "4"].map((e) => (
+        {['todas', '1', '2', '3', '4', '5'].map((e) => (
           <button
             key={e}
             onClick={() => setFiltroEstufa(e)}
@@ -485,7 +495,7 @@ export default function Colheita() {
                 : "bg-background border-border text-muted-foreground hover:border-primary/50 hover:text-primary"
             }`}
           >
-            {e === "todas" ? "Todas" : `Estufa ${e}`}
+            {e === "todas" ? "Todas" : e === "5" ? "Área 5" : `Estufa ${e}`}
           </button>
         ))}
       </div>

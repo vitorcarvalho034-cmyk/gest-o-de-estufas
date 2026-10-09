@@ -8,6 +8,20 @@ export const HASTES_POR_CESTO = {
   "Oferta 80": 80,
 };
 
+export const VARIEDADES_AREA5 = [
+  "Pittosporum Verde",
+  "Photinia",
+  "Aspargo Vassourinha",
+  "Ivone",
+  "Renda Portuguesa",
+  "Avencão",
+  "Girassol — Área 5",
+];
+
+export function isArea5Registro(registro = {}) {
+  return Number(registro.estufa) === 5;
+}
+
 const NOMES_STATICE = ["sinzii", "tasmania"];
 const NOMES_LIMONIUM = ["limonium", "klara", "piuma", "shooting star", "oshi", "supreme"];
 
