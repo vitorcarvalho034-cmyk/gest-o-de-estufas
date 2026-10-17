@@ -256,6 +256,8 @@ export default function Estufas() {
                 );
               })()}
 
+              {!variedadesDaEstufa(canteiros, estufa).some((item) => item.nome === variedadePesquisada) && (
+                <>
               {/* Stats bar */}
               <div className="flex flex-wrap gap-4">
                 <div className="bg-card border rounded-lg px-4 py-2 text-center">
@@ -375,6 +377,8 @@ export default function Estufas() {
                   </TooltipProvider>
                 </div>
               </div>
+                </>
+              )}
             </TabsContent>
           );
         })}
