@@ -15,6 +15,32 @@ const CANTEIRO_FULL = "bg-primary/20 border-primary/40 hover:bg-primary/30";
 const CANTEIRO_STATICE = "bg-purple-100 border-purple-300 hover:bg-purple-200 text-purple-700";
 const CANTEIRO_LIMONIUM = "bg-blue-100 border-blue-300 hover:bg-blue-200 text-blue-700";
 
+function nomeVariedade(item) {
+  return String(item?.nome || item?.variedade || "").trim();
+}
+
+function variedadesDaEstufa(canteiros, estufa) {
+  const mapa = new Map();
+  canteiros
+    .filter((canteiro) => canteiro.estufa === estufa && Array.isArray(canteiro.variedades))
+    .forEach((canteiro) => {
+      canteiro.variedades.forEach((item) => {
+        const nome = nomeVariedade(item);
+        if (!nome) return;
+        if (!mapa.has(nome)) mapa.set(nome, []);
+        mapa.get(nome).push({
+          lado: canteiro.lado,
+          vao: canteiro.vao,
+          canteiro: canteiro.numero,
+          quantidade: item.quantidade,
+        });
+      });
+    });
+  return [...mapa.entries()]
+    .map(([nome, locais]) => ({ nome, locais }))
+    .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+}
+
 function MiniCanteiro({ canteiro, onClick, numero, colheitas }) {
   const mudas = canteiro?.total_mudas || 0;
   const pct = Math.min((mudas / 2000) * 100, 100);
@@ -86,6 +112,7 @@ export default function Estufas() {
   const [loading, setLoading] = useState(true);
   const [selectedCanteiro, setSelectedCanteiro] = useState(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [variedadePesquisada, setVariedadePesquisada] = useState("");
 
   async function loadCanteiros() {
     try {
@@ -181,6 +208,50 @@ export default function Estufas() {
 
           return (
             <TabsContent key={estufa} value={String(estufa)} className="mt-6 space-y-4">
+              {(() => {
+                const variedades = variedadesDaEstufa(canteiros, estufa);
+                const selecionada = variedades.find((item) => item.nome === variedadePesquisada);
+                return (
+                  <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-3">
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">Pesquisar variedade</p>
+                      <p className="text-xs text-muted-foreground mt-1">Escolha uma variedade para ver todos os vãos e canteiros onde ela está plantada.</p>
+                    </div>
+                    <select
+                      value={variedades.some((item) => item.nome === variedadePesquisada) ? variedadePesquisada : ""}
+                      onChange={(event) => setVariedadePesquisada(event.target.value)}
+                      className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm outline-none focus:ring-2 focus:ring-primary/30"
+                    >
+                      <option value="">Selecione uma variedade...</option>
+                      {variedades.map((item) => (
+                        <option key={item.nome} value={item.nome}>{item.nome}</option>
+                      ))}
+                    </select>
+                    {selecionada && (
+                      <div className="rounded-lg border bg-background p-3">
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <p className="text-sm font-bold text-primary">{selecionada.nome}</p>
+                          <Badge variant="secondary">{selecionada.locais.length} {selecionada.locais.length === 1 ? "canteiro" : "canteiros"}</Badge>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {selecionada.locais
+                            .sort((a, b) => (a.lado || "").localeCompare(b.lado || "") || a.vao - b.vao || a.canteiro - b.canteiro)
+                            .map((local, index) => (
+                              <span key={`${local.lado}-${local.vao}-${local.canteiro}-${index}`} className="rounded-md border border-primary/20 bg-primary/5 px-2.5 py-1.5 text-xs font-medium text-foreground">
+                                Lado {local.lado} · Vão {local.vao} · Canteiro {local.canteiro}
+                                {local.quantidade ? <span className="ml-1 text-muted-foreground">({Number(local.quantidade).toLocaleString("pt-BR")} mudas)</span> : null}
+                              </span>
+                            ))}
+                        </div>
+                      </div>
+                    )}
+                    {variedades.length === 0 && (
+                      <p className="text-xs text-muted-foreground">Nenhuma variedade plantada encontrada nesta estufa.</p>
+                    )}
+                  </div>
+                );
+              })()}
+
               {/* Stats bar */}
               <div className="flex flex-wrap gap-4">
                 <div className="bg-card border rounded-lg px-4 py-2 text-center">
