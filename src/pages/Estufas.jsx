@@ -19,6 +19,10 @@ function nomeVariedade(item) {
   return String(item?.nome || item?.variedade || "").trim();
 }
 
+function chaveVariedade(nome) {
+  return nome.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR").replace(/\s+/g, " ").trim();
+}
+
 function variedadesDaEstufa(canteiros, estufa) {
   const mapa = new Map();
   canteiros
@@ -27,8 +31,9 @@ function variedadesDaEstufa(canteiros, estufa) {
       canteiro.variedades.forEach((item) => {
         const nome = nomeVariedade(item);
         if (!nome) return;
-        if (!mapa.has(nome)) mapa.set(nome, []);
-        mapa.get(nome).push({
+        const chave = chaveVariedade(nome);
+        if (!mapa.has(chave)) mapa.set(chave, { nome, locais: [] });
+        mapa.get(chave).locais.push({
           lado: canteiro.lado,
           vao: canteiro.vao,
           canteiro: canteiro.numero,
@@ -36,8 +41,7 @@ function variedadesDaEstufa(canteiros, estufa) {
         });
       });
     });
-  return [...mapa.entries()]
-    .map(([nome, locais]) => ({ nome, locais }))
+  return [...mapa.values()]
     .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
 }
 
