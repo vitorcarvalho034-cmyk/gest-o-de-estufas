@@ -9,7 +9,7 @@ import moment from "moment";
 import { getVaosArray } from "@/lib/estufasConfig";
 import { isVariedadeFixa, isVariedadeGirassol } from "@/lib/coresVariedades";
 import { enqueue } from "@/lib/offlineQueue";
-import { VARIEDADES_AREA5 } from "@/lib/colheitaHastes";
+import { LOCAIS_AREA5, VARIEDADES_AREA5 } from "@/lib/colheitaHastes";
 
 const DESTINOS = {
   "Barracão": 50,
@@ -143,6 +143,10 @@ export default function ColheitaRapidaDialog({ open, onClose, onSaved, onOpenCom
     setForm((f) => ({ ...f, variedade: value, destino: "Área 5", cestos: "", macos: "" }));
   }
 
+  function selectLocalArea5(value) {
+    setForm((f) => ({ ...f, lado: value }));
+  }
+
   function voltarParaCanteiros() {
     setSelectedCanteiro(false);
     setVariedades([]);
@@ -160,14 +164,14 @@ export default function ColheitaRapidaDialog({ open, onClose, onSaved, onOpenCom
       (parseInt(form.hastes_avulsas, 10) || 0);
 
   const canSave = Boolean(
-    form.estufa && (isArea5 || (form.lado && form.vao && form.canteiro)) && form.variedade.trim() &&
+    form.estufa && ((!isArea5 && form.lado && form.vao && form.canteiro) || (isArea5 && form.lado && form.lado !== "Área 5")) && form.variedade.trim() &&
     (destinoFixo || form.destino) && total > 0
   );
 
   function buildHarvestData() {
     return {
       estufa: parseInt(form.estufa, 10),
-      lado: isArea5 ? "Área 5" : form.lado,
+      lado: form.lado,
       vao: isArea5 ? 0 : parseInt(form.vao, 10),
       canteiro: isArea5 ? 0 : parseInt(form.canteiro, 10),
       variedade: form.variedade.trim(),
@@ -298,6 +302,18 @@ export default function ColheitaRapidaDialog({ open, onClose, onSaved, onOpenCom
                 </button>
               ))}
             </div>
+            <div className="space-y-1.5">
+              <label htmlFor="local-area5" className="text-sm font-semibold text-emerald-900">Local da colheita</label>
+              <select
+                id="local-area5"
+                value={form.lado === "Área 5" ? "" : form.lado}
+                onChange={(event) => selectLocalArea5(event.target.value)}
+                className="h-11 w-full rounded-md border border-emerald-200 bg-background px-3 text-sm shadow-sm outline-none focus:ring-2 focus:ring-emerald-500/30"
+              >
+                <option value="">Selecione o local...</option>
+                {LOCAIS_AREA5.map((local) => <option key={local} value={local}>{local}</option>)}
+              </select>
+            </div>
             {form.variedade && (
               <div className="space-y-2">
                 <p className="text-sm font-semibold text-emerald-900">{form.variedade}</p>
@@ -330,7 +346,7 @@ export default function ColheitaRapidaDialog({ open, onClose, onSaved, onOpenCom
             <div className="space-y-1 max-h-36 overflow-y-auto">
               {pendingHarvests.map((item) => (
                 <div key={item._draftId} className="flex items-center justify-between rounded-lg bg-background border px-2 py-1.5 text-xs">
-                  <span><strong>{item.estufa === 5 ? "Área 5" : `E${item.estufa} ${item.lado} · V${item.vao}-C${item.canteiro}`}</strong> · {item.variedade} · {item.hastes.toLocaleString("pt-BR")} hastes</span>
+                  <span><strong>{item.estufa === 5 ? `Área 5 · ${item.lado}` : `E${item.estufa} ${item.lado} · V${item.vao}-C${item.canteiro}`}</strong> · {item.variedade} · {item.hastes.toLocaleString("pt-BR")} hastes</span>
                   <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => removePending(item._draftId)} aria-label="Remover lançamento">
                     <X className="w-4 h-4" />
                   </Button>

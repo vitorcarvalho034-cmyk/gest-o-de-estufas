@@ -18,8 +18,20 @@ export const VARIEDADES_AREA5 = [
   "Girassol — Área 5",
 ];
 
+export const LOCAIS_AREA5 = [
+  ...Array.from({ length: 9 }, (_, index) => `Quadra ${index + 1}`),
+  "Telado",
+  "Viveiro",
+  "Estufa 5",
+];
+
 export function isArea5Registro(registro = {}) {
   return Number(registro.estufa) === 5;
+}
+
+export function getLocalArea5(registro = {}) {
+  if (!isArea5Registro(registro)) return "";
+  return registro.lado && registro.lado !== "Área 5" ? registro.lado : "Local não informado";
 }
 
 const NOMES_STATICE = ["sinzii", "tasmania"];
