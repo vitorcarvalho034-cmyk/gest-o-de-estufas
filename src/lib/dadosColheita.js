@@ -165,8 +165,6 @@ function consolidarVariedades(colheitas, descartes) {
   descartes.forEach((descarte) => {
     const linha = getLinha(descarte.variedade);
     linha.hastes_descartadas += numeroSeguro(descarte.quantidade);
-    const canteiro = chaveCanteiro(descarte);
-    if (canteiro) linha.canteiros.add(canteiro);
   });
 
   return [...mapa.values()]
@@ -217,8 +215,6 @@ function consolidarPorMes(colheitas, descartes, variedadeSelecionada) {
     const chave = moment(descarte.data_descarte, "YYYY-MM-DD").format("MM");
     const linha = mapa.get(chave);
     linha.hastes_descartadas += numeroSeguro(descarte.quantidade);
-    const canteiro = chaveCanteiro(descarte);
-    if (canteiro) linha.canteiros.add(canteiro);
   });
 
   const totalAnual = [...mapa.values()].reduce((soma, linha) => soma + linha.hastes_colhidas, 0);

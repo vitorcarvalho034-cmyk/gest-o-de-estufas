@@ -164,10 +164,13 @@ export default function DadosColheita() {
   };
 
   const resumo = analise.resumo;
-  const topVariedades = analise.porVariedade.slice(0, 12).map((linha) => ({
+  const topVariedades = [...analise.porVariedade]
+    .sort((a, b) => b.produtividade_m2 - a.produtividade_m2)
+    .slice(0, 12)
+    .map((linha) => ({
     ...linha,
     nomeCurto: linha.variedade.length > 18 ? `${linha.variedade.slice(0, 18)}…` : linha.variedade,
-  }));
+    }));
   const porMesGrafico = analise.porMes.map((linha) => ({ ...linha, mes: linha.mes.charAt(0).toUpperCase() + linha.mes.slice(1) }));
   const porDiaGrafico = analise.porDiaSemana.map((linha) => ({ ...linha, curto: linha.nome.slice(0, 3) }));
   const dadosExcluidos = analise.validacoes.colheitas_nao_classificadas.length + analise.validacoes.descartes_nao_classificados.length;
