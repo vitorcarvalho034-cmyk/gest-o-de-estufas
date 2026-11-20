@@ -95,7 +95,8 @@ function escreverTabela(planilha, cabecalhos, linhas, config = {}) {
 }
 
 function filtroTexto(filtros) {
-  const semana = filtros.semana === "all" ? "todas as semanas" : `semana ${filtros.semana}`;
+  const semanas = Array.isArray(filtros.semana) ? filtros.semana : filtros.semana === "all" ? [] : [filtros.semana];
+  const semana = semanas.length === 0 ? "todas as semanas" : `semanas ${semanas.join(", ")}`;
   const estufa = filtros.estufa === "all" ? "todas as estufas" : `Estufa ${filtros.estufa}`;
   const variedade = filtros.variedade === "all" ? "todas as variedades" : filtros.variedade;
   return `Ano ${filtros.ano} · ${semana} · ${estufa} · ${variedade}`;
@@ -235,10 +236,10 @@ export async function exportarDadosColheitaExcel(analise) {
   ajustarLarguras(baseDescartes, [14, 11, 11, 10, 9, 12, 28, 18, 22, 36, 22]);
 
   const validacao = workbook.addWorksheet("Validações", { views: [{ showGridLines: false }] });
-  criarCabecalhoRelatorio(validacao, "Validações de Qualidade", `${contexto} · Itens que ficaram fora do escopo de crisântemos`, 8);
+  criarCabecalhoRelatorio(validacao, "Validações de Qualidade", `${contexto} · Itens fora do escopo de crisântemos`, 8);
   const avisos = [
-    ...analise.validacoes.colheitas_nao_classificadas.map((linha) => ["Colheita não classificada", linha.data_colheita, linha.variedade || "Sem variedade", linha.estufa || "", linha.lado || "", linha.vao || "", linha.canteiro || "", linha.id || ""]),
-    ...analise.validacoes.descartes_nao_classificados.map((linha) => ["Descarte não classificado", linha.data_descarte, linha.variedade || "Sem variedade", linha.estufa || "", linha.lado || "", linha.vao || "", linha.canteiro || "", linha.id || ""]),
+    ...analise.validacoes.colheitas_nao_classificadas.map((linha) => ["Colheita fora do escopo", linha.data_colheita, linha.variedade || "Sem variedade", linha.estufa || "", linha.lado || "", linha.vao || "", linha.canteiro || "", linha.id || ""]),
+    ...analise.validacoes.descartes_nao_classificados.map((linha) => ["Descarte fora do escopo", linha.data_descarte, linha.variedade || "Sem variedade", linha.estufa || "", linha.lado || "", linha.vao || "", linha.canteiro || "", linha.id || ""]),
   ];
   escreverTabela(validacao,
     ["Tipo", "Data", "Variedade", "Estufa", "Lado", "Vão", "Canteiro", "ID"],
@@ -252,7 +253,7 @@ export async function exportarDadosColheitaExcel(analise) {
   }
   ajustarLarguras(validacao, [28, 14, 28, 12, 10, 10, 12, 24]);
   adicionarRodape(validacao, Math.max(7, 7 + avisos.length), avisos.length
-    ? "Revise as variedades listadas nesta aba. Elas não entram nos cálculos de crisântemos até serem classificadas no catálogo."
+    ? "Esta aba mostra registros que ficaram fora do relatório de crisântemos. Flores fixas e girassol são esperados; revise somente nomes de crisântemo que ainda não estejam no catálogo."
     : "Nenhum registro não classificado foi encontrado no período selecionado.", 8);
 
   const buffer = await workbook.xlsx.writeBuffer();

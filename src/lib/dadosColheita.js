@@ -31,6 +31,13 @@ export function nomeCanonicamenteNormalizado(variedade) {
   return normalizarVariedade(String(variedade || "")).trim();
 }
 
+function semanaAtendeFiltro(valorFiltro, semanaRegistro) {
+  if (valorFiltro === undefined || valorFiltro === "all" || valorFiltro === null) return true;
+  if (Array.isArray(valorFiltro) && valorFiltro.length === 0) return true;
+  const semanas = Array.isArray(valorFiltro) ? valorFiltro : [valorFiltro];
+  return semanas.map(Number).includes(Number(semanaRegistro));
+}
+
 export function isCrisantemo(variedade) {
   const nome = nomeCanonicamenteNormalizado(variedade);
   if (!nome || isVariedadeFixa(nome) || isVariedadeGirassol(nome)) return false;
@@ -78,7 +85,7 @@ export function construirCiclosPrimeiraColheita(plantios = [], colheitas = [], f
 
       const dataReferencia = moment(primeiraColheita.data_colheita, "YYYY-MM-DD");
       if (filtros.ano && dataReferencia.year() !== Number(filtros.ano)) return;
-      if (filtros.semana !== undefined && filtros.semana !== "all" && dataReferencia.isoWeek() !== Number(filtros.semana)) return;
+      if (!semanaAtendeFiltro(filtros.semana, dataReferencia.isoWeek())) return;
       if (filtros.estufa !== undefined && filtros.estufa !== "all" && Number(plantio.estufa) !== Number(filtros.estufa)) return;
       if (filtros.variedade !== undefined && filtros.variedade !== "all" && plantio._variedade !== filtros.variedade) return;
 
@@ -129,7 +136,7 @@ function pertenceAoFiltro(registro, filtros, campoData) {
   const dataMoment = moment(data, "YYYY-MM-DD");
 
   if (filtros.ano && dataMoment.year() !== Number(filtros.ano)) return false;
-  if (filtros.semana !== "all" && dataMoment.isoWeek() !== Number(filtros.semana)) return false;
+  if (!semanaAtendeFiltro(filtros.semana, dataMoment.isoWeek())) return false;
   if (filtros.estufa !== "all" && Number(registro.estufa) !== Number(filtros.estufa)) return false;
 
   if (filtros.variedade !== "all" && nomeCanonicamenteNormalizado(registro.variedade) !== filtros.variedade) return false;

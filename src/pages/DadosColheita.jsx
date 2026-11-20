@@ -63,7 +63,7 @@ function CabecalhoOrdenavel({ campo, children, alinhamento = "text-left", ordena
 export default function DadosColheita() {
   const anoAtual = moment().year();
   const [ano, setAno] = useState(String(anoAtual));
-  const [semana, setSemana] = useState("all");
+  const [semanasSelecionadas, setSemanasSelecionadas] = useState([]);
   const [estufa, setEstufa] = useState("all");
   const [variedade, setVariedade] = useState("all");
   const [colheitas, setColheitas] = useState([]);
@@ -119,7 +119,7 @@ export default function DadosColheita() {
     return [...valores].sort((a, b) => a - b);
   }, [colheitas, descartes]);
 
-  const filtros = useMemo(() => ({ ano: Number(ano), semana, estufa, variedade }), [ano, semana, estufa, variedade]);
+  const filtros = useMemo(() => ({ ano: Number(ano), semana: semanasSelecionadas, estufa, variedade }), [ano, semanasSelecionadas, estufa, variedade]);
   const analise = useMemo(() => construirAnaliseColheita(colheitas, descartes, filtros), [colheitas, descartes, filtros]);
   const ciclosPrimeiraColheita = useMemo(() => construirCiclosPrimeiraColheita(plantios, colheitas, filtros), [plantios, colheitas, filtros]);
   const porVariedadeOrdenada = useMemo(() => {
@@ -145,6 +145,20 @@ export default function DadosColheita() {
     const total = fim.isoWeek();
     return Array.from({ length: total }, (_, index) => index + 1);
   }, [ano]);
+
+  const alternarSemana = (valor) => {
+    setSemanasSelecionadas((atuais) => (
+      atuais.includes(valor)
+        ? atuais.filter((semanaAtual) => semanaAtual !== valor)
+        : [...atuais, valor].sort((a, b) => a - b)
+    ));
+  };
+
+  const textoSemanas = semanasSelecionadas.length === 0
+    ? "Todas as semanas"
+    : semanasSelecionadas.length === 1
+      ? `Semana ${semanasSelecionadas[0]}`
+      : `${semanasSelecionadas.length} semanas selecionadas`;
 
   const exportar = async () => {
     if (!analise.resumo.registros_colheita && !analise.resumo.registros_descarte) {
@@ -201,7 +215,7 @@ export default function DadosColheita() {
         <CardContent className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4">
           <div>
             <p className="mb-1 text-xs font-medium text-muted-foreground">Ano</p>
-            <Select value={ano} onValueChange={(valor) => { setAno(valor); setSemana("all"); }}>
+            <Select value={ano} onValueChange={(valor) => { setAno(valor); setSemanasSelecionadas([]); }}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 {[anoAtual, anoAtual - 1, anoAtual - 2].map((valor) => <SelectItem key={valor} value={String(valor)}>{valor}</SelectItem>)}
@@ -210,13 +224,24 @@ export default function DadosColheita() {
           </div>
           <div>
             <p className="mb-1 text-xs font-medium text-muted-foreground">Semana</p>
-            <Select value={semana} onValueChange={setSemana}>
-              <SelectTrigger><SelectValue placeholder="Todas" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas as semanas</SelectItem>
-                {semanasDoAno.map((valor) => <SelectItem key={valor} value={String(valor)} disabled={!semanasDisponiveis.includes(valor)}>Semana {valor}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <details className="relative">
+              <summary className="flex h-10 cursor-pointer list-none items-center justify-between rounded-md border bg-background px-3 text-sm shadow-sm [&::-webkit-details-marker]:hidden">
+                <span className={semanasSelecionadas.length ? "font-medium text-foreground" : "text-muted-foreground"}>{textoSemanas}</span>
+                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              </summary>
+              <div className="absolute z-30 mt-1 max-h-72 w-full overflow-y-auto rounded-md border bg-popover p-2 shadow-lg">
+                <label className="flex cursor-pointer items-center gap-2 rounded px-2 py-2 text-sm hover:bg-muted">
+                  <input type="checkbox" checked={semanasSelecionadas.length === 0} onChange={() => setSemanasSelecionadas([])} />
+                  Todas as semanas
+                </label>
+                {semanasDoAno.map((valor) => (
+                  <label key={valor} className={`flex items-center gap-2 rounded px-2 py-2 text-sm ${semanasDisponiveis.includes(valor) ? "cursor-pointer hover:bg-muted" : "cursor-not-allowed opacity-40"}`}>
+                    <input type="checkbox" checked={semanasSelecionadas.includes(valor)} disabled={!semanasDisponiveis.includes(valor)} onChange={() => alternarSemana(valor)} />
+                    Semana {valor}
+                  </label>
+                ))}
+              </div>
+            </details>
           </div>
           <div>
             <p className="mb-1 text-xs font-medium text-muted-foreground">Estufa</p>
@@ -257,7 +282,7 @@ export default function DadosColheita() {
           </div>
 
           {dadosExcluidos > 0 && (
-            <Card className="border-amber-300 bg-amber-50"><CardContent className="flex flex-col gap-2 p-4 text-sm text-amber-900 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-center gap-2"><AlertTriangle className="h-5 w-5" /><span><strong>{dadosExcluidos} registro(s)</strong> não entraram na análise por não estarem classificados como crisântemos.</span></div><span className="text-xs">Veja a aba “Validações” do Excel para revisar.</span></CardContent></Card>
+            <Card className="border-amber-300 bg-amber-50"><CardContent className="flex flex-col gap-2 p-4 text-sm text-amber-900 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-center gap-2"><AlertTriangle className="h-5 w-5" /><span><strong>{dadosExcluidos} registro(s)</strong> ficaram fora deste relatório porque o relatório analisa somente crisântemos. Isso pode incluir flores fixas, girassol ou nomes ainda não cadastrados.</span></div><span className="text-xs">Veja a aba “Validações” do Excel para identificar cada variedade.</span></CardContent></Card>
           )}
 
           <Tabs defaultValue="variedades" className="space-y-5">
@@ -286,24 +311,24 @@ export default function DadosColheita() {
             </TabsContent>
 
             <TabsContent value="dias" className="space-y-5">
-              {semana === "all" ? (
+              {semanasSelecionadas.length === 0 ? (
                 <Card className="border-amber-300 bg-amber-50">
                   <CardContent className="flex flex-col items-start gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex gap-3">
                       <CalendarDays className="mt-0.5 h-6 w-6 text-amber-700" />
                       <div>
-                        <h3 className="font-semibold text-amber-950">Escolha uma semana para analisar os dias</h3>
-                        <p className="mt-1 max-w-2xl text-sm text-amber-900">Esta análise é semanal. Para evitar somar segundas-feiras, terças-feiras e outros dias de semanas diferentes, os totais só aparecem depois de selecionar uma semana no filtro acima.</p>
+                        <h3 className="font-semibold text-amber-950">Escolha uma ou mais semanas para analisar os dias</h3>
+                        <p className="mt-1 max-w-2xl text-sm text-amber-900">Esta análise agrupa os dias das semanas selecionadas. Os totais só aparecem depois de escolher pelo menos uma semana no filtro acima.</p>
                       </div>
                     </div>
-                    <button onClick={() => setSemana(String(moment().isoWeek()))} className="shrink-0 rounded-lg bg-amber-700 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-800">Ver semana atual</button>
+                    <button onClick={() => setSemanasSelecionadas([moment().isoWeek()])} className="shrink-0 rounded-lg bg-amber-700 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-800">Ver semana atual</button>
                   </CardContent>
                 </Card>
               ) : (
                 <>
-                  <Card className="border-primary/20 bg-primary/[0.03]"><CardContent className="flex items-center gap-3 p-4 text-sm text-muted-foreground"><CalendarDays className="h-5 w-5 text-primary" /><span><strong className="text-foreground">Semana {semana}/{ano}:</strong> comparação de segunda a domingo apenas dentro desta semana.</span></CardContent></Card>
+                  <Card className="border-primary/20 bg-primary/[0.03]"><CardContent className="flex items-center gap-3 p-4 text-sm text-muted-foreground"><CalendarDays className="h-5 w-5 text-primary" /><span><strong className="text-foreground">{textoSemanas}/{ano}:</strong> comparação dos dias dentro das semanas selecionadas.</span></CardContent></Card>
                   <Card><CardHeader><CardTitle className="text-base">Colheita por dia da semana</CardTitle></CardHeader><CardContent className="h-80"><ResponsiveContainer width="100%" height="100%"><BarChart data={porDiaGrafico}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="curto" /><YAxis tick={{ fontSize: 11 }} /><Tooltip {...tooltipStyle} formatter={(valor, nome) => [formatarNumero(valor), String(nome).toLowerCase().includes("haste") ? "Hastes colhidas" : "Cestos"]} /><Legend /><Bar dataKey="hastes_colhidas" name="Hastes colhidas" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} /><Bar dataKey="cestos" name="Cestos" fill="hsl(42 80% 55%)" radius={[4, 4, 0, 0]} /></BarChart></ResponsiveContainer></CardContent></Card>
-                  <Card><CardHeader><CardTitle className="text-base">Resumo por dia — Semana {semana}</CardTitle></CardHeader><CardContent className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b text-xs uppercase tracking-wide text-muted-foreground"><th className="px-2 py-3 text-left">Dia</th><th className="px-2 py-3 text-right">Hastes colhidas</th><th className="px-2 py-3 text-right">Cestos</th><th className="px-2 py-3 text-right">Lançamentos</th></tr></thead><tbody>{analise.porDiaSemana.map((linha) => <LinhaTabela key={linha.numero}><td className="px-2 py-3 font-medium">{linha.nome}</td><td className="px-2 py-3 text-right font-semibold text-primary">{formatarNumero(linha.hastes_colhidas)}</td><td className="px-2 py-3 text-right">{formatarNumero(linha.cestos)}</td><td className="px-2 py-3 text-right">{formatarNumero(linha.registros)}</td></LinhaTabela>)}</tbody></table></CardContent></Card>
+                  <Card><CardHeader><CardTitle className="text-base">Resumo por dia — {textoSemanas}</CardTitle></CardHeader><CardContent className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b text-xs uppercase tracking-wide text-muted-foreground"><th className="px-2 py-3 text-left">Dia</th><th className="px-2 py-3 text-right">Hastes colhidas</th><th className="px-2 py-3 text-right">Cestos</th><th className="px-2 py-3 text-right">Lançamentos</th></tr></thead><tbody>{analise.porDiaSemana.map((linha) => <LinhaTabela key={linha.numero}><td className="px-2 py-3 font-medium">{linha.nome}</td><td className="px-2 py-3 text-right font-semibold text-primary">{formatarNumero(linha.hastes_colhidas)}</td><td className="px-2 py-3 text-right">{formatarNumero(linha.cestos)}</td><td className="px-2 py-3 text-right">{formatarNumero(linha.registros)}</td></LinhaTabela>)}</tbody></table></CardContent></Card>
                 </>
               )}
             </TabsContent>
