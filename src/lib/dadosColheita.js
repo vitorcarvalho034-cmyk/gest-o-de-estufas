@@ -150,11 +150,40 @@ function novaLinhaVariedade(nome) {
     cestos: 0,
     hastes_descartadas: 0,
     canteiros: new Set(),
+    ciclos: new Set(),
   };
 }
 
-function consolidarVariedades(colheitas, descartes) {
+function prepararCiclos(plantios = []) {
+  const grupos = new Map();
+  plantios.filter((plantio) => isCrisantemo(plantio?.variedade) && chaveCanteiro(plantio) && plantio.data_plantio)
+    .forEach((plantio) => {
+      const variedade = nomeCanonicamenteNormalizado(plantio.variedade);
+      const grupo = `${chaveCanteiro(plantio)}|${variedade}`;
+      if (!grupos.has(grupo)) grupos.set(grupo, []);
+      grupos.get(grupo).push(plantio);
+    });
+  grupos.forEach((lista) => lista.sort((a, b) => a.data_plantio.localeCompare(b.data_plantio)));
+  return grupos;
+}
+
+function cicloDaColheita(colheita, ciclos) {
+  const chave = chaveCanteiro(colheita);
+  const variedade = nomeCanonicamenteNormalizado(colheita.variedade);
+  const lista = ciclos.get(`${chave}|${variedade}`) || [];
+  for (let indice = lista.length - 1; indice >= 0; indice -= 1) {
+    const plantio = lista[indice];
+    const proximo = lista[indice + 1]?.data_plantio;
+    if (plantio.data_plantio <= colheita.data_colheita && (!proximo || colheita.data_colheita < proximo)) {
+      return `${chave}|${variedade}|${plantio.data_plantio}`;
+    }
+  }
+  return chave ? `sem-ciclo|${chave}` : `sem-canteiro|${variedade}`;
+}
+
+function consolidarVariedades(colheitas, descartes, plantios = []) {
   const mapa = new Map();
+  const ciclos = prepararCiclos(plantios);
   const getLinha = (variedade) => {
     const nome = nomeCanonicamenteNormalizado(variedade);
     if (!mapa.has(nome)) mapa.set(nome, novaLinhaVariedade(nome));
@@ -167,6 +196,7 @@ function consolidarVariedades(colheitas, descartes) {
     linha.cestos += numeroSeguro(colheita.cestos);
     const canteiro = chaveCanteiro(colheita);
     if (canteiro) linha.canteiros.add(canteiro);
+    linha.ciclos.add(cicloDaColheita(colheita, ciclos));
   });
 
   descartes.forEach((descarte) => {
@@ -184,6 +214,7 @@ function consolidarVariedades(colheitas, descartes) {
         cestos: linha.cestos,
         hastes_descartadas: linha.hastes_descartadas,
         canteiros: linha.canteiros.size,
+        ciclos: linha.ciclos.size,
         area_m2: Number(area_m2.toFixed(2)),
         produtividade_m2: area_m2 > 0 ? Number((linha.hastes_colhidas / area_m2).toFixed(2)) : 0,
         aproveitamento_pct: total_processado > 0 ? Number(((linha.hastes_colhidas / total_processado) * 100).toFixed(2)) : 0,
@@ -264,7 +295,7 @@ function registrosNaoClassificados(registros, campoData, filtros) {
     });
 }
 
-export function construirAnaliseColheita(colheitas = [], descartes = [], filtros) {
+export function construirAnaliseColheita(colheitas = [], descartes = [], filtros, plantios = []) {
   const colheitasFiltradas = colheitas
     .filter((registro) => pertenceAoFiltro(registro, filtros, "data_colheita"))
     .filter((registro) => isCrisantemo(registro.variedade));
@@ -273,7 +304,7 @@ export function construirAnaliseColheita(colheitas = [], descartes = [], filtros
     .filter((registro) => pertenceAoFiltro(registro, filtros, "data_descarte"))
     .filter((registro) => isCrisantemo(registro.variedade));
 
-  const porVariedade = consolidarVariedades(colheitasFiltradas, descartesFiltrados);
+  const porVariedade = consolidarVariedades(colheitasFiltradas, descartesFiltrados, plantios);
   const porMes = consolidarPorMes(colheitasFiltradas, descartesFiltrados, filtros.variedade);
   const porDiaSemana = consolidarDiasSemana(colheitasFiltradas);
 

@@ -137,19 +137,19 @@ export async function exportarDadosColheitaExcel(analise) {
   adicionarRodape(resumo, 16, "Escopo: somente variedades classificadas como crisântemos. Estatísticas de descarte são registradas em hastes e não são misturadas com mudas.", 3);
 
   const variedades = workbook.addWorksheet("Produtividade por Variedade", { views: [{ showGridLines: false }] });
-  criarCabecalhoRelatorio(variedades, "Produtividade por Variedade", contexto, 9);
+  criarCabecalhoRelatorio(variedades, "Produtividade por Variedade", contexto, 10);
   const dadosVariedade = analise.porVariedade.map((linha) => [
-    linha.variedade, linha.hastes_colhidas, linha.hastes_descartadas, linha.cestos, linha.canteiros,
+    linha.variedade, linha.ciclos, linha.hastes_colhidas, linha.hastes_descartadas, linha.cestos, linha.canteiros,
     linha.area_m2, linha.produtividade_m2, linha.aproveitamento_pct / 100, linha.descarte_pct / 100,
   ]);
   escreverTabela(variedades,
-    ["Variedade", "Hastes colhidas", "Hastes descartadas", "Cestos", "Canteiros", "Área (m²)", "Hastes/m²", "Aproveitamento", "Descarte"],
+    ["Variedade", "Ciclos", "Hastes colhidas", "Hastes descartadas", "Cestos", "Canteiros", "Área (m²)", "Hastes/m²", "Aproveitamento", "Descarte"],
     dadosVariedade,
-    { colunasNumericas: [2, 3, 4, 5, 6, 7, 8, 9] }
+    { colunasNumericas: [2, 3, 4, 5, 6, 7, 8, 9, 10] }
   );
-  variedades.getColumn(8).numFmt = "0.0%";
   variedades.getColumn(9).numFmt = "0.0%";
-  ajustarLarguras(variedades, [29, 18, 19, 12, 12, 14, 15, 16, 13]);
+  variedades.getColumn(10).numFmt = "0.0%";
+  ajustarLarguras(variedades, [29, 10, 18, 19, 12, 12, 14, 15, 16, 13]);
 
   const mensal = workbook.addWorksheet("Produtividade Mensal", { views: [{ showGridLines: false }] });
   criarCabecalhoRelatorio(mensal, "Produtividade por Mês", `${contexto} · Comparativo do ano selecionado`, 10);
